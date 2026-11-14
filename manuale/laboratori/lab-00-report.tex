@@ -1,0 +1,118 @@
+\chapter{Come si scrive un report di laboratorio}
+\label{cap:lab-report}
+
+\begin{nota}[Fonti]
+Slide \emph{0-Intro-Course}, linee guida date in aula alla \rif{2026-10-20}{20/10}, sezioni
+``Lab Rules'', ``How to work'' e ``Self-assessment'' dei testi del Lab~1 e del Lab~3. Regole di
+consegna, scadenze e voto sono nel cap.~\ref{cap:formato}.
+\end{nota}
+
+\section{I quattro laboratori}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{c l X l}
+\toprule
+\textbf{Lab} & \textbf{Durata} & \textbf{Contenuto} & \textbf{Capitolo}\\
+\midrule
+1 & 3 h & Introduzione a PyTorch con una FFNN per intrusion detection; solo formativo, consegna
+          obbligatoria, +1 se ``ragionevole'' entro il 1° dicembre. & cap.~\ref{cap:lab1}\\
+2 & 6 h & Classificazione supervisionata malware/goodware da sequenze di API call (la slide
+          parla di \en{supervised traffic classification}). & cap.~\ref{cap:lab2}\\
+3 & 6 h & Anomaly detection supervisionata e non supervisionata su log di un IDS. & cap.~\ref{cap:lab3}\\
+4 & 6 h & NLP e clustering per il rilevamento di botnet (non ancora assegnato). & ---\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Cosa si consegna}
+Per ogni lab un file \code{groupID\_labX.zip} che contiene:
+\begin{itemize}
+  \item il \textbf{report} (\code{groupID\_labX.pdf}), massimo \textbf{10 pagine}, con approccio,
+        decisioni, esperimenti e risultati, tabelle e grafici;
+  \item l'\textbf{experiment logbook}, come appendice del report o come foglio separato:
+        \textbf{obbligatorio}, non conta nelle 10 pagine;
+  \item il \textbf{notebook} e il codice: eseguito (output visibili), rieseguibile (seed fissati),
+        organizzato con titoli Markdown e commenti, in formato \code{.ipynb} più export HTML.
+\end{itemize}
+Si valuta il \textbf{report}; il notebook serve in caso di dubbi. Il report deve quindi stare in
+piedi da solo.
+
+\section{Il logbook e il budget di run}
+Dai testi dei lab di quest'anno:
+\begin{itemize}
+  \item \textbf{Un solo logbook} per tutto il lab: una tabella con \textbf{una riga per ogni run che
+        addestra un modello} (nel Lab~3 anche ogni fit di un detector o di un clustering). Le colonne
+        suggerite sono: numero del run, task, cosa ho cambiato (\textbf{una sola cosa}), ipotesi
+        \textbf{prima} di eseguire, risultato chiave sulla validation, conclusione.
+  \item Le decisioni di preprocessing e di analisi dei dati vanno nel testo del report, non nel logbook.
+        Nel Lab~3 uno sweep diagnostico per scegliere un parametro (gomito dell'SSE, k-distance plot,
+        varianza spiegata) conta come un solo run.
+  \item \textbf{Budget} di circa \textbf{25 run} per lab: prima di ogni run il logbook deve dire perché
+        vale uno degli slot rimasti. Non è un limite hardware: è la competenza che si vuole allenare
+        (``ho fatto una grid su tutti i parametri'' non è una buona risposta).
+  \item \textbf{Predict-then-check}: scrivere l'ipotesi prima, poi confrontarla con il risultato.
+        Un'ipotesi sbagliata ma spiegata vale più di una giusta ma vaga; non si riscrive la storia.
+  \item \textbf{Una modifica per run}: se ne cambi due insieme non sai quale ha causato l'effetto.
+\end{itemize}
+
+\section{Indicazioni del docente}
+Alla \rif{2026-10-20}{20/10} il docente ha presentato in aula il documento con le linee guida per i
+report: struttura della consegna (report di massimo 10 pagine, notebook \textbf{eseguito} e
+commentato, \textbf{experiment logbook} fuori dal conteggio delle pagine), figure leggibili e
+valutazione da 0 a 32 (cap.~\ref{cap:formato}). I punti principali:
+\begin{esame}[come scrivere un buon report]
+\begin{itemize}
+  \item Rileggilo come se fosse di un altro: lo valuteresti positivamente?
+  \item \textbf{Figure leggibili} (assi, legende, font): le immagini comunicano più del testo.
+        Curve di apprendimento instabili o illeggibili fanno pensare che la soluzione non sia stata valutata.
+  \item Non scrivere ``è meglio'' senza dire \textbf{rispetto a cosa} e con quale metrica
+        (accuracy? F1?). Usa \textbf{tabelle} per confrontare architetture e iperparametri.
+  \item Inserisci solo le figure e tabelle che servono a sostenere le tue affermazioni.
+  \item 10 pagine sono un massimo, non un obiettivo; non ridurre il font per farcene stare di più.
+  \item Si valuta la \textbf{metodologia}, non la performance migliore: una differenza di un centesimo
+        nella metrica può dipendere dal seed.
+  \item Il contenuto è responsabilità vostra: errori evidenti vengono penalizzati.
+\end{itemize}
+\end{esame}
+
+\begin{esame}[criteri di autovalutazione dei testi dei lab]
+Le rubriche di Lab~1 e Lab~3 premiano soprattutto il ragionamento: ``codice che funziona senza
+ragionamento non dimostra la competenza; una spiegazione solida, anche con risultati non ottimali,
+vale di più''. I criteri ricorrenti sono:
+\begin{itemize}
+  \item \textbf{disciplina del logbook}: ipotesi prima, una modifica alla volta, budget giustificato;
+  \item \textbf{decisioni giustificate} con evidenze dai propri esperimenti (preprocessing, split,
+        parametri, soglie);
+  \item \textbf{interpretazione legata ai propri risultati} (curve, report, tabelle), non spiegazioni
+        generiche da manuale;
+  \item \textbf{giudizio e semplicità}: confrontare la complessità aggiunta con una baseline e dire
+        onestamente se ne valeva la pena;
+  \item \textbf{chiarezza e riproducibilità}: limite di pagine, notebook che gira, seed;
+  \item nel Lab~3 anche: dichiarare cosa ogni metodo assume di sapere sui dati e usare le label
+        solo per la valutazione.
+\end{itemize}
+Le performance non vengono confrontate tra gruppi.
+\end{esame}
+
+\section{Checklist prima di consegnare}
+\begin{itemize}
+  \item[$\square$] Intestazione con \textbf{ID del lab, ID del gruppo, nomi ed email}.
+  \item[$\square$] Massimo \textbf{10 pagine}, font normale; logbook a parte (non conta nelle pagine).
+  \item[$\square$] Logbook completo: ipotesi scritte prima, una modifica per run, budget rispettato e motivato.
+  \item[$\square$] Ogni affermazione ``è meglio'' dice \textbf{rispetto a cosa} e \textbf{con quale metrica}.
+  \item[$\square$] Metriche adatte allo sbilanciamento (per classe, F1, macro), non solo accuracy.
+  \item[$\square$] \textbf{Learning curve} di training e validation leggibili, con plateau (o spiegazione del perché no).
+  \item[$\square$] Tabelle di confronto tra architetture/iperparametri.
+  \item[$\square$] Preprocessing giustificato: cosa è stato fittato \textbf{solo sul training} (scaler, vocabolario, encoder).
+  \item[$\square$] Nessun leakage: split prima del preprocessing; split temporale se i dati hanno ordine; niente ID tra le feature.
+  \item[$\square$] Test set usato solo dove il testo lo chiede, dopo aver scelto sul validation.
+  \item[$\square$] Risposte a \textbf{tutte} le domande del testo, con commento ai risultati.
+  \item[$\square$] Notebook \textbf{eseguito} (output visibili), commentato, con seed; \code{.ipynb} + HTML.
+  \item[$\square$] Rilettura ``da esterni'': lo valuterei positivamente?
+\end{itemize}
+
+\begin{nota}[Perché qui non ci sono soluzioni]
+I lab sono valutati e questo manuale è condiviso con altri gruppi. Nei capitoli dei singoli lab
+trovate contesto, consegna parafrasata, teoria collegata, metodo generale e insidie tipiche, ma
+\textbf{nessuna soluzione, codice o risultato}.
+\end{nota}

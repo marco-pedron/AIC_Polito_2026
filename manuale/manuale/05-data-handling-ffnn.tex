@@ -1,0 +1,667 @@
+\chapter{Data handling e feed-forward neural network}
+\label{cap:ffnn}
+\fonti{\rif{2026-10-05}{05/10}, \rif{2026-10-06}{06/10}}{3-deep-learning-methodologies, pp.~1--33; notebook FFNN (Lab~1)}
+
+Questo capitolo segue la pipeline di un progetto deep dall'inizio alla fine: prima i dati (pre-processing, trasformazione,
+split), poi la progettazione di una \en{feed-forward neural network} (FFNN) e infine la sua implementazione in PyTorch.
+La teoria di ottimizzazione, loss e metriche è nel cap.~\ref{cap:addestramento}; dropout, batch norm, weight decay ed early
+stopping nel cap.~\ref{cap:regolarizzazione}.
+
+% =====================================================================
+\section{Il deep learning non fa magie sui dati}
+\label{sec:ffnn-pipeline}
+La pipeline deep semplifica la feature extraction, ma \textbf{non è completamente automatica}: i dati vanno conosciuti e
+lavorati prima di darli al modello. Il \textbf{data handling} (split, preprocessing, trasformazione) occupa il
+\textbf{50--60\% del tempo} anche in un progetto deep (\rif{2026-10-05}{05/10}).
+
+\begin{attenzione}[dati sensibili]
+In azienda spesso \textbf{non potrete} caricare i dati su ChatGPT o simili: fareste uscire informazioni sensibili
+(``e vi cercherete un altro lavoro''). Dovete saperli trattare voi.
+\end{attenzione}
+
+\begin{center}
+\begin{tikzpicture}[node distance=0.5cm, every node/.style={font=\small, align=center},
+  blk/.style={draw=polblu, fill=polblu!6, rounded corners=2pt, minimum height=0.9cm, minimum width=2.4cm}]
+  \node[blk] (s) {Split};
+  \node[blk, right=of s] (p) {Pre-processing};
+  \node[blk, right=of p] (t) {Transformation};
+  \node[blk, right=of t, fill=esecol!10, draw=esecol] (m) {Model\\engineering};
+  \draw[-{Stealth}] (s) -- (p); \draw[-{Stealth}] (p) -- (t); \draw[-{Stealth}] (t) -- (m);
+  \node[fit=(s)(p)(t), draw=polblu, dashed, inner sep=6pt, label={[font=\scriptsize]above:Data handling}] {};
+\end{tikzpicture}
+\end{center}
+L'ordine corretto è \textbf{prima lo split}, poi preprocessing e trasformazione appresi sul training set (vedi
+sez.~\ref{sec:leak-norm}).
+
+% =====================================================================
+\section{Pre-processing (con Pandas)}
+\begin{itemize}
+  \item \textbf{Rumore}: alcune architetture lo puliscono, altrimenti influenza il modello; troppo rumore $\Rightarrow$ modello troppo
+        generico $\Rightarrow$ underfitting. In genere il rumore pesa meno degli outlier.
+  \item \textbf{Outlier}: valori estremi non rappresentativi.
+\end{itemize}
+\begin{esempio}[Elon Musk]
+Normalizzando il reddito tra 0 e 1: 0 è il bambino di 3 anni senza reddito, 1 è Elon Musk. Tutti noi finiamo
+schiacciati vicino a 0, indistinguibili dal bambino: un solo outlier rovina la feature. Meglio trattarlo come outlier;
+il nuovo massimo (es.\ 1 milione) copre tutto l'intervallo.
+\end{esempio}
+\begin{itemize}
+  \item \textbf{Ridondanza}: feature che sono \textbf{proxy} l'una dell'altra (prezzo e prezzo dopo le tasse) complicano solo la rete;
+        i \textbf{duplicati} aumentano artificialmente l'importanza di certi punti e riducono la generalizzazione.
+  \item \textbf{Valori mancanti}: una rete non può ricevere un punto con un valore mancante (il neurone di input riceve per forza un valore). Opzioni:
+  \begin{enumerate}
+    \item \textbf{eliminare i punti}: rapido, ma attenzione a \emph{quali} punti togli: se l'1\% con valori mancanti è proprio
+          la classe malevola, la elimini;
+    \item \textbf{stimare il valore}: dalla distribuzione della feature, o meglio dalle altre feature del punto;
+    \item \textbf{ignorare la feature}: se manca nel 50\% dei punti, si toglie la colonna e si tengono tutti i punti;
+    \item \textbf{sostituire con tutti i valori possibili} pesati per probabilità, creando modelli diversi: più complesso e costoso.
+  \end{enumerate}
+\end{itemize}
+
+% =====================================================================
+\section{Trasformazione dei dati}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Tipo} & \textbf{Esempi}\\
+\midrule
+Categorico \textbf{nominale} & colori, paese, algoritmo di cifratura, \textbf{porta di rete}, parole\\
+Categorico \textbf{ordinale} & titolo di studio, taglia, livello di accesso, livello di minaccia\\
+Numerico & temperatura, altezza, byte inviati, numero di pacchetti, tentativi di password\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Feature categoriche}
+Qui il quadro introdotto il 05/10; la trattazione completa (ordinali vs nominali, embedding, token \code{<UNK>}) è nel
+cap.~\ref{cap:embedding}.
+\begin{definizione}[one-hot encoding]
+Ogni valore diventa un vettore binario con tanti elementi quanti sono i valori possibili: tutti 0 tranne un 1.
+\textbf{Un neurone di input per ogni valore possibile.}
+\end{definizione}
+\begin{center}
+\small
+\begin{tabular}{cc|ccc}
+\toprule
+ID & Algoritmo & EA\_AES & EA\_RSA & EA\_DES\\
+\midrule
+1 & AES & 1 & 0 & 0\\
+2 & RSA & 0 & 1 & 0\\
+3 & DES & 0 & 0 & 1\\
+4 & AES & 1 & 0 & 0\\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Pro}: semplice ed efficace con poche categorie, non impone ordini (il colore degli occhi non ha un ordine utile).
+\textbf{Contro}: esplode con alta cardinalità: il vocabolario inglese ha oltre 171.000 parole $\Rightarrow$ 171.000 neuroni
+di input solo per le parole. Non converge.
+
+\begin{definizione}[label encoding]
+Assegna un intero a ogni categoria (Low = 1, Medium = 2, High = 3). \textbf{Un solo neurone di input.}
+\end{definizione}
+\textbf{Pro}: semplice, efficiente in memoria, e se la feature è ordinale \textbf{insegna} alla rete che Low è vicino a
+Medium e lontano da High. \textbf{Contro}: \textbf{implica un ordine} che può ingannare il modello.
+\begin{esempio}[le porte non sono numeri]
+Le porte 80, 81 e 8080 sono numeri, ma trattarle come tali insegna che 80 e 81 sono ``vicine'' e 8080 ``lontanissima''. In realtà
+8080 è un'alternativa comune a 80 per i siti web, mentre 81 non c'entra. Le porte sono \textbf{categoriche}.
+\end{esempio}
+\textbf{Uso tipico}: feature ordinali e \textbf{la label} della classificazione: l'ordine non conta perché la
+cross-entropy non calcola distanze tra classi, e i logit danno la probabilità di ogni classe.
+
+\begin{definizione}[embedding]
+Si crea uno \textbf{spazio latente} in cui ogni valore della feature è mappato su un \textbf{vettore denso} di dimensione
+fissa (es.\ 32, 64, 128). \textbf{Un neurone di input per ogni coordinata} dello spazio latente. Si può fare solo con
+architetture deep.
+\end{definizione}
+\begin{itemize}
+  \item \textbf{Pro}: rappresenta feature ad \textbf{alta cardinalità} con un vettore piccolo (171.000 parole in 128 dimensioni);
+        \textbf{concetti simili finiscono vicini}: la distanza tra ``man'' e ``woman'' è simile a quella tra ``king'' e ``queen''.
+  \item \textbf{Contro}: può essere costoso e richiede \textbf{abbastanza dati} per l'addestramento.
+  \item Differenza con il one-hot: il one-hot è \textbf{sparso} (un solo 1); l'embedding è \textbf{denso}, ogni coordinata è
+        un numero diverso da 0 con un significato appreso. Con il label encoding alfabetico ``King'' (K) e ``Queen'' (Q)
+        sarebbero lontani senza motivo.
+\end{itemize}
+Approfondimento completo nel cap.~\ref{cap:embedding}.
+
+\subsection{Feature numeriche (con scikit-learn)}
+Un neurone di input per feature, ma i numeri grezzi creano problemi: meglio trasformarli.
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{l c X}
+\toprule
+\textbf{Tecnica} & \textbf{Formula} & \textbf{Pro / Contro}\\
+\midrule
+Normalizzazione (min-max) & $z = \dfrac{x - x_{min}}{x_{max}-x_{min}}$ & + intervallo fisso $[0,1]$\newline $-$ \textbf{sensibile agli outlier}\\
+Standardizzazione (z-score) & $z = \dfrac{x-\mu}{\sigma}$ & + funziona anche con outlier\newline $-$ nessun limite preciso\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{attenzione}[errore nella slide]
+Nella slide (e a voce) $\sigma$ è chiamata ``varianza'': è la \textbf{deviazione standard} (radice della varianza).
+\end{attenzione}
+Perché gli outlier contano con il min-max: se un valore normale diventa $0{,}00001$, il neurone fa $x\cdot w$ e la feature
+diventa trascurabile a meno di pesi enormi.
+
+% =====================================================================
+\section{Splitting dei dati}
+\begin{itemize}
+  \item \textbf{Training}: impara i pesi.
+  \item \textbf{Validation}: sceglie gli iperparametri in base alle metriche.
+  \item \textbf{Test} (se possibile): verifica che il modello sia generale, cioè con prestazioni simili alla validation.
+        Se non lo è, si riparte da zero; il test \textbf{non} si usa per scegliere iperparametri.
+\end{itemize}
+Problemi da gestire: \textbf{distribuzione delle classi}, \textbf{costo degli errori}, \textbf{dimensione del dataset},
+\textbf{data leakage}.
+
+\subsection{Tecniche di campionamento}
+\begin{itemize}
+  \item \textbf{Stratified sampling} senza reinserimento: ogni partizione mantiene le \textbf{stesse proporzioni di classe}
+        del dataset. Con 40 rossi e 60 verdi divisi a metà: 20+30 e 20+30. Così il validation set contiene esempi di tutte le
+        classi e posso valutare il modello su ognuna.
+  \item \textbf{Bootstrap}: campionamento \textbf{con reinserimento}, utile con dataset o classi molto piccoli (un punto può
+        comparire in più split).
+\end{itemize}
+
+\subsection{Protocolli di valutazione}
+\begin{definizione}[hold-out]
+Partizioni fisse, es.\ \textbf{70\% train, 20\% validation, 10\% test}. Il training è il più grande perché serve per tarare i
+pesi; la validation deve bastare a giudicare gli iperparametri; il test serve solo a verificare. Adatto a \textbf{dataset grandi};
+si può ripetere qualche volta con split diversi, non molte (costa).
+\end{definizione}
+\begin{center}
+\small
+\begin{tabular}{lccc}
+\toprule
+& \textbf{Train (70\%)} & \textbf{Val (20\%)} & \textbf{Test (10\%)}\\
+\midrule
+Rossi (40) & 28 & 8 & 4\\
+Verdi (60) & 42 & 12 & 6\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{definizione}[k-fold cross-validation]
+Si divide il dataset in $k$ \textbf{fold} stratificati disgiunti; si addestra su $k-1$ fold e si valida sul restante;
+si ripete $k$ volte cambiando il fold di validation, \textbf{con gli stessi iperparametri}.
+\end{definizione}
+\begin{itemize}
+  \item Si ottengono $k$ prestazioni: se sono \textbf{simili}, gli iperparametri sono buoni e il modello generalizza; se variano
+        molto, quegli iperparametri non vanno bene.
+  \item Modello finale: non si sceglie ``il fold migliore'' (sarebbe solo fortuna sul fold di validation): si
+        \textbf{ri-addestra su tutti i fold} con gli iperparametri scelti, e poi lo si valuta sul test.
+  \item Stima affidabile, ma \textbf{non adatta a dataset molto grandi} (10 training da 80 milioni di punti) né a dataset
+        molto piccoli.
+\end{itemize}
+
+\begin{definizione}[leave-one-out]
+Cross-validation con $k = n$ (numero di punti): si addestra su tutti tranne uno, che si usa per la validazione; si ripete
+$n$ volte. Solo per dataset \textbf{molto piccoli} (es.\ 100 pazienti in ambito medico).
+\end{definizione}
+
+\subsection{Problema 1: distribuzione delle classi}
+Classi molto sbilanciate (99\% vs 1\%) creano bias: il modello descrive bene solo la classe maggioritaria.
+\begin{itemize}
+  \item \textbf{A livello di dati (resampling)}:
+  \begin{itemize}
+    \item \textbf{Oversampling} della minoritaria: duplicare o generare campioni sintetici.
+          \textbf{SMOTE} interpola tra campioni minoritari esistenti; \textbf{ADASYN} è una variante che genera più campioni
+          per le istanze difficili.
+    \item \textbf{Undersampling} della maggioritaria: rimozione casuale, oppure \textbf{cluster-based}: si fa clustering e si
+          campiona da ogni cluster, così si mantiene tutto lo spettro della classe.
+  \end{itemize}
+  \item \textbf{A livello di algoritmo}:
+  \begin{itemize}
+    \item \textbf{Class weights}: pesi più alti nella loss per la classe minoritaria (es.\ 0,8 vs 0,2): un errore su di essa costa di più.
+    \item \textbf{Focal loss}: loss modificata che si concentra sui campioni più difficili, con pesi di classe e fattore di focus.
+  \end{itemize}
+  \item \textbf{Metrica giusta}: con il 99\% di maggioritaria, predire sempre quella dà 99\% di accuracy. Usare metriche per classe o
+        la media \textbf{macro} (stesso peso a ogni classe) invece della \en{micro} (metriche: cap.~\ref{cap:addestramento}).
+\end{itemize}
+\begin{attenzione}
+Una versione della slide dice ``micro avg instead of macro'': è un refuso, corretto nella versione completa
+(``macro avg instead of micro''). Con classi sbilanciate si usa la \textbf{macro}.
+\end{attenzione}
+
+\subsection{Problema 2: costo degli errori}
+Segnalare un software come possibile malware (falso positivo) è meno grave di non vedere un malware (falso negativo).
+Rimedi: metrica adatta alla classe più rilevante, class weights, loss pesata o focal loss.
+
+\subsection{Problema 3: dimensione del dataset}
+Dataset troppo piccolo per l'hold-out: cross-validation o leave-one-out; \textbf{data augmentation} (SMOTE, ADASYN);
+oppure non affrontare il problema end-to-end: \textbf{modello pre-addestrato + fine-tuning}, o approccio
+\textbf{semi-supervised} se ci sono dati non etichettati.
+
+\subsection{Problema 4: data leakage}
+\begin{definizione}[data leakage]
+Informazioni del training che influenzano la validazione, rendendo il modello artificialmente bravo e non generale.
+\end{definizione}
+\begin{itemize}
+  \item \textbf{Correlazione temporale}: se in training ho i valori a $t-1$ (0) e $t+1$ (10), predire $t$ (5) in validation è
+        facile, ma nella realtà quando devo predire $t$ non ho $t+1$. Imparo a interpolare, non a prevedere il futuro.
+  \item \textbf{Feature che creano bias}: se tutti i DoS del dataset sono sulla porta TCP 80, il modello impara ``porta 80 = DoS'',
+        una scorciatoia (\en{shortcut}) che non vale nella realtà. Verifica togliendo la feature: se crolla, la usava come scorciatoia.
+  \item \textbf{Non solo il tempo}: un'immagine divisa in 3 pezzi con $c_0$ e $c_2$ in training e $c_1$ in validation è troppo facile.
+  \item \textbf{Identificatori}: ID o pseudo-ID (es.\ la matricola per predire il voto) non vanno mai usati in training.
+\end{itemize}
+\textbf{Split basato sul tempo}: il passato in training, il futuro in validation.
+\begin{itemize}
+  \item \textbf{Sliding window}: finestra di training di lunghezza fissa che scorre.
+  \item \textbf{Expanding window}: la finestra di training si allarga includendo tutta la storia disponibile.
+\end{itemize}
+
+\subsection{Normalizzazione ed encoding: su quali dati?}
+\label{sec:leak-norm}
+\begin{esame}[domanda classica]
+\textbf{Si può normalizzare usando tutto il dataset? No.} Il dataset contiene anche validation e test: usarli per calcolare
+min/max o media/deviazione standard fa entrare nel modello informazioni sulla loro distribuzione $\Rightarrow$
+\textbf{data leakage}. Nella realtà non si conosce la distribuzione dei dati futuri.
+
+Procedura corretta: \textbf{split} $\to$ \textbf{fit} delle trasformazioni \textbf{solo sul training} $\to$ \textbf{transform}
+(senza fit) di validation e test.
+\end{esame}
+\begin{esempio}
+Min-max imparato sul training (valori 0--100): 0 $\to$ 0, 100 $\to$ 1. Nel validation c'è 150 $\Rightarrow$ diventa
+\textbf{1,5}, ed è corretto così. Ricalcolare il massimo come 150 introdurrebbe leakage.
+\end{esempio}
+\begin{lstlisting}
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)   # fit SOLO sul training
+X_val   = scaler.transform(X_val)         # solo transform
+X_test  = scaler.transform(X_test)        # solo transform
+\end{lstlisting}
+
+% =====================================================================
+\section{Panoramica delle architetture}
+\begin{itemize}
+  \item \textbf{FFNN}: nate per dati numerici (righe e colonne), es.\ malware da feature predefinite. Si usano anche dopo altre
+        reti come classificatore finale (es.\ CNN codifica l'immagine, FFNN classifica).
+  \item \textbf{RNN}: dati sequenziali; una catena di FFNN che ricorda la storia (prossimo valore del traffico, prossima parola).
+        Cap.~\ref{cap:rnn}.
+  \item \textbf{CNN}: immagini; filtri convoluzionali che estraggono feature (malware come immagine + FFNN). Cap.~\ref{cap:cnn-gnn}.
+  \item \textbf{GNN}: grafi; aggregano l'informazione dei vicini (malware, social network, frodi). Cap.~\ref{cap:cnn-gnn}.
+\end{itemize}
+In tutte, quando si parla di rappresentazione, si parla di \textbf{embedding}, spazio latente, bottleneck.
+
+% =====================================================================
+\section{Progettare una feed-forward neural network}
+\label{sec:ffnn-progetto}
+\subsection{Preprocessing e trasformazione}
+\begin{itemize}
+  \item Tutto deve essere numerico: vanno codificate le feature categoriche, la label, date e orari.
+  \item \textbf{Attenzione}: alcune feature sono numeri ma \textbf{categoriche} (le porte).
+  \item Feature numeriche: normalizzazione/standardizzazione migliorano le prestazioni.
+\end{itemize}
+
+\subsection{Architettura}
+\begin{enumerate}
+  \item \textbf{Input layer}: numero di nodi in base a preprocessing e trasformazione.
+        \emph{Esempio}: 2 feature numeriche + 1 categorica con 10 valori in one-hot $\Rightarrow$ $2 + 10 = 12$ neuroni.
+  \item \textbf{Hidden layer}: partire con pochi e aumentare se serve; \textbf{prima in profondità che in larghezza}
+        (ma non 100 layer da 2 neuroni). Neuroni per layer: \textbf{potenze di 2} per efficienza.
+        Attivazioni: ReLU, Leaky ReLU\ldots\ (sigmoid/tanh dipende dalla profondità).
+  \item \textbf{Output layer}: in base al compito: regressione (1 neurone), binaria, multi-classe (\textbf{un neurone per classe}).
+        Attivazione in base a problema e loss (sigmoid, softmax). In PyTorch con \code{CrossEntropyLoss} non si mette:
+        è dentro la loss (sez.~\ref{sec:ffnn-classe}).
+  \item \textbf{Inizializzazione dei pesi}: automatica; impostare i \textbf{seed} per la riproducibilità. Manuale solo per
+        esperimenti mirati: rischio di pesi enormi in una zona e minuscoli in un'altra, usando di fatto mezza rete.
+\end{enumerate}
+
+\subsection{Ottimizzazione}
+\begin{enumerate}[resume]
+  \item Come dare i dati: tutti insieme o \textbf{mini-batch} (GD, SGD\ldots)?
+  \item Quale \textbf{loss}? Se sbilanciato, con pesi? (Con gli autoencoder creeremo loss personalizzate, cap.~\ref{cap:anomaly}.)
+  \item Quale \textbf{ottimizzatore}, quante epoch, quale learning rate, quale momentum? (Cap.~\ref{cap:addestramento}.)
+  \item In caso di \textbf{overfitting}: class weights, dropout, layer di normalizzazione (cap.~\ref{cap:regolarizzazione}).
+        Se è forte (rete enorme che memorizza), ridurre layer/neuroni o ripartire dal preprocessing.
+\end{enumerate}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X}
+\toprule
+Iperparametro & Best practice (dalle slide)\\
+\midrule
+\# layer & partire con 3--5 hidden layer, aumentare se serve\\
+\# neuroni per layer & potenze di 2 (64, 128, 256), evitare di esagerare\\
+Attivazione & ReLU, LeakyReLU\ldots\ negli hidden; softmax/sigmoid in output\\
+Inizializzazione & automatica in PyTorch (dipende dall'attivazione); manuale possibile\\
+Batch size & 32--256, da tarare sperimentalmente\\
+Loss & in base al compito\\
+Ottimizzatore & Adam (default); SGD + momentum per la generalizzazione\\
+Learning rate & partire da 0,001; usare un LR scheduler\\
+Epoch \& early stopping & monitorare la validation loss; il numero di epoch cambia molto con ottimizzatore e LR\\
+Regolarizzazione & dropout (0,2--0,5) + L2 (0,01)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\section{Caricare i dati in PyTorch}
+\begin{definizione}[tensore]
+Matrice multidimensionale di numeri di \textbf{un solo tipo}. Può essere un numero (rango 0), un vettore, una matrice o una
+matrice multidimensionale. Si può specificare il \code{dtype} (es.\ le label in \code{torch.long}, le feature in
+\code{torch.float32}).
+\end{definizione}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Metodo} & \textbf{Uso}\\
+\midrule
+\code{torch.tensor()} & conversione generale da liste, tuple, matrici\\
+\code{torch.zeros()}, \code{torch.ones()}, \code{torch.arange()} & tensori specifici; gli zeri servono per le \textbf{maschere} (NLP)\\
+\code{torch.rand()}, \code{torch.randn()}, \code{torch.randint()} & tensori casuali\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{itemize}
+  \item \code{TensorDataset(X, y)}: unisce feature e label in un dataset. Usato da solo (senza mini-batch) rischia di non stare
+        in memoria.
+  \item \code{DataLoader(dataset, batch\_size=..., shuffle=...)}: crea i \textbf{mini-batch}.
+  \item \code{shuffle=True}: mescola il dataset \textbf{all'inizio di ogni epoch}; i punti arrivano al modello in ordine diverso
+        $\Rightarrow$ migliore generalizzazione, meno overfitting. Ogni punto resta visto una sola volta per epoch.
+\end{itemize}
+\begin{lstlisting}
+from torch.utils.data import TensorDataset, DataLoader
+X_train_t = torch.tensor(X_train, dtype=torch.float32)
+y_train_t = torch.tensor(y_train, dtype=torch.long)     # indici di classe
+train_ds = TensorDataset(X_train_t, y_train_t)
+train_loader = DataLoader(train_ds, batch_size=64, shuffle=True)
+val_loader   = DataLoader(val_ds,   batch_size=64, shuffle=False)
+\end{lstlisting}
+
+\begin{attenzione}[shuffle e sequenze]
+Se i punti di una sequenza sono su righe diverse e vanno valutati come sequenza, \textbf{non} si può mescolare: si rompe la
+serie. Si possono invece mescolare \textbf{sequenze diverse} tra loro (cap.~\ref{cap:rnn}).
+\end{attenzione}
+\begin{esame}[shuffle su validation e test?]
+\textbf{No.} La stocasticità serve all'\textbf{SGD}, cioè solo al training. In validation e test i pesi \textbf{non vanno
+aggiornati} (sarebbe un errore grave): il modello è fisso e l'ordine dei dati non cambia le predizioni. Il mescolamento
+renderebbe solo più difficile leggere e confrontare le loss. (Domanda posta il 05/10, risposta data il \rif{2026-10-06}{06/10}.)
+\end{esame}
+
+% =====================================================================
+\section{Definire la rete: una classe}
+\label{sec:ffnn-classe}
+In PyTorch una rete è una classe che eredita da \code{nn.Module} e ha (almeno) due metodi:
+\begin{itemize}
+  \item \code{\_\_init\_\_}: descrive l'\textbf{architettura} (layer, dropout, normalizzazione, attivazioni). Riceve parametri come
+        il numero di neuroni di input e di output. \code{super().\_\_init\_\_()} dice che è una rete neurale.
+  \item \code{forward}: descrive \textbf{come i dati attraversano} la rete.
+\end{itemize}
+
+\begin{lstlisting}
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+class SimpleNN(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, 32)    # hidden layer: 32 neuroni
+        self.fc2 = nn.Linear(32, num_classes)   # input = output del layer precedente
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x                                # logit
+\end{lstlisting}
+\begin{esame}[c'è non linearità?]
+\textbf{No}: sono solo layer lineari, quindi la rete equivale a un solo layer lineare (la composizione di funzioni lineari
+è lineare, cap.~\ref{cap:reti-neurali}). Serve un'attivazione tra i layer.
+\end{esame}
+
+\begin{lstlisting}
+class NonLinearNN(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, 32)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(32, num_classes)
+    def forward(self, x):
+        x = self.relu(self.fc1(x))   # prima il layer, poi l'attivazione
+        return self.fc2(x)           # logit: niente softmax qui!
+\end{lstlisting}
+Layer diversi possono avere attivazioni diverse; come applicarle si decide nel \code{forward}.
+
+\begin{definizione}[logit]
+Output grezzi e non normalizzati dell'ultimo layer, in $[-\infty, +\infty]$. Con 2 punti e 3 classi l'output ha forma
+$2 \times 3$. Per vedere le probabilità: \code{torch.softmax(logits, dim=1)}.
+\end{definizione}
+
+\begin{esame}[nell'ultimo layer serve sempre un'attivazione?]
+In teoria \textbf{sì}, per passare dai logit alle probabilità (es.\ softmax nel multi-classe). In PyTorch però
+\code{nn.CrossEntropyLoss} si aspetta \textbf{i logit non normalizzati} e applica internamente la softmax: \textbf{non}
+va messa nel modello. Prima di usare una loss, \textbf{leggi la documentazione}.
+\end{esame}
+
+% =====================================================================
+\section{Loss e ottimizzatore}
+\begin{lstlisting}
+criterion = nn.CrossEntropyLoss()     # multi-classe (vale anche per il binario)
+                                      # weight=torch.tensor([...]) per classi sbilanciate
+model = NonLinearNN(input_size=2, num_classes=3)   # pesi casuali: non e' ancora un modello!
+optimizer = optim.AdamW(model.parameters(), lr=0.01)
+                                      # altri parametri: betas, weight_decay (L2), ...
+\end{lstlisting}
+\begin{itemize}
+  \item Il \textbf{criterion} è la loss. La label deve essere \code{torch.long} con gli indici di classe.
+  \item All'ottimizzatore si passano i \textbf{parametri del modello} da ottimizzare e il learning rate.
+  \item Le loss disponibili sono molte; più avanti nel corso si creeranno loss personalizzate. Teoria di loss e ottimizzatori
+        nel cap.~\ref{cap:addestramento}.
+\end{itemize}
+
+% =====================================================================
+\section{Il training loop (senza mini-batch, solo didattico)}
+\begin{lstlisting}
+num_epochs = 200
+train_losses, val_losses = [], []
+for epoch in range(num_epochs):
+    # ---- TRAINING ----
+    model.train()                       # 1. modalita' training
+    optimizer.zero_grad()               # 2. azzera i gradienti precedenti
+    outputs = model(X_train)            # 3. forward
+    loss = criterion(outputs, y_train)  # 4. loss (softmax + cross-entropy interne)
+    loss.backward()                     # 5. backpropagation: calcola i gradienti
+    optimizer.step()                    # 6. aggiorna i pesi
+    train_losses.append(loss.item())    # 7. salva la loss per la learning curve
+    # ---- VALIDATION ----
+    model.eval()                        # modalita' valutazione
+    with torch.no_grad():               # niente calcolo dei gradienti (piu' veloce)
+        val_loss = criterion(model(X_val), y_val)
+    val_losses.append(val_loss.item())
+\end{lstlisting}
+
+\begin{attenzione}[\code{model.eval()} e \code{torch.no\_grad()} non sono la stessa cosa]
+Il docente insiste: \textbf{\code{model.eval()} deve esserci} in validation e test.
+\begin{itemize}
+  \item \code{model.eval()} cambia il comportamento dei layer che si comportano diversamente in training: il
+        \textbf{dropout} si spegne e la \textbf{batch norm} usa le statistiche memorizzate (cap.~\ref{cap:regolarizzazione}).
+  \item \code{torch.no\_grad()} disattiva soltanto il calcolo dei gradienti (risparmio di tempo e memoria).
+\end{itemize}
+\end{attenzione}
+\begin{integrazione}[cosa succede davvero se dimentichi \code{model.eval()}]
+I pesi \textbf{non} vengono aggiornati finché non chiami \code{optimizer.step()}; però il dropout resta attivo (predizioni
+casuali) e la batch norm normalizza con le statistiche del batch di validation, \textbf{aggiornando} le sue
+\en{running statistics} con dati di validation: una forma di leakage. In ogni caso è un errore.
+\end{integrazione}
+
+\textbf{Leggere la learning curve}: da 1,1 a 0,4 in 50 epoch, con training loss un po' più alta della validation (possibile se
+la validation è casualmente più facile). Il problema è che \textbf{non c'è plateau}: il modello stava ancora imparando, il
+training è stato fermato troppo presto. Non fermarti a 10 epoch perché ``funziona''. E la loss dice solo se il modello
+converge: per giudicarlo servono le \textbf{metriche} (accuracy, precision, recall\ldots, cap.~\ref{cap:addestramento}).
+
+% =====================================================================
+\section{Il training loop con mini-batch}
+\begin{lstlisting}
+for epoch in range(num_epochs):
+    model.train()
+    running = 0.0
+    for xb, yb in train_loader:              # itera sui mini-batch
+        xb, yb = xb.to(device), yb.to(device)
+        optimizer.zero_grad()                # zero_grad, backward e step
+        loss = criterion(model(xb), yb)      # sono DENTRO il ciclo sui batch:
+        loss.backward()                      # i pesi si aggiornano a ogni
+        optimizer.step()                     # mini-batch
+        running += loss.item() * xb.size(0)  # pesa la loss per la dimensione del batch
+    train_losses.append(running / len(train_loader.dataset))
+
+    model.eval()                             # una volta, prima del ciclo
+    running = 0.0
+    with torch.no_grad():                    # una volta
+        for xb, yb in val_loader:            # mini-batch anche in validation (memoria)
+            xb, yb = xb.to(device), yb.to(device)
+            running += criterion(model(xb), yb).item() * xb.size(0)
+    val_losses.append(running / len(val_loader.dataset))
+\end{lstlisting}
+\begin{itemize}
+  \item Se \code{zero\_grad/backward/step} fossero fuori dal ciclo sui batch, non si sfrutterebbero gli aggiornamenti frequenti, che
+        sono il vero vantaggio dei mini-batch (oltre al risparmio di memoria).
+  \item \textbf{Perché moltiplicare per la dimensione del batch?} La loss di un batch è una media sul batch. Con 90 punti e batch da 64
+        si hanno batch da 64 e da 26: senza pesatura conterebbero uguale. Si calcola la \textbf{media pesata} e si divide per la
+        dimensione del dataset.
+\end{itemize}
+
+% =====================================================================
+\section{Early stopping e regolarizzazione nel codice}
+\label{sec:ffnn-regol-codice}
+Nel notebook del \rif{2026-10-06}{06/10} la stessa FFNN viene poi arricchita con \textbf{early stopping} (\code{patience},
+\code{min\_delta}, salvataggio di \code{best\_state}), \textbf{dropout} e \textbf{batch norm} definiti come layer in
+\code{\_\_init\_\_}, e \textbf{weight decay} come parametro dell'ottimizzatore (\code{AdamW(..., weight\_decay=1e-2)}).
+Teoria, codice completo (\code{RegularizedNN}, ciclo di early stopping) e lettura delle curve sono nel
+cap.~\ref{cap:regolarizzazione}.
+
+% =====================================================================
+\section{Inizializzazione dei pesi}
+Si può definire una funzione di inizializzazione: \textbf{automatica} (PyTorch sceglie il metodo in base all'attivazione) o
+\textbf{manuale}.
+\begin{lstlisting}
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.normal_(m.weight, mean=0.0, std=1e-5)   # pesi minuscoli: esperimento!
+        nn.init.zeros_(m.bias)
+model.apply(init_weights)
+\end{lstlisting}
+Con l'inizializzazione automatica i pesi sono dell'ordine di $\pm 0{,}3$--$1$; con quella manuale dell'esempio sono
+$10^{-4}$--$10^{-6}$: vanno fatti crescere moltissimo per servire $\Rightarrow$ \textbf{vanishing gradient}.
+\textbf{Morale}: si può fare, ma è più probabile avere problemi che benefici. Usala solo per esperimenti mirati.
+
+% =====================================================================
+\section{GPU e riproducibilità}
+\begin{lstlisting}
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = model.to(device)                 # sposta il modello
+xb, yb = xb.to(device), yb.to(device)    # sposta i dati (batch per batch)
+preds = model(xb).argmax(dim=1).cpu()    # riporta su CPU per numpy/sklearn
+
+import random, numpy as np
+random.seed(42); np.random.seed(42)
+torch.manual_seed(42); torch.cuda.manual_seed_all(42)
+\end{lstlisting}
+\begin{itemize}
+  \item \code{cuda} = GPU disponibile. Le GPU accelerano molto, ma spesso non ci sono o sono a tempo limitato: usale solo se servono
+        (un dataset piccolo non ne ha bisogno; nel Lab 2 potrebbe servire).
+  \item Modello \textbf{e} dati devono stare sullo stesso device. Riporta i tensori su CPU (\code{.cpu()}) quando servono per elaborazioni
+        esterne. PyTorch libera la memoria dei tensori non più referenziati; evita trasferimenti CPU/GPU inutili (costano).
+  \item \textbf{Riproducibilità}: imposta i seed di tutto ciò che è casuale (inizializzazione, numeri casuali, split).
+        Su hardware diverso (anche server diversi su Colab) i risultati possono comunque differire leggermente.
+        Se le prestazioni dipendono molto dal seed, il modello è \textbf{instabile}: va migliorata l'architettura.
+\end{itemize}
+
+% =====================================================================
+\section{TensorFlow Playground: cosa si impara}
+\url{https://playground.tensorflow.org/} permette di giocare con una piccola rete su dataset 2D.
+\begin{itemize}
+  \item Con buone \textbf{feature ingegnerizzate} basta anche un solo layer (con abbastanza neuroni per creare regioni non lineari).
+  \item Learning rate \textbf{10}: training rumorosissimo (salti enormi). Learning rate \textbf{minuscolo}: forse prima o poi converge.
+  \item Attivazione \textbf{lineare}: il problema non lineare non si risolve mai.
+  \item Rete profonda con \textbf{sigmoid}: la loss resta \textbf{congelata}.
+\end{itemize}
+\textbf{Morale}: farla funzionare anche in un caso semplice non è banale: basta una scelta sbagliata (attivazione, learning rate)
+per non imparare nulla.
+
+% =====================================================================
+\section{Il notebook d'esempio: una pipeline completa}
+Dataset sintetico con 2 feature ($x, y$), 3 classi (A, B, C), sporcato apposta con outlier, valori mancanti e righe duplicate
+(\rif{2026-10-06}{06/10}).
+\begin{enumerate}
+  \item \textbf{Import}: \code{torch}, \code{torch.nn}, \code{torch.optim}; \code{matplotlib}; \code{numpy}, \code{pandas};
+        \code{sklearn} per scaling, split e metriche.
+  \item \textbf{Duplicati}: si rimuovono di solito (creano risultati artificiali attorno a un punto). Ma se sono della classe
+        minoritaria e reali, potrebbero essere utili: valuta caso per caso.
+  \item \textbf{Valori mancanti}: prima controlla quante righe perdi. Tieni traccia delle statistiche (righe prima e dopo ogni passo):
+        perdere l'1\% può essere irrilevante o gravissimo se è la classe minoritaria.
+  \item \textbf{Label}: \code{LabelEncoder} (A, B, C $\to$ 0, 1, 2). L'ordine artificiale non conta perché si usa la cross-entropy, non
+        una distanza come l'MSE.
+  \item \textbf{Visualizzazione} (2 dimensioni, si può): rosso attorno al giallo $\Rightarrow$ problema non lineare.
+        Per la sola visualizzazione si può usare tutto il dataset; per imparare si usa \textbf{solo il training}.
+  \item \textbf{Split}: \code{train\_test\_split(..., test\_size=0.4, random\_state=...)}, poi di nuovo a metà sul 40\% $\Rightarrow$
+        60\% train, 20\% validation, 20\% test.
+  \item \textbf{Scaling}: \code{StandardScaler} (ci sono outlier che non si vogliono rimuovere). \code{fit\_transform} sul training,
+        solo \code{transform} su validation e test. Fare \code{fit} su validation/test introdurrebbe leakage e darebbe al modello
+        distribuzioni diverse tra training e validation.
+  \item \textbf{Modello lineare} (un solo \code{nn.Linear}): pesi $3\times 2$ + 3 bias. La loss scende solo da 1,45 a 1,25:
+        prestazioni pessime, come previsto.
+  \item \textbf{Modello non lineare}: 3 hidden layer da 128 neuroni + ReLU: numeri ragionevoli.
+  \item \textbf{Mini-batch} (\code{shuffle=True} solo per il training): loss da 0,55 a 0,25, più rumorosa per la stocasticità.
+  \item \textbf{Early stopping, dropout, batch norm + weight decay}: effetti sulle curve discussi nel cap.~\ref{cap:regolarizzazione}
+        (in sintesi: early stopping si ferma molto prima; la curva con BN + weight decay è molto rumorosa, ``se vedo una validation
+        loss così nel vostro report, penso che non abbiate valutato la soluzione'').
+\end{enumerate}
+\begin{attenzione}[non copiare il notebook]
+Il codice d'esempio mostra \emph{come usare la libreria}, non come risolvere un problema reale. Ogni dataset è diverso e nella
+realtà non avrete due variabili con classi così ben separate.
+\end{attenzione}
+
+\subsection{Quali iperparametri ottimizzare? (domanda in aula)}
+Non si può sapere in anticipo quali valori funzionano: dipendono da dataset, split e architettura (4 o 5 layer, numero di neuroni).
+Nel Lab 1 vi si chiede di giocare con diversi parametri (anche il \code{weight\_decay}) per sviluppare sensibilità
+(cap.~\ref{cap:lab1}). In generale:
+\begin{itemize}
+  \item si lavora soprattutto sul \textbf{learning rate}, eventualmente con uno \textbf{scheduler};
+  \item \code{betas}/momentum si possono lasciare di default;
+  \item il weight decay si tocca se c'è overfitting.
+\end{itemize}
+Lab: PyTorch su Colab (CPU e GPU, collaborazione); va bene anche un server Jupyter proprio o Anaconda. Il Lab 2 userà lo stesso
+dataset come tabella, serie temporale e grafo (cap.~\ref{cap:lab2}); poi anomaly detection e NLP.
+
+% =====================================================================
+\section{Errori tipici nel codice}
+\begin{attenzione}[errori di codice da riconoscere -- raccolta dei redattori]
+Lo scritto include domande sul codice (\rif{2026-09-21}{21/09}). Raccolta dei redattori, a partire da lezioni, slide e notebook, degli errori da saper riconoscere nella pipeline FFNN:
+\begin{enumerate}
+  \item \code{scaler.fit} (o \code{fit\_transform}) su tutto il dataset o su validation/test $\Rightarrow$ data leakage
+        (sez.~\ref{sec:leak-norm});
+  \item \code{shuffle=True} sul \code{DataLoader} di validation/test (inutile), o su righe che formano una sequenza (rompe la serie);
+  \item rete con soli \code{nn.Linear} senza attivazioni $\Rightarrow$ equivale a un modello lineare;
+  \item softmax nel \code{forward} prima di \code{nn.CrossEntropyLoss} (la loss si aspetta i logit);
+  \item label non in \code{torch.long} con la cross-entropy;
+  \item \code{model.eval()} mancante in validation/test (dropout e batch norm restano in modalità training); \code{torch.no\_grad()}
+        non lo sostituisce;
+  \item \code{optimizer.zero\_grad()}, \code{backward()} e \code{step()} fuori dal ciclo sui mini-batch;
+  \item \code{optimizer.step()} in validation (i pesi non vanno mai aggiornati fuori dal training);
+  \item loss media per epoch non pesata con \code{xb.size(0)} (l'ultimo batch, più piccolo, conta come gli altri);
+  \item early stopping senza salvare e ricaricare \code{best\_state} (si restituisce il modello dell'ultima epoch);
+  \item modello e dati su device diversi.
+\end{enumerate}
+\end{attenzione}
+
+\begin{sintesi}
+\begin{itemize}
+  \item Il data handling (split, pre-processing, trasformazione) è la parte più lunga: \textbf{prima lo split}, poi fit delle
+        trasformazioni \textbf{solo sul training}.
+  \item Categoriche: one-hot (poche categorie), label encoding (ordinali e label), embedding (alta cardinalità, cap.~\ref{cap:embedding}).
+        Numeriche: min-max (sensibile agli outlier) o z-score.
+  \item Split: hold-out (dataset grandi), k-fold (stima affidabile, poi ri-addestramento su tutti i fold), leave-one-out (dataset minuscoli);
+        attenzione a sbilanciamento (resampling, class weights, macro avg), costo degli errori, dimensione, leakage (tempo, scorciatoie, ID).
+  \item FFNN: input = n.\ di feature dopo l'encoding; 3--5 hidden layer, potenze di 2, ReLU; output in base al task, \textbf{senza softmax}
+        con \code{CrossEntropyLoss}; Adam, LR 0,001.
+  \item PyTorch: \code{nn.Module} con \code{\_\_init\_\_} e \code{forward}; \code{TensorDataset} + \code{DataLoader} (shuffle solo in training);
+        loop \code{train()} $\to$ \code{zero\_grad} $\to$ forward $\to$ loss $\to$ \code{backward} $\to$ \code{step}; validation con
+        \code{eval()} \textbf{e} \code{no\_grad()}.
+  \item Leggere la learning curve: senza plateau il training è stato fermato troppo presto; la loss non basta, servono le metriche.
+\end{itemize}
+\end{sintesi}

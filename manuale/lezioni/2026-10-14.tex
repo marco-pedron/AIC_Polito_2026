@@ -1,0 +1,119 @@
+% =====================================================================
+\lezione{14/10/2026}{RNN in PyTorch, CNN e graph neural network}
+  {Prof.~Danilo Giordano}
+  {lunghezze diverse e padding dinamico; \code{collate\_fn} e packed sequence; \code{out} e
+   \code{hidden}; notebook pollution e FordA; CNN (convoluzione, pooling, reti famose, STAMINA); GNN
+   (permutation invariance ed equivariance, message passing, GCN, GraphSAGE, GAT, over-smoothing,
+   task, split transductive e inductive, limiti)}
+\label{lez:2026-10-14}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. Codice, formule e numeri sono ripresi dalle
+slide \emph{3-deep-learning-methodologies} (pp.~72--123) e dai notebook
+\emph{RNN-Pollution-Multivariate} e \emph{RNN-LSTM-FordA}.
+\end{nota}
+
+\section{Sintesi}
+Lezione lunga che chiude la parte sulle architetture per la classificazione. Prima si completa la
+pratica delle RNN: come gestire serie di lunghezza diversa con il padding dinamico nel mini-batch e le
+\en{packed sequence}, e due notebook (regressione sull'inquinamento, classificazione FordA). Poi una
+breve introduzione alle \textbf{CNN}, utile anche per introdurre il concetto di convoluzione, e infine
+la teoria delle \textbf{graph neural network}. Approfondimento nei capitoli~\ref{cap:rnn} e
+\ref{cap:cnn-gnn}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il \textbf{Lab~2} si terrà nei due mercoledì successivi (21 e 28 ottobre). Per liberare il
+    mercoledì, la settimana prossima ci sarà lezione \textbf{lunedì e martedì} (19 e 20 ottobre);
+    l'avviso sarà pubblicato sul portale.
+  \item Nel Lab~2 le sequenze di API call descrivono un goodware o un malware: servirà la
+    rappresentazione dell'\textbf{intera serie}; la parte GNN dei lab fa solo graph classification.
+  \item Le GNN in PyTorch si vedranno lunedì (\rif{2026-10-19}{19/10}).
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{RNN in pratica: lunghezze diverse}
+Una rete è moltiplicazione di matrici: una serie più corta lascia un ``buco''. Tagliare tutto alla
+lunghezza minima butta informazione; paddare con valori inventati (es.\ la media) fa credere alla rete
+che la serie finisca così. Soluzione: un \code{Dataset} personalizzato e una \code{collate\_fn},
+passata al \code{DataLoader}, che padda le serie \textbf{solo fino alla lunghezza massima del
+batch} e restituisce anche le lunghezze originali. Basta paddare nel batch perché tutti i passi
+condividono gli stessi pesi. Nel modello, \code{pack\_padded\_sequence} dice alla RNN quali istanti
+sono padding, così vengono saltati.
+
+\begin{esame}
+Il padding serve solo alla matematica (matrice completa): \textbf{non deve entrare} nello stato finale
+né nella backpropagation, altrimenti la rete si addestra su dati inventati. Il padding vale 0, che
+potrebbe essere un valore reale: per questo la RNN deve sapere dove inizia.
+\end{esame}
+
+\subsection{\code{out} e \code{hidden}}
+\code{hidden} contiene lo stato finale di ogni layer (\code{hidden[-1]} è quello dell'ultimo layer, la
+rappresentazione più astratta) e si usa per i task a livello di \textbf{sequenza}, come la
+classificazione; \code{out} contiene gli stati dell'ultimo layer a ogni passo e serve per i task a
+livello di \textbf{passo} (previsione del valore successivo, many-to-many). Esempio della scalata:
+\code{hidden} riassume tutto il viaggio, \code{out} lo descrive passo per passo. Varianti:
+bidirezionale (head di dimensione \code{2*hidden\_size}, concatenando le due direzioni) e LSTM
+(restituisce hidden e cell state; per classificare si usa l'hidden).
+
+\subsection{I due notebook}
+\begin{itemize}
+  \item \textbf{Pollution} (regressione): guardare i dati prima di usarli (direzione del vento come
+    stringa, valori sospetti come vento a 600~km/h); niente split casuale che rompe le serie; scaling
+    fittato sul training; RNN + layer lineare senza attivazione finale, loss MSE. Il training loop è
+    identico a quello della FFNN; le loss delle RNN sono più rumorose; manca il plateau; l'MSE va letto
+    rispetto alla scala dei valori.
+  \item \textbf{FordA} (classificazione di serie univariate): per mostrare il padding si accorciano a
+    480 le prime 100 serie (le altre sono lunghe 500). Risultato: accuracy intorno al 51\% su un dataset
+    bilanciato, predicendo sempre la stessa classe, con RNN, LSTM e Bi-RNN. Non perché le RNN non
+    funzionino: head troppo semplice, hidden size piccola, training breve.
+\end{itemize}
+
+\subsection{Convolutional neural network}
+Usi in cybersecurity: malware come immagine, siti clone da screenshot, intrusion detection su serie
+(anche CNN-LSTM), deepfake. Struttura: layer convoluzionali che estraggono feature in modo gerarchico
+(bordi, forme, oggetti) e una FFNN finale. Il layer è \textbf{convoluzione} (filtri scorrevoli con
+pesi addestrabili; $N$ filtri producono $N$ strati di profondità; padding ai bordi), \textbf{ReLU} e
+\textbf{pooling} (es.\ max pooling $2\times2$: una matrice $4\times4$ diventa $2\times2$). Reti
+famose: LeNet-5 (1998), AlexNet (2012, ReLU e dropout), ResNet-50 (2015, skip connection).
+\textbf{STAMINA} (Intel): byte del binario come pixel in scala di grigi, immagine $224\times224$,
+ResNet-50 pre-addestrata con fine-tuning, accuracy oltre il 95\%.
+
+\subsection{Graph neural network}
+Molti dati sono grafi (botnet, frodi, grafi di API call). Una FFNN su matrice di adiacenza e feature
+dipende dall'ordine dei nodi, non scala e non gestisce grafi di dimensione diversa; CNN e RNN
+presuppongono una struttura fissa. Si generalizza la convoluzione: \textbf{un nodo è descritto dai
+suoi vicini}. Due proprietà: \textbf{permutation invariance} a livello di grafo,
+$f(A_1,X_1)=f(A_2,X_2)$, e \textbf{permutation equivariance} a livello di nodo,
+$Pf(A,X)=f(PAP^T,PX)$. Con il \textbf{message passing} ogni nodo aggrega i messaggi dei vicini
+(che a loro volta hanno aggregato i propri) con pesi \textbf{condivisi tra tutti i nodi}; un layer è
+messaggio + aggregazione indipendente dall'ordine (somma, media, max) + il messaggio del nodo stesso +
+non linearità.
+
+\begin{esame}
+Saper spiegare \textbf{perché} una GNN è invariante/equivariante (pesi condivisi e aggregazione che non
+dipende dall'ordine) e perché è \textbf{induttiva} (gli stessi parametri descrivono nodi mai visti).
+Il docente insiste anche sull'\textbf{attenzione} di GAT, che tornerà nella parte di NLP.
+\end{esame}
+
+Tre architetture: \textbf{GCN} (tutti i vicini, normalizzati per il grado), \textbf{GraphSAGE}
+(campiona un numero fisso di vicini, aggregazione in due stadi: adatta a grafi grandi), \textbf{GAT}
+(pesa ogni vicino con un coefficiente di attenzione appreso). Con troppi layer i \en{receptive field}
+si sovrappongono e gli embedding diventano tutti simili (\textbf{over-smoothing}): scegliere il
+numero di layer in base al receptive field necessario, aumentare l'espressività dentro il layer,
+aggiungere MLP prima e dopo, skip connection. Task: node classification, link prediction, graph
+classification. Split \textbf{transductive} (un solo grafo, si dividono le label) o
+\textbf{inductive} (grafi diversi negli split, il setting dei lab). Limiti: over-smoothing,
+scalabilità, grafi eterogenei e dinamici.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Date del Lab~2 e lezione del martedì: ricavate da ``\en{next week}'' e ``\en{the next one and
+    the one after}'' detti in aula; confermare con l'avviso sul portale.
+  \item Nel notebook pollution si normalizza anche la label; il docente osserva che probabilmente non
+    andrebbe fatto.
+\end{itemize}
+\end{verifica}

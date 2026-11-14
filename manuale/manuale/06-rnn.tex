@@ -1,0 +1,502 @@
+\chapter{Recurrent neural network e LSTM}
+\label{cap:rnn}
+\fonti{\rif{2026-10-12}{12/10}, \rif{2026-10-14}{14/10}}{3-deep-learning-methodologies, pp.~34--76; notebook RNN (1-RNN-Pollution-Multivariate, 2-RNN-LSTM-FordA)}
+
+Le RNN estendono la FFNN (cap.~\ref{cap:ffnn}) ai dati \textbf{sequenziali}. Il capitolo va dalla teoria (cella, BPTT,
+gradiente, LSTM) alla progettazione e all'implementazione in PyTorch, con i due notebook mostrati a lezione.
+
+% =====================================================================
+\section{Perché servono le RNN}
+Dato un solo punto (posizione, raggio, colore\ldots) non si può predire la sua \textbf{traiettoria}: manca la storia.
+Una FFNN riceve un \textbf{vettore di dimensione fissa} e restituisce un vettore di dimensione fissa; i punti sono trattati
+in modo indipendente e i pesi si aggiornano indipendentemente dall'ordine. Se invece do la \textbf{sequenza} delle posizioni
+precedenti a una rete che gestisce sequenze, posso indovinare la direzione.
+
+\begin{definizione}[recurrent neural network]
+Classe di reti che gestisce input di \textbf{lunghezza variabile} e dati sequenziali $x(t)$. A differenza di una FFNN
+mantiene uno \textbf{stato} che \textbf{evolve nel tempo} e descrive l'andamento della serie.
+\end{definizione}
+Esempio: ``my brother plays \ldots'': sapendo cosa c'è prima, mi aspetto un gioco o uno strumento. In modo
+semplificatissimo, è l'idea di predire la parola successiva (alla base di GPT).
+
+\textbf{Applicazioni}: traduzione automatica (una parola dipende dalle precedenti e non sempre corrisponde a una sola parola
+nell'altra lingua), previsione di serie temporali (se il valore reale si discosta molto dalla previsione: anomalia, forse un
+attacco), classificazione di serie, riconoscimento vocale, \en{part-of-speech tagging} (capire che ``volleyball'' è un nome).
+
+% =====================================================================
+\section{FFNN vs RNN in breve}
+\begin{itemize}
+  \item Una FFNN riceve $x$ e restituisce $y$; il punto successivo viene elaborato indipendentemente.
+  \item Una RNN aggiunge un \textbf{self-loop}: riceve $x(t)$ \textbf{e} lo stato nascosto precedente $h(t-1)$, e restituisce
+        l'output $y(t)$ e il nuovo stato $h(t)$.
+  \item Servono \textbf{nuovi pesi}: oltre a $w$ (importanza delle feature) c'è $w'$ (importanza del passato).
+        La complessità aumenta.
+  \item Anche le RNN si organizzano in più layer (più layer = rappresentazione più astratta); in pratica 1--2 layer.
+\end{itemize}
+\begin{definizione}[hidden state]
+Rappresentazione interna della serie fino a $t-1$. L'output dipende da $x_t$ \textbf{e} da $h_{t-1}$; il nuovo $h_t$
+è aggiornato con l'informazione presente.
+\end{definizione}
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small}, cell/.style={draw=polblu, fill=polblu!8, rounded corners=2pt,
+  minimum width=1.1cm, minimum height=0.8cm}]
+  % forma compatta
+  \node[cell] (c) at (0,0) {RNN};
+  \node (x) at (0,-1.3) {$x_t$}; \node (y) at (0,1.3) {$\hat y_t$};
+  \draw[-{Stealth}] (x) -- (c); \draw[-{Stealth}] (c) -- (y);
+  \draw[-{Stealth}] (c.east) to[out=0,in=-90,looseness=1] ++(0.7,0.6) to[out=90,in=0] ++(-0.7,0.5)
+        node[above right, font=\scriptsize] {$h_{t-1}$} to[out=180,in=90] ++(-0.7,-0.5) to[out=-90,in=180] (c.west);
+  \node at (1.8,0) {$=$};
+  % srotolata
+  \foreach \i/\t in {0/0,1/1,2/2,3/t} {
+    \node[cell] (u\i) at (3+1.8*\i,0) {RNN};
+    \node (ux\i) at (3+1.8*\i,-1.3) {$x_{\t}$};
+    \node (uy\i) at (3+1.8*\i,1.3) {$\hat y_{\t}$};
+    \draw[-{Stealth}] (ux\i) -- (u\i); \draw[-{Stealth}] (u\i) -- (uy\i);
+  }
+  \draw[-{Stealth}] (u0) -- node[above, font=\scriptsize] {$h_0$} (u1);
+  \draw[-{Stealth}] (u1) -- node[above, font=\scriptsize] {$h_1$} (u2);
+  \draw[-{Stealth}, dashed] (u2) -- node[above, font=\scriptsize] {$\cdots$} (u3);
+\end{tikzpicture}
+\end{center}
+A sinistra la forma compatta con il self-loop, a destra la versione \textbf{srotolata} (\en{unrolled}): stessa cella, stessi
+pesi, ripetuta nel tempo.
+
+% =====================================================================
+\section{Varianti input/output}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X X}
+\toprule
+Tipo & Descrizione & Esempi\\
+\midrule
+One-to-one & un timestamp alla volta, senza passato: è una rete standard & classificazione o regressione su un singolo campione\\
+Many-to-one & una sequenza in input, \textbf{un} output; lo stato finale codifica l'intera sequenza & sentiment analysis (``terrifically'' bad/good: serve tutta la frase), sequenza di log per rilevare un attacco in corso\\
+One-to-many & un input espanso su più passi di output & image captioning (``un uomo che gioca a baseball''), piano di risposta a partire da un alert\\
+Many-to-many & sequenza $\to$ sequenza, lunghezze anche diverse & traduzione, classificazione di ogni frame del traffico in tempo reale\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Nel lab ci si concentra sul \textbf{many-to-one}: una serie in input, una label (es.\ malware o no) in output.
+
+% =====================================================================
+\section{Architetture: mono e bidirezionale}
+\subsection{RNN mono-direzionale}
+Elabora i dati in sequenza, dal passato al futuro, aggiornando lo stato con l'input corrente e lo stato precedente.
+\begin{itemize}
+  \item \textbf{Pro}: adatta alla \textbf{predizione in tempo reale}; relativamente semplice da addestrare (un solo layer, pochi pesi).
+  \item \textbf{Contro}: fatica con le \textbf{dipendenze a lungo termine} (dimentica l'inizio di una serie lunga) per
+        vanishing/exploding gradient.
+  \item \textbf{Training}: \en{Backpropagation Through Time} (BPTT), variante della backprop che tara sia i pesi dell'input sia quelli
+        dello stato.
+  \item \textbf{Applicazioni}: classificazione supervisionata del traffico (benigno/malevolo), anomaly detection non supervisionata.
+\end{itemize}
+
+\subsection{RNN bidirezionale (Bi-RNN)}
+Due RNN \textbf{indipendenti} (con \textbf{pesi diversi}, appresi insieme) elaborano la stessa sequenza in direzioni opposte
+(avanti e indietro), mantenendo due stati nascosti; gli output vengono poi combinati.
+\begin{itemize}
+  \item \textbf{Pro}: cattura contesto passato \textbf{e futuro} $\Rightarrow$ rappresentazione migliore (traduzione di una frase completa).
+  \item \textbf{Contro}: costo computazionale più alto; \textbf{non adatta al tempo reale} (il futuro non c'è).
+  \item Si usa quando si ha \textbf{la sequenza completa}: un'email, quando arriva, è completa $\Rightarrow$ classificazione di
+        phishing; riconoscimento di pattern nei log per insider threat.
+  \item BPTT applicata separatamente alle due direzioni.
+\end{itemize}
+
+% =====================================================================
+\section{Struttura interna di una cella RNN}
+\[
+h_t = F_1\big(W_{hh}h_{t-1} + W_{xh}x_t + b_{hh}\big)
+\]
+\begin{itemize}
+  \item $h_{t-1}$: stato precedente (la ``traiettoria'' fino a $t-1$); $x_t$: input corrente;
+  \item $W_{xh}$, $W_{hh}$: matrici dei pesi di input e di stato (ognuna con i propri pesi); $b_{hh}$: bias;
+  \item $F_1$: attivazione, tipicamente \textbf{tanh} (non ReLU) per limitare i problemi di gradiente;
+  \item per ora l'output della cella $y_t$ coincide con $h_t$.
+\end{itemize}
+
+\subsection{Dalla cella alla predizione: la classification head}
+$y_t$ (o $h_t$) ha tanti valori quanti la \textbf{hidden size}. Per la predizione finale si aggiunge almeno un layer lineare
+(eventualmente dropout/normalizzazione e un'attivazione):
+\[
+\hat y_t = F_2\big(W_{yh}h_t + b_{yh}\big)
+\]
+\begin{itemize}
+  \item \textbf{Many-to-many}: una head per ogni $x_t$.
+  \item \textbf{Many-to-one}: solo l'\textbf{ultima} cella ha la head, perché il suo output ``conosce'' l'intera serie.
+\end{itemize}
+\begin{esame}[la RNN fa rappresentazione]
+La parte ricorrente fa \textbf{feature extraction}: lo stato nascosto alla fine della serie comprime l'andamento della serie in,
+ad esempio, 8 numeri: è un \textbf{embedding} della serie. La head (da un layer lineare a una FFNN complessa) usa quella
+rappresentazione per classificare. Le due parti si addestrano \textbf{insieme} (ottimizzazione congiunta), non una dopo l'altra.
+\end{esame}
+
+\subsection{Dalla FFNN alla RNN, passo per passo}
+\begin{enumerate}
+  \item Una FFNN con un layer e più output, applicata a un singolo istante $x_t$.
+  \item La stessa rete applicata a ogni istante: ogni $\hat y_t$ dipende solo dal suo $x_t$. L'errore è calcolato separatamente per ogni
+        rete; $x_0$ e $x_1$ non influenzano $\hat y_2$. \textbf{Nessun concetto di sequenza.}
+  \item Si collegano le reti con un link: lo stato $h_t$ viene propagato al passo successivo. Ora
+        \[\hat y_t = f(x_t, h_{t-1})\]
+        dipende da input presente e memoria passata.
+  \item Disegno compatto: la cella con l'arco che torna su se stessa; la catena è la versione \textbf{srotolata} (\en{unrolled}).
+\end{enumerate}
+\begin{definizione}[relazione di ricorrenza]
+\[ h_t = f_W(x_t, h_{t-1}) \]
+\textbf{La stessa funzione e lo stesso insieme di pesi} si usano a ogni passo: non sono reti diverse una dopo l'altra, è la stessa
+rete ripetuta nel tempo.
+\end{definizione}
+
+\subsection{Grafo computazionale nel tempo}
+\begin{itemize}
+  \item $W_{xh}$ mappa l'input $x_t$ nello stato $h_t$;
+  \item $W_{hh}$ definisce come $h_{t-1}$ influenza $h_t$;
+  \item $W_{hy}$ mappa lo stato $h_t$ nell'output $y_t$.
+\end{itemize}
+Tutte queste matrici sono \textbf{condivise tra i passi temporali} e vengono aggiornate con gradienti \textbf{accumulati lungo la
+sequenza}.
+
+% =====================================================================
+\section{Backpropagation Through Time (BPTT)}
+Nella backprop classica (cap.~\ref{cap:reti-neurali}): forward, loss, derivata rispetto a ogni parametro, aggiornamento. Con il tempo:
+\begin{enumerate}
+  \item si \textbf{sommano le loss} di tutti i passi per ottenere la loss totale della sequenza (in many-to-one c'è una sola predizione,
+        ma i pesi vanno comunque ottimizzati lungo tutto il tempo);
+  \item l'errore si backpropaga \textbf{sia attraverso gli output sia attraverso gli stati}, dalla fine all'inizio della sequenza;
+  \item si \textbf{accumulano i gradienti} per aggiornare i pesi condivisi.
+\end{enumerate}
+\begin{attenzione}
+Per tarare i pesi non basta considerare l'ultimo istante: serve la moltiplicazione con tutti gli stati e gli input precedenti,
+indietro nel tempo, anche molto indietro. Per questo è molto più complesso.
+\end{attenzione}
+
+\subsection{Il flusso del gradiente}
+Il gradiente rispetto a $h_0$ contiene \textbf{molti fattori di $W_{hh}$} e calcoli di gradiente ripetuti. I passi temporali non
+sono layer indipendenti (è la stessa rete), ma per il gradiente si comportano come una rete profondissima.
+\begin{itemize}
+  \item Molti valori $>1$: \textbf{exploding gradient} $\Rightarrow$ i pesi cambiano drasticamente, come con un learning rate enorme;
+        apprendimento inaffidabile. Rimedio: \textbf{gradient clipping} (non lasciare crescere il gradiente oltre una soglia).
+  \item Molti valori $<1$: \textbf{vanishing gradient} $\Rightarrow$ il passato lontano non conta, la rete non lo ricorda.
+        Rimedi: (1) funzione di attivazione, (2) inizializzazione dei pesi, (3) architettura (troppi layer ricorrenti peggiorano).
+  \item Nelle RNN si trova spesso \textbf{tanh} invece di ReLU: essendo limitata evita l'esplosione, ma restando $<1$ può far svanire il gradiente.
+\end{itemize}
+\begin{esame}[exploding vs vanishing nelle RNN]
+Il prodotto ripetuto per $W_{hh}$ lungo la sequenza è la causa di entrambi. Exploding $\to$ gradient clipping (e tanh);
+vanishing $\to$ attivazione, inizializzazione, architettura, e soprattutto celle con gate (LSTM).
+\end{esame}
+
+% =====================================================================
+\section{Il problema delle dipendenze a lungo termine}
+\begin{esempio}
+``The clouds are in the \ldots'': la parola mancante (\emph{sky}) dipende da poche parole vicine. Serve ricorrenza, ma il passato
+utile è recente.
+
+``Sono cresciuto in Francia, poi mi sono trasferito in Italia, ho fatto le elementari, giocato a basket, mi sono trasferito a Roma,
+ho passato un anno in Australia\ldots'' e dopo un'ora e mezza: ``e parlo fluentemente \ldots''. L'informazione utile (Francia) è
+troppo lontana e viene dimenticata. Lo stesso vale per un libro di 1000 pagine in cui conta la prima.
+\end{esempio}
+\textbf{Mitigazioni}: un'attivazione adatta (ReLU? ovunque? no, altrimenti esplode), una buona inizializzazione, e la soluzione
+robusta: una cella più ``intelligente'', la \textbf{gated cell} (LSTM, GRU\ldots; il corso si concentra sull'LSTM). I
+\textbf{transformer} (la T di GPT) saranno trattati nella parte NLP.
+
+% =====================================================================
+\section{LSTM (Long Short-Term Memory)}
+Proposta nel 1997 (Hochreiter e Schmidhuber) per mitigare il vanishing (e l'exploding) gradient.
+\begin{itemize}
+  \item Mantiene \textbf{due stati}: il \textbf{cell state} $C_t$ (memoria \textbf{a lungo termine}) e l'\textbf{hidden state} $h_t$
+        (memoria \textbf{a breve termine}).
+  \item Usa dei \textbf{gate} per controllare il flusso: cosa tenere del presente, come aggiornare selettivamente il cell state,
+        cosa mandare in output.
+  \item Si addestra con BPTT, ma con un flusso di gradiente \textbf{parzialmente ininterrotto} attraverso il cell state.
+  \item \textbf{Pro}: gestisce dipendenze a lungo raggio. \textbf{Contro}: molto più costosa di una RNN semplice (più componenti, più
+        pesi, più non linearità).
+\end{itemize}
+
+\subsection{I quattro passaggi}
+\begin{enumerate}
+  \item \textbf{Forget gate}: quanto del passato tenere. Prende $h_{t-1}$ e $x_t$, calcola $f_t\in[0,1]$ con una \textbf{sigmoid} e lo
+        moltiplica per $C_{t-1}$. $f_t\approx1$: ricorda; $f_t\approx 0$: dimentica (moltiplica per 0 la memoria lunga).
+  \item \textbf{Input gate}: quanta nuova informazione aggiungere. $i_t\in[0,1]$ con una sigmoid. $i_t\approx 0$: il passo corrente non
+        conta (es.\ un articolo, ``the'', non dice nulla della storia).
+  \item \textbf{Update (candidate)}: crea una memoria candidata $\tilde C_t$ con \textbf{tanh}; $i_t$ decide quanta finisce nel cell state.
+  \item \textbf{Output gate}: $o_t$ (sigmoid) decide quanto del cell state (passato per tanh) diventa $h_t$, usato per predire $y_t$ o
+        passato al passo successivo.
+\end{enumerate}
+\begin{integrazione}[equazioni standard dell'LSTM]
+\begin{align*}
+f_t &= \sigma(W_f[h_{t-1}, x_t] + b_f) & i_t &= \sigma(W_i[h_{t-1}, x_t] + b_i)\\
+\tilde C_t &= \tanh(W_C[h_{t-1}, x_t] + b_C) & C_t &= f_t \odot C_{t-1} + i_t \odot \tilde C_t\\
+o_t &= \sigma(W_o[h_{t-1}, x_t] + b_o) & h_t &= o_t \odot \tanh(C_t)
+\end{align*}
+$\odot$ = prodotto elemento per elemento. Tre delle attivazioni sono sigmoid: qui servono funzioni \textbf{limitate} perché fanno da
+``rubinetti'' tra 0 e 1.
+\end{integrazione}
+\textbf{Quanto passato ricorda un'LSTM?} Non si sa in anticipo: dipende dal training, dai dati (se il lungo termine serve, la rete lo
+terrà) e dalla dimensione di hidden e cell state.
+
+% =====================================================================
+\section{Preparare i dati per una RNN}
+\label{sec:rnn-dati}
+I dati devono essere numeri \textbf{e} sequenze, rappresentati come \textbf{tensore 3D}
+\code{(batch, seq\_len, features)}.
+\begin{esempio}
+\code{[[[1,2,3],[4,5,6]], [[7,8,9],[10,11,12]]]}
+\begin{itemize}
+  \item ogni vettore (\code{[1,2,3]}) è un istante $x(t)$ e ogni elemento una feature;
+  \item ogni matrice (\code{[[1,2,3],[4,5,6]]}) è una serie: 2 istanti descritti da 3 feature;
+  \item l'insieme delle matrici è il batch di serie.
+\end{itemize}
+\end{esempio}
+\begin{attenzione}[serie mono-dimensionali]
+\code{[1,2,3]} per PyTorch è \textbf{un istante con 3 feature}. Una serie di 3 istanti con una sola feature si scrive
+\code{[[1],[2],[3]]}: ogni elemento in un vettore (\code{x.unsqueeze(-1)}, sez.~\ref{sec:rnn-varianti}).
+\end{attenzione}
+
+\subsection{Da dati tabellari a sequenze}
+Dataset di inquinamento con una riga per ora (35.040 righe, 7 feature + label): ogni riga è un istante, non c'è ancora nessuna serie.
+Una funzione \code{create\_sequences} costruisce le serie:
+\begin{itemize}
+  \item si sceglie la lunghezza (\code{seq\_length = 7}) e si prendono 7 righe consecutive;
+  \item la label è quella dell'elemento \textbf{successivo} alla finestra (si predice l'inquinamento all'ora dopo);
+  \item si ottengono 35.033 matrici, ognuna con 7 istanti descritti da 7 feature: il tensore 3D per il training.
+\end{itemize}
+\begin{lstlisting}
+def create_sequences(features, labels, seq_length=7):
+    X, y = [], []
+    for i in range(len(features) - seq_length):
+        X.append(features[i:i + seq_length])   # finestra di 7 istanti
+        y.append(labels[i + seq_length])       # valore successivo
+    return np.array(X), np.array(y)            # X: (N, 7, n_features)
+\end{lstlisting}
+
+\subsection{Serie di lunghezza diversa}
+In una FFNN un punto con 4 feature \textbf{non} può entrare in un input layer da 5: il quinto neurone non riceverebbe nulla.
+Nelle RNN:
+\begin{itemize}
+  \item il \textbf{numero di feature} per istante deve essere \textbf{sempre lo stesso};
+  \item il \textbf{numero di passi temporali può variare} tra serie: un grande vantaggio.
+\end{itemize}
+Dentro lo stesso \textbf{mini-batch} però le serie devono avere la stessa lunghezza: si usa il \textbf{padding} delle più corte
+oppure si \textbf{tronca} tutto a una lunghezza fissa. In generale non serve paddare tutto il dataset: \textbf{solo dentro il batch}
+(sez.~\ref{sec:rnn-padding}).
+
+% =====================================================================
+\section{Progettare una RNN}
+\begin{enumerate}
+  \item \textbf{Tipo}: many-to-one, one-to-many, many-to-many? Quanto sono lunghe le sequenze (5 o 5000)? Serve memoria lunga (LSTM)?
+        Ha senso leggere anche all'indietro (bidirezionale) o no (mono)?
+  \item \textbf{Input}: numero di nodi = numero di \textbf{feature} (non di passi temporali).
+  \item \textbf{Hidden size}: quanti neuroni per rappresentare hidden state (e cell state). Più neuroni = più informazione memorizzabile,
+        ma più dati per addestrare e più complessità.
+  \item \textbf{Hidden layer}: quanti? Più layer = rappresentazione più astratta ma training più difficile. Attivazione tipica: tanh.
+  \item \textbf{Padding}: serve? In generale no, dentro il batch sì. Il padding non va considerato come parte reale della serie.
+  \item \textbf{Cosa mettere prima dell'output}: un solo layer lineare o una FFNN?
+  \item \textbf{Output}: numero di classi, attivazione in base a problema e loss.
+  \item \textbf{Ottimizzazione}: mini-batch (shuffle? solo se le serie sono indipendenti), loss (pesi se sbilanciato), ottimizzatore,
+        epoch, learning rate; in caso di overfitting, come per le FFNN (cap.~\ref{cap:regolarizzazione}); se forte, ripartire dai dati.
+\end{enumerate}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X}
+\toprule
+Iperparametro & Best practice (dalle slide)\\
+\midrule
+Architettura & mono o bidirezionale, RNN o LSTM in base a cosa si impara dall'ordine all'indietro e a quanto deve essere lunga la memoria\\
+\# layer & 1--2 layer ricorrenti, aumentare se serve\\
+Hidden size & potenze di 2 (64, 128, 256), non esagerare\\
+Attivazione & tanh negli hidden; softmax/sigmoid/lineare in output\\
+Inizializzazione & automatica; manuale possibile anche per hidden/cell state\\
+Lunghezze diverse & padding o troncamento\\
+Batch size & 32--256\\
+Shuffle & se le sequenze non sono correlate tra loro\\
+Ottimizzatore, LR & Adam (SGD + momentum per la generalizzazione); partire da 0,001 con scheduler\\
+Epoch \& early stopping & monitorare la validation loss; il numero di epoch cambia molto con ottimizzatore e LR\\
+Regolarizzazione & dropout (0,2--0,5), come layer separato o dentro la RNN; L2 (0,01)\\
+Dopo la RNN & valutare se aggiungere layer lineari/non lineari o altre architetture\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\section{RNN in PyTorch: lunghezze diverse e padding}
+\label{sec:rnn-padding}
+Una rete è moltiplicazione di matrici. Con tre serie di 2 feature e lunghezze 3, 2 e 3, al terzo passo una matrice ha un
+``buco'': non si può moltiplicare per la matrice dei pesi (\rif{2026-10-14}{14/10}).
+\begin{itemize}
+  \item \textbf{Tagliare} tutto alla lunghezza minima: si butta informazione.
+  \item \textbf{Paddare} con valori inventati (es.\ la media): la rete crederebbe che la serie finisca davvero con quei valori.
+\end{itemize}
+Serve qualcosa di più furbo: padding \textbf{dinamico}, \textbf{solo dentro il mini-batch}, e la RNN deve \textbf{sapere} quali
+istanti sono padding.
+
+\subsection{Dataset personalizzato e \code{collate\_fn}}
+\begin{lstlisting}
+from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
+
+class TimeSeriesDataset(Dataset):
+    def __init__(self, series, labels):      # series: lista di tensori (len_i, n_feat)
+        self.series, self.labels = series, labels
+    def __len__(self):
+        return len(self.series)
+    def __getitem__(self, idx):               # una serie e la sua label
+        return self.series[idx], self.labels[idx]
+
+def collate_fn(batch):
+    seqs, labels = zip(*batch)
+    lengths = torch.tensor([len(s) for s in seqs])        # lunghezze originali
+    padded = pad_sequence(seqs, batch_first=True, padding_value=0.0)  # pad alla max del batch
+    return padded, lengths, torch.tensor(labels)
+
+loader = DataLoader(ds, batch_size=64, shuffle=True, collate_fn=collate_fn)
+\end{lstlisting}
+\begin{itemize}
+  \item \code{collate\_fn} riceve i dati del mini-batch, trova la lunghezza massima \textbf{del batch} e padda le serie più corte.
+        Restituisce anche le \textbf{lunghezze originali}.
+  \item Si passa al \code{DataLoader}, che la usa \textbf{solo se serve}.
+  \item Perché basta paddare nel batch? Tutti i passi temporali condividono gli stessi pesi: serve solo che la matrice del batch sia
+        completa per moltiplicarla. Batch diversi possono avere lunghezze diverse.
+  \item Il padding vale 0, che potrebbe essere un valore reale: per questo la RNN deve sapere dove inizia il padding.
+\end{itemize}
+
+\subsection{Il modello}
+\begin{lstlisting}
+class RNNClassifier(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+        super().__init__()
+        self.rnn = nn.RNN(input_size,             # n. di feature per istante
+                          hidden_size,            # dimensione dello stato (embedding)
+                          num_layers=num_layers,  # layer ricorrenti impilati
+                          batch_first=True)       # input (batch, seq_len, features)
+        self.fc = nn.Linear(hidden_size, num_classes)   # classification head
+    def forward(self, x, lengths):
+        packed = pack_padded_sequence(x, lengths.cpu(), batch_first=True,
+                                      enforce_sorted=False)
+        out, hidden = self.rnn(packed)    # hidden: (num_layers, batch, hidden_size)
+        return self.fc(hidden[-1])        # stato finale dell'ULTIMO layer
+\end{lstlisting}
+\begin{itemize}
+  \item \code{pack\_padded\_sequence}: dice alla RNN quali istanti sono reali e quali padding, così li \textbf{salta}. Il padding serve
+        solo alla matematica (matrice completa) e \textbf{non entra} nello stato finale né nella backpropagation: fondamentale, altrimenti
+        si addestrerebbe anche sul padding.
+  \item \code{hidden[-1]}: lo stato finale dell'\textbf{ultimo} layer, la rappresentazione più astratta della serie.
+  \item \code{batch\_first=True}: senza, PyTorch si aspetta \code{(seq\_len, batch, features)}.
+\end{itemize}
+
+\subsection{\code{out} vs \code{hidden}}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+& \code{hidden} (\code{h\_n}) & \code{out}\\
+\midrule
+Cosa contiene & lo stato finale di \textbf{ogni layer} dopo tutta la serie & gli stati dell'\textbf{ultimo layer} a \textbf{ogni passo}\\
+Forma & \code{(num\_layers, batch, hidden\_size)} & \code{(batch, seq\_len, hidden\_size)}\\
+Uso & task a livello di \textbf{sequenza}: classificazione con head lineare/FFNN (\code{hidden[-1]}) & task a livello di \textbf{passo}: previsione del valore successivo, many-to-many\\
+Con padding & con le packed sequence cattura l'ultimo passo \textbf{valido} & l'ultimo passo valido cambia da serie a serie: va selezionato, non preso alla cieca\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{esempio}[la scalata]
+Sali in montagna registrando battito, pressione e temperatura. \code{hidden} è la rappresentazione dell'intero viaggio (in cima);
+\code{out} ti dà la rappresentazione passo per passo, utile se vuoi prevedere il prossimo valore. Nel Lab 2 le sequenze di API call
+descrivono un goodware o un malware: serve la rappresentazione \textbf{dell'intera serie} (cap.~\ref{cap:lab2}).
+\end{esempio}
+
+\subsection{Varianti: bidirezionale e LSTM}
+\label{sec:rnn-varianti}
+\begin{lstlisting}
+# Bidirezionale
+self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True,
+                  bidirectional=True)
+self.fc = nn.Linear(hidden_size * 2, num_classes)     # 2 direzioni -> 2x
+...
+h = torch.cat((hidden[-2], hidden[-1]), dim=1)        # avanti + indietro
+logits = self.fc(h)
+
+# LSTM
+self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+...
+out, (h_n, c_n) = self.lstm(packed)     # restituisce hidden E cell state
+logits = self.fc(h_n[-1])               # per classificare si usa l'hidden state
+
+# Serie univariata: (batch, time) -> (batch, time, 1)
+x = x.unsqueeze(-1)                     # [1,2,3] -> [[1],[2],[3]]
+\end{lstlisting}
+
+\begin{attenzione}[errori tipici nel codice RNN -- raccolta dei redattori]
+\begin{itemize}
+  \item Bidirezionale con \code{nn.Linear(hidden\_size, ...)}: l'input della head è \code{hidden\_size * 2}.
+  \item \code{out, h = self.lstm(x)}: l'LSTM restituisce \code{(h\_n, c\_n)}; per classificare si usa \code{h\_n[-1]}, non il cell state.
+  \item Serie univariata senza \code{unsqueeze(-1)}: \code{[1,2,3]} viene letto come un istante con 3 feature.
+  \item Padding senza \code{pack\_padded\_sequence}: la rete si addestra anche sugli zeri di padding.
+  \item \code{out[:, -1, :]} con serie paddate: l'ultimo passo può essere padding; con le packed sequence usare \code{hidden[-1]}.
+  \item \code{input\_size} pari alla lunghezza della serie invece che al numero di feature per istante.
+  \item \code{shuffle=True} su righe che compongono una serie (si mescolano solo serie intere e indipendenti).
+\end{itemize}
+\end{attenzione}
+
+% =====================================================================
+\section{Notebook 1: inquinamento (regressione multivariata)}
+\begin{itemize}
+  \item Label: livello di inquinamento (numero) $\Rightarrow$ \textbf{regressione}. 7 feature, una riga per ora, train e test già separati.
+  \item \textbf{Guardare i dati prima di usarli}: nessun nullo; la direzione del vento è una stringa (SE, NE, cv\ldots) codificata in
+        ordine di bussola con un label encoding (semplice, ma forse il one-hot sarebbe meglio).
+  \item Plot di serie e distribuzioni: inquinamento fino a 1000 (outlier?) e vento a 600 km/h (\textbf{errore del sensore}?): va deciso
+        cosa tenere.
+  \item Validation: \textbf{non} con split casuale (romperebbe le serie: il punto 2 in validation tra 1 e 3 in training). Forse meglio
+        creare prima le serie e poi dividerle.
+  \item Scaling fittato sul training. Nell'esempio si normalizza anche la label: probabilmente non andrebbe fatto.
+  \item Serie di lunghezza 7 tutte uguali $\Rightarrow$ basta \code{TensorDataset}. RNN + layer lineare, \textbf{nessuna attivazione finale}
+        (regressione), loss \textbf{MSE}. Il training loop è identico a quello della FFNN (cap.~\ref{cap:ffnn}).
+  \item Iperparametri del notebook: hidden size 64, output 1, batch 64, Adam con LR 0,001, 200 epoch.
+  \item Le loss delle RNN sono \textbf{più rumorose} di quelle delle FFNN; qui non c'è plateau (andava addestrata di più). L'MSE va
+        interpretato rispetto alla scala dei valori (nel notebook, su dati scalati: training da circa 0,0056 a 0,0048, validation
+        intorno a 0,0055).
+\end{itemize}
+\begin{verifica}
+Nel notebook la validation è ottenuta con \code{df.iloc[train\_size:]}, cioè con uno split \textbf{temporale} (le ultime righe del
+training) fatto \textbf{prima} di creare le sequenze, non con uno split casuale. Le osservazioni a lezione sul rischio dello split
+casuale restano valide come avvertimento generale.
+\end{verifica}
+
+% =====================================================================
+\section{Notebook 2: FordA (classificazione di serie)}
+\begin{itemize}
+  \item Serie \textbf{univariate} con label che indica se il motore funziona; validation = 20\% del training.
+  \item Per mostrare il padding si tolgono 20 elementi alle prime 100 serie (480 invece di 500).
+  \item Con \code{batch\_size=100}: il primo batch ha tutte serie da 480 (nessun padding), il secondo da 500.
+        Con 128: il primo batch contiene serie da 480 e da 500 $\Rightarrow$ padding a 500; i 20 istanti di padding non contano
+        per i pesi.
+  \item Modelli confrontati: RNN mono, LSTM e Bi-RNN, tutti con hidden size 64, 2 layer, Adam LR 0,001, \code{CrossEntropyLoss}.
+  \item Risultato: \textbf{accuracy 51\%} su un dataset bilanciato, con predizione sempre della classe 0 (``tanto vale lanciare una moneta''),
+        con RNN, LSTM e Bi-RNN. Non perché le RNN non funzionino: la head è troppo semplice, forse la hidden size è piccola, il
+        training è breve. Su CPU è anche molto lento.
+\end{itemize}
+\begin{integrazione}[leggere la loss bloccata a 0,693]
+Nell'output del notebook train e validation loss restano per tutte le 200 epoch intorno a $0{,}693 = \ln 2$: è la cross-entropy di un
+classificatore binario che assegna probabilità $0{,}5$ a entrambe le classi. Una loss ferma esattamente lì segnala che il modello
+\textbf{non sta imparando nulla}, prima ancora di guardare l'accuracy.
+\end{integrazione}
+\begin{verifica}
+A lezione si è attribuito il risultato anche a un ``training breve'', ma nel notebook le epoch sono 200 (circa 260--390 s su GPU per
+modello). Il problema sembra piuttosto di ottimizzazione/architettura (serie lunghe 500 passi, vanishing gradient, head minima).
+\end{verifica}
+
+\begin{sintesi}
+\begin{itemize}
+  \item RNN: stato nascosto $h_t = F_1(W_{hh}h_{t-1} + W_{xh}x_t + b)$ con \textbf{pesi condivisi} nel tempo; tanh tipica; varianti
+        one-to-one, many-to-one (focus del corso), one-to-many, many-to-many; mono (tempo reale) o bidirezionale (sequenza completa).
+  \item La parte ricorrente produce un \textbf{embedding} della serie; la head classifica; si addestrano insieme.
+  \item BPTT: loss sommate nel tempo, gradiente attraverso output e stati; prodotti ripetuti di $W_{hh}$ $\Rightarrow$ exploding
+        (gradient clipping) o vanishing gradient.
+  \item LSTM: cell state (lungo termine) + hidden state (breve termine); forget, input, candidate (tanh), output gate (sigmoid).
+  \item Dati: tensore \code{(batch, seq\_len, features)}; input size = n.\ di feature; lunghezze diverse $\Rightarrow$ padding nel batch
+        con \code{collate\_fn} + \code{pack\_padded\_sequence}; classificazione con \code{hidden[-1]}, previsione passo-passo con \code{out}.
+  \item Notebook: pollution (regressione, MSE, nessuna attivazione finale); FordA (51\%: loss ferma a $\ln 2$, il modello non impara).
+\end{itemize}
+\end{sintesi}

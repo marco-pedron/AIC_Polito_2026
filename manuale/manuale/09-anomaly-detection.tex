@@ -1,0 +1,855 @@
+\chapter{Supervised vs unsupervised e anomaly detection}
+\label{cap:anomaly}
+\fonti{\rif{2026-11-02}{02/11}, \rif{2026-11-09}{09/11}}{5-Supervised-vs-Unsupervised-shallow, pp.\ 1--57;
+6-Supervised-vs-Unsupervised-deep, pp.\ 1--52; notebook \code{anomaly\_detection} (KDD Cup 1999)}
+
+È l'ultima parte del corso tenuta dal Prof.\ Giordano; dopo si passa all'NLP con il Prof.\ Boffa. Si studia l'anomaly detection perché
+i classificatori falliscono quando le label mancano, sono fortemente sbilanciate o inaffidabili, o quando si vogliono scoprire
+\textbf{novità}. Il capitolo segue l'ordine delle slide: concetti e sfide, algoritmi tradizionali (\en{shallow}), riduzione e
+visualizzazione dei dati, deep learning (autoencoder), validazione; chiude con il notebook su KDD Cup 1999 che prepara il Lab 3
+(cap.~\ref{cap:lab3}).
+
+\begin{nota}[Copertura delle registrazioni]
+La lezione del \rif{2026-11-02}{02/11} arriva fino a k-means (slide 5, p.~33). La lezione del \rif{2026-11-09}{09/11} è interamente dedicata
+al notebook e dà per vista la teoria successiva: k-means per l'anomaly detection, DBSCAN, LOF, maledizione della dimensionalità, PCA,
+Isolation Forest (slide 5, pp.\ 33--57) e tutta la slide 6 (deep learning per l'anomaly detection, t-SNE, validazione). Quella teoria
+\textbf{non è stata spiegata nelle registrazioni disponibili}: nelle sezioni corrispondenti il testo segue le slide del corso, ed è
+segnalato all'inizio di ciascuna.
+\end{nota}
+
+% =====================================================================
+\section{Cos'è l'anomaly detection}
+\begin{definizione}
+Identificazione di \textbf{pattern che deviano dal comportamento atteso}. Si parla anche di anomalie, outlier, novità.
+\begin{itemize}
+  \item \textbf{Anomaly / outlier detection}: punti insoliti in un dataset, che non ci si aspetta; spesso un comportamento \textbf{malevolo}.
+  \item \textbf{Novelty detection}: pattern nuovi, mai visti, che però possono essere la \textbf{nuova normalità} (benigni).
+\end{itemize}
+\end{definizione}
+Una difficoltà chiave è distinguere ciò che è malevolo da ciò che è semplicemente nuovo. Si applica a punti, serie temporali, qualsiasi dato.
+
+\subsection{In cybersecurity}
+Le anomalie possono indicare:
+\begin{itemize}
+  \item \textbf{attività malevole}: zero-day, intrusioni, \textbf{esfiltrazione} (qualcuno connesso da remoto inizia a muoversi tra più PC,
+        \en{lateral movement}, e poi manda fuori molti dati: ma quale volume è ``insolito'' non lo so a priori);
+  \item \textbf{guasti o configurazioni errate} del sistema (bug);
+  \item \textbf{frodi bancarie}: riciclaggio, aggiramento di sanzioni ed embarghi (es.\ utenti che inviano, ricevono o spendono importi insoliti).
+\end{itemize}
+\textbf{Perché è importante}
+\begin{itemize}
+  \item \textbf{Zero-day}: minacce senza firma nota. Per definizione non si può costruire un classificatore: se lo avessi, non sarebbe uno zero-day.
+  \item \textbf{Attaccanti adattivi}: le difese a firme o regole falliscono perché l'attaccante cambia comportamento (gatto e topo).
+  \item \textbf{Early warning}: rilevare comportamenti nuovi o furtivi mentre accadono, prima del danno.
+\end{itemize}
+In generale l'anomaly detection tratta eventi \textbf{minoritari, imprevedibili e rari}: da qui complessità che nella classificazione non
+c'erano o erano meno forti.
+
+\section{Le complessità del problema}
+\begin{enumerate}
+  \item \textbf{Unknowingness}: le anomalie sono legate a comportamenti, strutture e distribuzioni sconosciuti o improvvisi; restano ignote finché
+        non accadono. \emph{Esempio}: picco di CPU di un processo: bug (riavvio) o qualcuno che usa il PC per minare Bitcoin?
+  \item \textbf{Rarità e sbilanciamento}: la maggior parte dei dati è normale (in un IDS quasi tutti gli accessi sono legittimi).
+        Raccogliere molte anomalie etichettate è irrealistico; un classificatore fatica a modellare pochi punti. Inoltre
+        \textbf{sbagliare su un'anomalia costa molto più} che sbagliare su un dato normale. \emph{Esempio}: accessi ai file quasi tutti in orario
+        di lavoro, uno di notte: io che lavoro da remoto, o un problema?
+  \item \textbf{Classi di anomalie eterogenee}: le anomalie non sono una classe sola. \emph{Esempio}: un attacco esfiltra lentamente dati via
+        \textbf{DNS tunnelling}, un altro usa \textbf{HTTP/2 push} cifrate, alcune molto simili a quelle legittime. Lo stesso tipo di attacco si
+        divide in più ``classi'' $\Rightarrow$ lo sbilanciamento peggiora.
+  \item \textbf{Pattern che evolvono}: le minacce si adattano per evadere il rilevamento, i modelli statici invecchiano; label e fingerprint
+        note diventano presto obsolete. \emph{Esempio}: dal ``principe nigeriano'' al falso ``migliore amico'', che non finisce nello spam.
+\end{enumerate}
+\begin{attenzione}[un'anomalia può essere una novità]
+Con il COVID e il lavoro da remoto, l'uso della VPN (anche in orari strani) è esploso: un'anomalia che è diventata la nuova normalità.
+Un rilevatore che scatta e \textbf{blocca subito tutte le VPN} fermerebbe tutti i lavoratori da remoto. Il \textbf{contesto} conta:
+progetta con cura e controlla cosa fa il tuo algoritmo; non tutte le anomalie sono attacchi.
+\end{attenzione}
+
+\section{Tipi di anomalie}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X X}
+\toprule
+Tipo & Definizione & Esempio\\
+\midrule
+Point & singola istanza che devia dalla maggior parte delle altre; basta il valore del punto & login aziendale da un IP in Russia (o Nord Europa) quando tutti i login dell'utente erano dall'Italia\\
+Contextual & istanza anomala \textbf{solo dato il contesto}; da sola sarebbe normale & backup in cloud di due ore alle 3 di domenica: la durata è nella norma, ma di domenica non si lavora (il contesto è il giorno)\\
+Collective & un \textbf{insieme} di istanze forma l'anomalia; i singoli membri possono essere normali & tentativi di login ognuno sotto il limite per minuto, ma tanti di fila: brute force che evita il rilevamento\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Le sfide per AI/ML}
+\begin{enumerate}
+  \item \textbf{Recall bassa e molti falsi positivi}: anomalie rare ed eterogenee sono difficili da trovare tutte. Se si spinge la recall, si
+        moltiplicano i falsi allarmi: se il 90\% delle segnalazioni non è un'anomalia, nessuno si fiderà più del modello. Gli attacchi sofisticati
+        (che imitano il normale) sfuggono.
+  \item \textbf{Dati ad alta dimensionalità e dipendenti}: log, flussi di rete, dati temporali e a grafo, di più fonti (PC, server, rete).
+        Qui il deep learning aiuta, perché non richiede di modellare a mano comportamenti strani.
+  \item \textbf{Apprendimento efficiente in dati}: etichettare anomalie è costoso e spesso impraticabile $\Rightarrow$ metodi semi-supervisionati
+        con poche label o, più spesso, \textbf{solo non supervisionati}.
+  \item \textbf{Resilienza al rumore}: i dati reali sono rumorosi e con label sbagliate. Togliendo i colori a un plot, le anomalie vicine ai dati
+        normali sembrano rumore; la normalità non è monolitica, e l'attaccante sfrutta il rumore per restare sotto i radar.
+  \item \textbf{Anomalie complesse}: contestuali, collettive, su più tipi di dati e fonti: una soglia sul numero di tentativi non trova un
+        attacco collettivo.
+  \item \textbf{Spiegazione}: fiducia e \en{accountability}: l'amministratore vuole sapere perché un utente è segnalato (per chiedergli conto, o per
+        scrivere una regola di firewall).
+\end{enumerate}
+\begin{esempio}[domanda in aula: se l'attaccante fa anomalie ogni giorno, diventano normali?]
+Dipende da come vengono viste all'inizio. Se il comportamento resta al bordo della normalità e il modello non lo segnala, col tempo verrà
+assorbito come normale (resta sotto i radar). Se invece viene segnalato, continuerà a esserlo, a meno che un analista non dichiari che è la nuova
+normalità (in banca: ``questo utente lo abbiamo già controllato, ignoralo'').
+\end{esempio}
+
+% =====================================================================
+\section{Supervised vs unsupervised}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X X}
+\toprule
+& Supervised & Unsupervised (e self-supervised)\\
+\midrule
+Dati & label almeno del normale; label di anomalie (non sempre, mai esaustive) & non etichettati\\
+Assume & conosce i pattern normali; forse quelli anomali & il \textbf{comportamento normale domina}\\
+Pro & alta accuratezza con buone label (es.\ fingerprint di virus noti, che non sono più ``anomalie'') & rileva \textbf{minacce nuove}\\
+Limiti & servono label; non generalizza a nuove anomalie & più falsi positivi; più difficile da interpretare\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Nella cybersecurity le label mancano spesso $\Rightarrow$ gli approcci non supervisionati sono essenziali.
+
+\begin{definizione}[le label nell'anomaly detection]
+Anche se le label ci sono, \textbf{non si usano per addestrare}. Servono solo a verificare se il modello ritrova almeno le anomalie
+\textbf{note}: le anomalie sono rare e le label rappresentano solo ciò che conosciamo già; addestrando su di esse si rischia di
+riconoscere solo i pattern noti e di perdere le minacce nuove (\rif{2026-11-09}{09/11}).
+\end{definizione}
+
+\section{L'output di un algoritmo di anomaly detection}
+\begin{itemize}
+  \item \textbf{Score}: un punteggio di anomalia per istanza (es.\ da 0 a 1, più alto = più anomalo). Permette di \textbf{ordinare} e di scegliere un
+        \textbf{budget}: con Intesa Sanpaolo si analizzano le prime 10.000 istanze del mese secondo il ranking, invece di guardare tutto ciò che è
+        sopra 0,01.
+  \item \textbf{Label}: normale/anomalo per istanza. Più semplice da usare, ma il numero di anomalie si controlla con gli
+        \textbf{iperparametri} (es.\ $\nu$ della one-class SVM).
+\end{itemize}
+
+% =====================================================================
+\section{Algoritmi tradizionali (shallow)}
+\subsection{Perché lo shallow learning}
+\begin{itemize}
+  \item Modelli più \textbf{interpretabili}: importante in incident response e analisi forense.
+  \item Su dati \textbf{tabellari} (frequentissimi in cybersecurity) funzionano molto bene, a volte meglio del deep learning.
+  \item Vanno bene per le \textbf{anomalie puntuali}: analizzano un punto alla volta.
+  \item Danno una \textbf{baseline} per confrontare i modelli deep (se provi un solo modello deep non sai se è il migliore) e si possono
+        combinare con essi (soluzioni ibride o ensemble).
+\end{itemize}
+\textbf{Limiti}
+\begin{itemize}
+  \item Deboli sulle anomalie \textbf{contestuali}: il contesto va creato con feature engineering (senza feature temporali, il backup della domenica
+        sembra normale per la sua dimensione).
+  \item Molto deboli sulle anomalie \textbf{collettive}: bisogna analizzare più punti insieme, cioè progettare feature aggregate (es.\ tentativi
+        falliti per mezz'ora invece che per minuto).
+\end{itemize}
+Algoritmi del corso: \textbf{one-class SVM}; basati su distanza/densità: \textbf{LOF} (Local Outlier Factor); \textbf{clustering}
+(k-means, DBSCAN); \textbf{PCA} (per la riduzione/rappresentazione dei dati, non come rilevatore); \textbf{Isolation Forest}.
+
+% =====================================================================
+\section{Support Vector Machine e one-class SVM}
+\subsection{SVM}
+Nate nel 1995, per anni più usate delle reti neurali (più semplici, scalabili, con solide basi matematiche).
+\begin{definizione}[SVM]
+Algoritmo \textbf{supervisionato} per classificazione (e outlier detection) che trova l'\textbf{iperpiano} che separa le classi
+\textbf{massimizzando il margine}:
+\begin{itemize}
+  \item l'iperpiano è la funzione di decisione lineare $f(\mathbf{x}) = \mathbf{w}^T\mathbf{x} + b$;
+  \item il \textbf{margine} è la distanza tra l'iperpiano e i punti più vicini (delle due classi), da massimizzare.
+\end{itemize}
+\end{definizione}
+\begin{esempio}[quale iperpiano?]
+Molti iperpiani $B_1, B_2, \ldots, B_n$ separano quadrati e cerchi. Si sceglie $B_1$ perché ha il \textbf{margine massimo}: è il più robusto.
+Con $B_2$, un punto vicino al confine (``passi l'esame per un soffio'') cambierebbe classe per un piccolo spostamento.
+\end{esempio}
+
+\subsection{Il kernel trick}
+Se i dati non sono linearmente separabili, si \textbf{trasformano in uno spazio a più dimensioni} dove lo diventano (es.\ con una funzione
+polinomiale che combina le feature). Non sempre la separazione sarà perfetta: l'obiettivo è fare meno errori possibile. Il confine lineare
+nello spazio trasformato, riproiettato nello spazio originale, appare curvo.
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Kernel} & \textbf{Caratteristiche}\\
+\midrule
+Lineare & prodotto scalare, nessuna trasformazione; raro, solo se i dati sono già linearmente separabili\\
+Polinomiale & combinazioni di feature con un polinomio di grado $d$; raro, solo con relazioni polinomiali note\\
+RBF (gaussiano) & funzione esponenziale con parametro $\gamma$ (alta similarità tra punti vicini); il \textbf{più usato}, crea confini molto non lineari\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{One-class SVM}
+\begin{definizione}[one-class SVM]
+Variante della SVM pensata per \textbf{outlier, anomaly o novelty detection}. Lavora su \textbf{una sola classe}: non riceve label (la funzione
+non ha nemmeno un argomento per passarle), quindi non è supervisionata. Crea un confine che descrive al meglio i \textbf{dati normali}; i punti
+\textbf{fuori dal confine} sono anomalie. Con un kernel funziona anche su distribuzioni complesse e non lineari.
+\end{definizione}
+
+\textbf{Parametri principali}
+\begin{itemize}
+  \item \textbf{kernel} (come mappare i dati) e i suoi parametri ($\gamma$ per RBF, $d$ per il polinomiale);
+  \item $\bm{\nu}$ (\en{nu}): la \textbf{frazione attesa di outlier}. Il modello cerca un confine che contenga più punti possibile lasciandone
+        fuori circa una frazione $\nu$.
+\end{itemize}
+Con $\nu$ alto (es.\ 0,5) il modello considera anomalo metà dei punti e stringe il confine attorno alla zona più densa; con $\nu$ piccolo lascia
+fuori pochi punti e il confine si \textbf{allarga}.
+\begin{verifica}
+La slide scrive ``the smaller, the fewer outliers and the narrower the boundaries'': ``fewer outliers'' è corretto, ``narrower'' va letto
+con cautela, perché lasciando fuori meno punti la regione normale diventa più ampia.
+\end{verifica}
+
+\subsection{Due modi di usarla}
+\begin{enumerate}
+  \item \textbf{``Supervised'' (novelty detection)}: si addestra \textbf{solo su campioni normali} (perché ho poche label, normali e anomale, troppo
+        poche per un classificatore). Si imposta un $\nu$ piccolo, il confine si stringe attorno al normale; a inferenza i nuovi punti fuori sono
+        novità/anomalie. Il classificatore \textbf{non conosce} le label: le ho usate solo per scegliere i dati di training. Attenzione: se ci sono più
+        ``normalità'', quelle rare possono risultare anomale.
+  \item \textbf{Unsupervised (outlier/anomaly detection)}: si addestra su \textbf{normali e anomali insieme}, senza label (la vita reale). Serve
+        un'idea della frazione di anomalie ($\nu$ = 50\%, 20\%, 10\%?): il confine conterrà circa $1-\nu$ dei punti.
+\end{enumerate}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X X}
+\toprule
+& ``Supervised'' & Unsupervised\\
+\midrule
+Label & solo quelle della classe normale (per scegliere i dati) & nessuna\\
+Dati di training & solo campioni normali & normali + anomali mescolati\\
+Anomalie & escluse dal training & devono essere rare e ben separate\\
+Obiettivo & confine della classe normale & confine assumendo che la maggior parte sia normale\\
+Uso tipico & label del normale disponibili; cercare nuova normalità & outlier detection su dati grezzi non etichettati\\
+Pro & più accurata se le label sono pulite; valutazione robusta (le label servono a misurare le prestazioni) & nessuna label; adatta alla realtà\\
+Limiti & servono label normali affidabili; le anomalie non si possono usare in training & assume anomalie rare e distinte; peggiora con dati rumorosi\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{esempio}[perché le anomalie in training possono aiutare]
+Addestrando solo sul normale con $\nu$ = 1\%, il confine si stringe attorno al 99\% dei punti normali e lascia fuori anche qualche normale.
+Se invece sapessi che le anomalie sono molto lontane, includendole il confine si ``rilasserebbe'' un po' attorno al normale.
+\end{esempio}
+La one-class SVM individua campioni \textbf{globalmente isolati} e può avere problemi con il rumore.
+
+% =====================================================================
+\section{Clustering per l'anomaly detection}
+\begin{definizione}[clustering]
+Metodo \textbf{descrittivo} non supervisionato che trova gruppi (cluster) di punti simili tra loro e diversi da quelli degli altri gruppi:
+\textbf{distanza intra-cluster piccola}, \textbf{distanza inter-cluster grande}.
+\end{definizione}
+Il clustering raggruppa, non trova anomalie: lo score va costruito (DBSCAN fa eccezione, perché etichetta il rumore). Le anomalie si
+riconoscono come:
+\begin{enumerate}
+  \item \textbf{cluster piccoli} con \textbf{alta distanza inter-cluster} (lontani dagli altri);
+  \item punti con \textbf{alta distanza intra-cluster}: appartengono a un cluster ma sono lontani dal centro;
+  \item punti che \textbf{non appartengono a nessun cluster} (es.\ il ``rumore'' di DBSCAN).
+\end{enumerate}
+
+\subsection{K-means}
+\begin{definizione}[k-means]
+Algoritmo di clustering \textbf{basato su centroidi} e \textbf{partizionale}: divide i dati in $K$ cluster \textbf{distinti e non
+sovrapposti}.
+\begin{itemize}
+  \item ogni cluster è rappresentato dalla \textbf{media} dei suoi punti (centroide), o da un punto reale (\en{medoid});
+  \item \textbf{ogni punto appartiene a un cluster}: un punto senza cluster è impossibile;
+  \item funziona bene con cluster \textbf{sferici e di dimensioni simili};
+  \item minimizza la distanza intra-cluster.
+\end{itemize}
+Proposto da Steinhaus (1956), formalizzato da MacQueen (1967).
+\end{definizione}
+
+\textbf{Come funziona} (slide 5, p.~28). Ogni cluster è associato a un centroide e ogni punto è assegnato al cluster del centroide più
+vicino; l'algoritmo base:
+\begin{enumerate}
+  \item scegli $K$ centroidi iniziali (spesso a caso);
+  \item ripeti: assegna ogni punto al centroide più vicino; ricalcola ogni centroide come media dei suoi punti;
+  \item fino a quando i centroidi non cambiano (o cambiano cluster pochi punti).
+\end{enumerate}
+\begin{itemize}
+  \item Serve fissare $K$ e una \textbf{misura di distanza} (euclidea, similarità coseno, correlazione\ldots; nel corso: euclidea).
+  \item Converge per le misure comuni; gran parte della convergenza avviene nelle prime iterazioni.
+  \item Complessità $O(n \cdot K \cdot I \cdot d)$: $n$ punti, $K$ cluster, $I$ iterazioni, $d$ attributi.
+\end{itemize}
+\begin{verifica}
+Nella slide 5, p.~28 l'algoritmo base compare solo come figura (``the basic algorithm is very simple''), non leggibile nel testo estratto:
+i tre passi sopra sono la formulazione standard e non sono stati commentati a lezione.
+\end{verifica}
+
+\subsubsection{L'importanza dell'inizializzazione}
+I centroidi iniziali sono casuali: due esecuzioni con lo stesso $K=3$ possono dare un clustering \textbf{ottimo} e uno \textbf{sub-ottimo}
+(es.\ due cluster veri uniti e uno spezzato). \textbf{Soluzione}: eseguire k-means più volte con lo stesso $K$ e tenere il risultato migliore.
+
+\subsubsection{Come scegliere $K$}
+\begin{definizione}[SSE --- Sum of Squared Error]
+Per ogni punto l'errore è la distanza dal centroide del suo cluster; si elevano al quadrato e si sommano:
+\[
+\mathrm{SSE} = \sum_{i=1}^{K}\sum_{x\in C_i}\mathrm{dist}^2(m_i, x)
+\]
+dove $m_i$ è il centroide (la media) del cluster $C_i$. Cluster densi $\Rightarrow$ SSE piccolo.
+\end{definizione}
+\begin{itemize}
+  \item A parità di $K$ si sceglie il clustering con SSE minore.
+  \item Aumentando $K$ l'SSE scende sempre (con $K=1$ trovi solo il centro dei dati; con $K = n$ è zero). Un buon clustering con $K$ piccolo può
+        avere SSE minore di un cattivo clustering con $K$ grande.
+  \item \textbf{Metodo del gomito} (\en{elbow}): si traccia l'SSE in funzione di $K$ e si sceglie il punto in cui il guadagno di un centroide in
+        più diventa trascurabile (``3 o 4'', non 10: ci si può muovere un po' attorno al gomito). Più cluster = più cluster da studiare, e senza label
+        sono difficili da interpretare.
+\end{itemize}
+\begin{attenzione}[SSE non monotono]
+Se nel grafico l'SSE \textbf{risale} per un certo $K$, probabilmente k-means è stato eseguito una sola volta e un'inizializzazione sfortunata
+ha creato un \textbf{cluster vuoto} (centroide in una zona senza punti): l'SSE è calcolato di fatto con un cluster in meno. Rieseguire k-means.
+\end{attenzione}
+
+\subsubsection{K-means per l'anomaly detection}
+\begin{nota}[Non spiegato nelle registrazioni]
+Da qui alla fine degli algoritmi shallow (slide 5, pp.\ 33--57) il testo segue le slide: la lezione registrata del \rif{2026-11-02}{02/11} si
+interrompe qui e quella del \rif{2026-11-09}{09/11} applica questi metodi nel notebook dandone per vista la teoria.
+\end{nota}
+Si addestra k-means (se possibile solo sui normali), si calcola la distanza di ogni punto dal centroide del suo cluster e la si usa come
+score (punti lontani = alta distanza intra-cluster); in più si cercano i \textbf{cluster piccoli}, magari lontani dagli altri, che possono
+rappresentare eventi rari (slide 5, p.~33).
+
+\subsection{Validare un clustering}
+Slide 5, pp.\ 40--43.
+\begin{itemize}
+  \item \textbf{Indici esterni}: confronto con label fornite dall'esterno (entropia, purezza, metriche di classificazione).
+  \item \textbf{Indici interni}: solo i dati. \textbf{Coesione} $= \mathrm{WSS} = \sum_i\sum_{x\in C_i}(x-m_i)^2$ (l'SSE);
+        \textbf{separazione} $= \mathrm{BSS} = \sum_i |C_i|\,(m-m_i)^2$, con $m$ media globale.
+\end{itemize}
+\begin{definizione}[silhouette]
+Per il punto $i$: $a(i)$ = dissimilarità media dagli altri punti del suo cluster, $b(i)$ = minima dissimilarità media verso un altro cluster;
+\[
+s(i) = \frac{b(i)-a(i)}{\max\{a(i),\,b(i)\}} \in [-1, 1]
+\]
+Vicino a 1: ben assegnato; negativo: nel cluster sbagliato. La media su un cluster misura quanto è compatto; la media su tutto il dataset
+la qualità del clustering.
+\end{definizione}
+
+\subsection{DBSCAN}
+Clustering \textbf{basato sulla densità} (slide 5, pp.\ 34--39 e 44): densità = numero di punti entro un raggio $\varepsilon$.
+\begin{itemize}
+  \item \textbf{Core point}: almeno \code{MinPts} punti entro $\varepsilon$ (interno di un cluster).
+  \item \textbf{Border point}: meno di \code{MinPts} vicini, ma nel vicinato di un core point.
+  \item \textbf{Noise point}: né core né border $\Rightarrow$ outlier, potenziale anomalia.
+\end{itemize}
+Non serve fissare il numero di cluster, trova cluster di forma arbitraria ed è resistente al rumore. Funziona male con densità diverse
+tra i cluster: \textbf{la scelta di $\varepsilon$ cambia quali punti sono outlier}. Scelta dei parametri: nei cluster il $k$-esimo vicino è a
+distanza simile per tutti i punti, nel rumore è più lontano; da qui il grafico delle distanze ordinate (\en{k-distance plot}).
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}l X X@{}}
+\toprule
+ & \textbf{K-means} & \textbf{DBSCAN}\\
+\midrule
+N.\ cluster & $K$ da fissare & trovato da solo\\
+Rumore & ogni punto in un cluster & etichettato come rumore\\
+Forma & sferica, dimensioni simili & arbitraria\\
+Sensibilità & media ($K$, inizializzazione) & alta ($\varepsilon$ critico, MinPts medio)\\
+Scalabilità & molto scalabile & più lento\\
+Score di anomalia & distanza dal centroide, cluster isolati & rumore / bassa densità\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Entrambi soffrono in alta dimensionalità.
+
+% =====================================================================
+\section{Local Outlier Factor (LOF)}
+Slide 5, pp.\ 45--49. Idea: un outlier è \textbf{meno denso dei suoi vicini} (come in DBSCAN, ma con uno score graduato). Per un punto $p$
+con insieme $O$ dei suoi $k$ vicini:
+\begin{gather*}
+\text{reach-dist}(p,o) = \max\{k\text{-dist}(o),\, d(p,o)\}\\
+\mathrm{LRD}(p) = \frac{1}{\operatorname{avg}_{o\in O}\ \text{reach-dist}(p,o)}, \qquad
+\mathrm{LOF}(p) = \frac{\operatorname{avg}_{o\in O}\ \mathrm{LRD}(o)}{\mathrm{LRD}(p)}
+\end{gather*}
+\begin{itemize}
+  \item LOF $<1$: più denso dei vicini (dentro un cluster); $\approx 1$: densità simile, non outlier; $>1$: più sparso, potenziale outlier.
+  \item Rispetto a k-means (assunzioni globali, niente rumore) e DBSCAN (rumore ma nessuno score) dà uno \textbf{score continuo} e trova anomalie
+        \textbf{locali} in zone di densità diversa (es.\ login anomali da un blocco di IP frequente).
+  \item Limiti: sensibile a $k$, costoso (molte distanze), poco scalabile, peggiora in alta dimensionalità.
+\end{itemize}
+
+% =====================================================================
+\section{Dimensionalità: PCA e t-SNE}
+\subsection{La maledizione della dimensionalità}
+Slide 5, p.~50, che avverte: \emph{tutti} i metodi visti finora sono basati sulle distanze. Al crescere delle dimensioni i dati diventano
+sparsi e la differenza tra distanza massima e minima tra coppie di punti si riduce (esperimento della slide: 500 punti casuali): densità e
+distanza, alla base di clustering e outlier detection, perdono significato.
+
+\subsection{PCA}
+Slide 5, pp.\ 51--53. Introdotta da Pearson (1901) e Hotelling (1933). La PCA trova nuovi assi \textbf{ortogonali} (componenti), combinazioni
+lineari delle feature, ordinati per varianza catturata: è una \textbf{rotazione} degli assi originali. Serve a ridurre le dimensioni, trovare
+pattern e visualizzare. Uso nel corso:
+\begin{enumerate}
+  \item varianza spiegata da ogni componente;
+  \item curva della varianza cumulata al crescere del numero di componenti;
+  \item ginocchio della curva;
+  \item trasformare il dataset tenendo quel numero di componenti.
+\end{enumerate}
+Il numero massimo di componenti è pari al numero di feature. Nel corso la PCA serve a ridurre e rappresentare i dati, non come rilevatore.
+
+\subsection{t-SNE}
+\begin{nota}[Non spiegato nelle registrazioni]
+La teoria di t-SNE è nella slide 6, pp.\ 44--48; a lezione (\rif{2026-11-09}{09/11}) se ne è visto solo l'uso nel notebook.
+\end{nota}
+Proiezione \textbf{non lineare} per la visualizzazione:
+\begin{enumerate}
+  \item calcola la similarità tra tutte le coppie di punti nello spazio originale con un kernel gaussiano (probabilità che siano vicini);
+  \item cerca una mappa in 2D/3D che preservi queste similarità, minimizzando con il gradient descent la divergenza di
+        Kullback--Leibler tra le due distribuzioni.
+\end{enumerate}
+Espande le regioni dense e comprime quelle sparse; separa bene cluster ben separati, ma alcuni cluster visivi possono essere
+\textbf{falsi} e dipendono dai parametri. Costo $O(n^2)$ in tempo e memoria. \textbf{Perplexity} bassa (5--30): struttura locale; alta (50+):
+più globale, e più lenta.
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{PCA} & \textbf{t-SNE}\\
+\midrule
+Tipo & lineare & non lineare\\
+Preserva & varianza globale & similarità locali\\
+Uso & riduzione del rumore, feature extraction & visualizzazione, clustering, AD\\
+Costo / interpretazione & basso / facile & alto / difficile\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\section{Isolation Forest}
+Slide 5, pp.\ 54--57. Algoritmo ad alberi non supervisionato che \textbf{isola le anomalie} invece di modellare la normalità, lavorando un
+punto alla volta. Ipotesi: le anomalie sono \textbf{poche e diverse}, quindi bastano pochi tagli per separarle.
+\begin{itemize}
+  \item Costruisce molti alberi binari casuali: a ogni nodo sceglie a caso una feature e una soglia, fino a isolare il punto o raggiungere la
+        profondità massima.
+  \item Score = \textbf{lunghezza media del percorso} sugli alberi: percorso corto $\Rightarrow$ isolamento facile $\Rightarrow$ più anomalo.
+  \item Nessuna distanza né stima di densità: funziona in alta dimensionalità, è robusto alle feature irrilevanti, scala linearmente;
+        sensibilità ai parametri media (numero di alberi, dimensione del sottocampione).
+  \item Limiti: i tagli casuali possono perdere strutture sottili, servono abbastanza alberi per score stabili, è meno interpretabile dei
+        metodi a distanza.
+\end{itemize}
+
+% =====================================================================
+\section{Deep learning per l'anomaly detection}
+\begin{nota}[Non spiegato nelle registrazioni]
+Questa sezione segue la slide 6 (pp.\ 2--43): la lezione del \rif{2026-11-09}{09/11} ne usa i concetti nel notebook (autoencoder, encoder
+come estrattore di feature) senza spiegarli.
+\end{nota}
+Perché il deep: rappresentazioni non lineari e gerarchiche, dati complessi (contesto, anomalie collettive), architetture per ogni tipo di
+dato (RNN, GNN, CNN, NLP) anche combinate. Limiti: costo (con le novità può servire riaddestrare) e interpretabilità (servono LIME,
+Deep SHAP). Il deep learning serve a due cose: \textbf{imparare la normalità} (ricostruire bene ciò che è normale) e \textbf{imparare una
+rappresentazione} (l'encoder come estrattore di feature per un altro algoritmo).
+
+\subsection{Tre framework}
+Slide 6, pp.\ 2--13 (dalla rassegna di Pang et al., 2021).
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}l X X@{}}
+\toprule
+\textbf{Framework} & \textbf{Idea} & \textbf{Pro / contro}\\
+\midrule
+Learning feature representation & rete come estrattore di feature indipendente ($Z=f(X;\phi)$, pre-addestrata o encoder di un AE), poi un
+metodo tradizionale su $Z$ & semplice, modelli pronti, più espressiva della PCA / estrazione e scoring separati: si perde informazione
+discriminante; i pre-addestrati non generalizzano a ogni dominio\\
+Feature representation of normality & encoder + decoder addestrati insieme; score $s_x = f'(x, \phi^*, W^*)$, es.\ errore di ricostruzione &
+riduzione di dimensione potente / limiti della misura di anomalia scelta\\
+End-to-end anomaly score learning & la rete $\tau(x;\phi)$ produce direttamente lo score & più efficace / servono anomalie etichettate
+o sintetiche; può non generalizzare ad anomalie mai viste\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Nel framework \en{feature representation of normality} la slide 6 (pp.\ 8--12) riprende anche l'idea contrastiva del cap.~\ref{cap:embedding}:
+ottimizzare lo spazio $Z$ in modo che le viste dello stesso oggetto (anchor e positivi) siano vicine e i negativi lontani; un oggetto nuovo
+ma simile (un altro scoiattolo) resta distante dall'anchor, ``ma più vicino della tigre''.
+
+\subsection{L'autoencoder}
+Slide 6, pp.\ 14--27. Encoder $f(X;\phi)$ che porta l'input nel \textbf{bottleneck} $Z$ (spazio latente) e decoder $\psi(Z;W)$ che ricostruisce
+$\hat x \approx x$. Domande di progetto: quale architettura per encoder e decoder (dipende dal dato: model engineering) e quanto grande $Z$.
+\begin{itemize}
+  \item \textbf{Undercomplete}: $Z$ più piccolo dell'input, comprime e tiene le feature salienti togliendo rumore; \textbf{overcomplete}: $Z$
+        più grande, rappresentazione più ricca.
+  \item La qualità della ricostruzione si misura con la loss: MSE se le feature sono numeriche (o categoriche con una distanza sensata, es.\ ID
+        sequenziali); altrimenti MSE sulle numeriche + CE sulle categoriche (slide 6, p.~24):
+        \[
+        \mathcal{L} = \lVert x_{num} - \hat x_{num}\rVert^2 + \sum_{j} \mathrm{CE}\big(x^{cat}_j, \hat x^{cat}_j\big)
+        \]
+  \item \textbf{PCA vs AE}: la PCA ha soluzione unica ma è solo lineare; l'AE cattura pattern non lineari grazie alle attivazioni, ma
+        può imparare l'identità.
+  \item \textbf{Denoising AE}: ricostruisce il dato pulito da una versione corrotta $\Rightarrow$ rappresentazioni robuste.
+        \textbf{Variational AE}: nello spazio latente ogni punto è una \textbf{distribuzione}; riduce l'overfitting e permette di generare
+        dati simili.
+\end{itemize}
+
+\subsection{Casi di studio delle slide}
+Slide 6, pp.\ 28--42.
+\begin{itemize}
+  \item \textbf{Modello pre-addestrato} (video): feature VGG su due finestre di frame consecutive, classificatore lineare addestrato
+        iterativamente a distinguerle togliendo ogni volta le feature più discriminanti; l'accuratezza media è lo score (frame anomali più
+        distinguibili). Funziona dove esistono buoni modelli pre-addestrati; il corso si concentra sul secondo scenario.
+  \item \textbf{VAE} su KDD99 ($Z$ di 15, encoder e decoder FFNN a 2 layer) addestrato anche con anomalie: piccoli miglioramenti perché il
+        dataset è semplice.
+  \item \textbf{LSTM autoencoder} su InSDN (flussi SDN, 77 feature; encoder 128-64-32-16, $Z$ di 16) addestrato solo sui normali, poi
+        one-class SVM sullo spazio latente e confronto con la soglia sull'errore di ricostruzione: la non linearità dell'OC-SVM aiuta.
+  \item \textbf{AE e AE convoluzionale} su NSL-KDD, solo normali, score = MSE: meglio di k-NN e SVM, e molto più facili da riaddestrare.
+\end{itemize}
+
+% =====================================================================
+\section{Validare l'anomaly detection}
+Slide 6, pp.\ 49--52 (non spiegato nelle registrazioni).
+\begin{itemize}
+  \item \textbf{Con le label} (non usate in training): precision (falsi positivi costosi), recall (anomalie mancate critiche), F1 (entrambi),
+        ROC-AUC (capacità di separare, ma ingannevole con dati sbilanciati); per gli score, metriche di \textbf{ranking} come l'NDCG (le anomalie
+        vere sono in cima alla lista?).
+  \item \textbf{Senza label}: analisi visuale (PCA, t-SNE: le anomalie sono isolate?), stabilità del ranking tra esecuzioni (es.\ Rank-Biased
+        Overlap), valutazione di esperti di dominio, analisi della distribuzione dell'errore di ricostruzione (pochi punti con errore alto, da
+        ispezionare a mano).
+\end{itemize}
+
+% =====================================================================
+\section{Il notebook su KDD Cup 1999: dati e preparazione}
+La lezione del \rif{2026-11-09}{09/11} è interamente dedicata al notebook che servirà per il Lab 3 (cap.~\ref{cap:lab3}). Il docente non
+commenta ogni riga, solo ``cosa fare e come leggere i risultati'': il codice in sé è semplice. I numeri dei risultati sono quelli della
+versione del notebook pubblicata sul portale, che in qualche punto differisce da quella mostrata in aula.
+
+\begin{esame}
+Il notebook è \textbf{solo dimostrativo}: nessun iperparametro è ottimizzato e non c'è una vera fase di validazione. Nel lab
+\textbf{dovete} fare training, tuning sul validation set e solo alla fine valutazione sul test.
+\end{esame}
+
+\textbf{KDD Cup 1999}: ogni riga è una connessione (flusso) tra client e server, descritta da 41 feature generiche (protocollo,
+servizio, flag, byte trasmessi, tassi di errore\ldots), \textbf{non} pensate per l'anomaly detection. La label indica il tipo di
+attacco (o \code{normal}).
+
+\subsection{Prima di tutto: studiare il dataset}
+\begin{itemize}
+  \item \textbf{Duplicati}: eliminandoli il dataset scende a circa un terzo. Gli esperimenti ripetuti dai ricercatori producevano
+        gli stessi dati. Si tolgono per non sovrarappresentare singoli punti, a meno di farlo apposta e consapevolmente.
+  \item \textbf{Valori mancanti}: nessuno.
+  \item \textbf{Feature categoriche}: \code{protocol\_type} (soprattutto TCP, poi UDP, pochissimo ICMP: plausibile),
+        \code{service} (più di 40 valori, ma solo una dozzina usati davvero), \code{flag} (alcuni valori rarissimi).
+  \item \textbf{Label}: per lo più \code{normal}; poi \code{neptune} (SYN flood) molto frequente; molti attacchi rarissimi.
+        Con conteggi così sbilanciati conviene l'\textbf{asse y logaritmico}, o semplicemente una tabella: rappresentate i risultati in
+        modo che si veda ciò che volete mostrare.
+\end{itemize}
+
+\subsection{Le scelte di preprocessing}
+\begin{enumerate}
+  \item \textbf{Si toglie \code{neptune}} (scelta del notebook, ripetibile tenendolo): è un attacco frequentissimo che crea regioni
+        dense, quindi dal punto di vista della densità non è un'anomalia. Così le anomalie restano rare.
+  \item \textbf{Label binaria}: \code{normal} $\to 0$, qualsiasi attacco $\to 1$. Interessa trovare anomalie, non riconoscere la classe.
+\end{enumerate}
+\begin{esame}
+Non cancellate la colonna con la label originale: serve dopo per le analisi (composizione dei cluster, quali attacchi sfuggono).
+\end{esame}
+\begin{enumerate}[resume]
+  \item \textbf{Split} training/validation/test \textbf{stratificato} (circa il 6\% di anomalie in ogni set), \textbf{prima} di encoding
+        e scaling: il preprocessing si impara solo dal training.
+  \item \textbf{Ridurre le categorie}: i servizi e i flag rari confluiscono in \code{other}. Con il one-hot un vettore di 40 posizioni
+        in cui 28 sono quasi sempre 0 aggiunge solo zeri che confondono il modello; con ``top + other'' il vettore si accorcia e si perde
+        poco, perché categorie così rare contribuirebbero comunque poco. Alternative: embedding (cap.~\ref{cap:embedding}), o eliminare le
+        righe (qui no: le righe contano). \emph{Attenzione}: la classe \code{other} diventa più eterogenea.
+\end{enumerate}
+
+\begin{lstlisting}
+df = df.drop_duplicates()
+df = df[df["label"] != "neptune"].copy()
+df["binary_label"] = (df["label"] != "normal").astype(int)   # la colonna "label" resta
+
+df_train_val, df_test = train_test_split(df, train_size=0.9, stratify=df["binary_label"])
+df_train, df_val = train_test_split(df_train_val, train_size=0.9, stratify=df_train_val["binary_label"])
+
+def reduce_categories(d):
+    d = d.copy()
+    d["service"] = d["service"].where(d["service"].isin(ALLOWED_SERVICES), "other")
+    d["flag"] = d["flag"].where(d["flag"].isin(ALLOWED_FLAGS), "other")
+    return d
+\end{lstlisting}
+
+\subsection{PCA in pratica: l'errore voluto (niente scaling)}
+Il \code{ColumnTransformer} applica trasformazioni diverse a gruppi di colonne. Prima versione: one-hot sulle categoriche e
+\code{passthrough} (nessuna trasformazione) sulle numeriche.
+
+\begin{attenzione}[99,9\% della varianza in una componente]
+La varianza spiegata cumulata dice che \textbf{una sola} componente spiega il 99,9\% della varianza, e lo scatter 2D mostra punti
+allineati su assi enormi. O quella feature è importantissima, o c'è un errore: \textbf{mancava la normalizzazione}. Una feature in byte
+(milioni) ha una varianza enormemente più grande di un RTT in decine di millisecondi; la PCA ``spiega'' la varianza di quella feature e
+sembra spiegare tutto il dataset.
+\end{attenzione}
+
+Versione corretta: \code{StandardScaler} sulle numeriche, one-hot sulle categoriche, \code{fit} solo sul training.
+\begin{lstlisting}
+preprocessor = ColumnTransformer([
+    ("num", StandardScaler(), NUMERICAL_COLS),
+    ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL_COLS),
+], remainder="drop")                          # le colonne di label vengono scartate
+X_train = preprocessor.fit_transform(df_train)
+X_val, X_test = preprocessor.transform(df_val), preprocessor.transform(df_test)
+\end{lstlisting}
+Ora la prima componente spiega circa il 10\% e ne servono una ventina: si sceglie il \textbf{ginocchio} della curva (20, non 30: il
+guadagno non vale 10 feature in più, pensando alla maledizione della dimensionalità). In 2D i punti occupano tutto il piano.
+
+\subsection{t-SNE in pratica}
+Colorando i punti per label binaria o tipo di attacco si vede dove stanno.
+\begin{itemize}
+  \item Le coordinate \textbf{non hanno significato}: t-SNE preserva le similarità tra punti vicini ma deforma le distanze. Si può dire
+        ``questo gruppo sembra ben separato'', non ``quanto'' è lontano.
+  \item Attacchi raccolti in un gruppo compatto e separato: facili da trovare. Attacchi mescolati ai punti normali: difficili.
+  \item \textbf{Perplexity}: nel lab provatene un intervallo ampio (es.\ da 5 a 50 e oltre), non 1, 2, 3.
+\end{itemize}
+
+\subsection{Contaminazione e schema comune}
+La \textbf{contaminazione} è la frazione attesa di anomalie: quasi tutti i metodi ne hanno bisogno per trasformare uno score in una
+decisione. Qui si usa il valore esatto (dalle label, $\approx 6\%$); \textbf{nella realtà va stimata} da analisi preliminari.
+
+Ogni metodo del notebook segue lo stesso schema:
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Passo} & \textbf{Cosa si fa}\\
+\midrule
+Fit & addestramento sul training (le label servono solo a scegliere i dati normali nel caso semi-supervisionato)\\
+Score & uno score di anomalia: più alto = più anomalo (spesso va invertito il segno dell'output di scikit-learn)\\
+Soglia & dal modello, dalla contaminazione o da un percentile degli score di training\\
+Valutazione & solo con le label: classification report, matrice di confusione, ROC-AUC, ECDF degli score, previsioni su t-SNE\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{esame}[confronto equo]
+Nel notebook i metodi si confrontano sul \textbf{test set} solo perché nessuno è stato ottimizzato. Gli autoencoder però usano il
+validation set per monitorare il training: confrontare tutti sul validation li avvantaggerebbe. Per un confronto equo si usa un set
+che \textbf{nessun} algoritmo ha visto. Procedura corretta: tuning di ogni metodo sul validation, scelta del modello sul validation,
+\textbf{una sola} valutazione finale sul test.
+\end{esame}
+
+\begin{attenzione}[la matrice di confusione non vuol dire classificazione]
+I metodi sono non supervisionati: la matrice di confusione si usa solo per leggere più facilmente i risultati, mettendo l'output del
+metodo (``fuori dal confine'', ``rumore'', ``lontano dal centroide'') contro la ground truth.
+\end{attenzione}
+
+% =====================================================================
+\section{Il notebook: metodi shallow}
+\subsection{One-class SVM addestrata solo su dati normali (``supervisionata'' tra virgolette)}
+Il modello non vede le label: le usiamo solo per scegliere i dati normali. Kernel RBF, \code{gamma='scale'}, $\nu$ molto piccolo
+(0,001) ma non zero: anche le label possono essere sbagliate, quindi qualche punto ``normale'' rumoroso va tollerato.
+\begin{lstlisting}
+ocsvm = OneClassSVM(kernel="rbf", gamma="scale", nu=0.001)
+ocsvm.fit(X_train_normal_only)
+scores_test = -ocsvm.decision_function(X_test)            # distanza dal confine: > 0 = fuori
+y_pred_test = (ocsvm.predict(X_test) == -1).astype(int)   # -1 = fuori dal confine = anomalia
+\end{lstlisting}
+\begin{itemize}
+  \item Sulla classe normale le metriche sono buone, ma è la maggioritaria: conta poco. Sulle anomalie: precision buona ($\approx 0{,}88$),
+        recall migliorabile (circa un terzo delle anomalie sfugge); ROC-AUC $\approx 0{,}88$.
+  \item La distribuzione della \textbf{distanza dal confine}: i normali sono sotto 0 (dentro), la maggior parte delle anomalie sopra.
+        Quelle dentro il confine sono gruppi interi (es.\ \code{back}, \code{warezclient}) che somigliano a normale traffico HTTP/FTP.
+\end{itemize}
+
+\subsection{One-class SVM addestrata su tutti i dati (non supervisionata)}
+Se non so chi è normale, addestro su tutto il training e imposto $\nu$ = contaminazione. ROC-AUC quasi uguale (in aula da $\sim0{,}87$
+a $\sim0{,}86$), ma precision e recall delle anomalie crollano (F1 da $\approx 0{,}74$ a $\approx 0{,}48$): alcune anomalie sono vicine ai
+normali o formano gruppi abbastanza densi da essere inclusi nel confine, mentre $\nu$ costringe a lasciare fuori punti rari ma normali.
+\textbf{Il non supervisionato è più difficile}. Nel lab: provate a variare la quantità di anomalie nel training.
+
+\subsection{LOF}
+\begin{lstlisting}
+lof = LocalOutlierFactor(n_neighbors=10, contamination=CONTAMINATION, novelty=True)
+lof.fit(X_train)
+scores_test = -lof.score_samples(X_test)       # scikit-learn restituisce il LOF negato
+\end{lstlisting}
+Parametro principale: il numero di vicini con cui confrontare la densità. La contaminazione fissa la soglia (in pratica il percentile);
+in alternativa si guarda la curva ordinata dei LOF score e si sposta la soglia a mano: più alta = meno anomalie trovate ma più normali
+tenuti. Quale scelta è migliore dipende dalle prestazioni finali e dall'uso.
+
+\textbf{Risultato: pessimo.} In aula trova 36 anomalie su più di 600; nel notebook la ROC-AUC è $\approx 0{,}45$, peggio del caso.
+Molti attacchi (\code{teardrop}, \code{smurf}, \code{back}, \code{satan}) sono raffiche di connessioni quasi identiche: gruppi
+\textbf{piccoli ma densi}. Con $k=10$ un loro punto ha vicini densi quanto lui, quindi LOF $\approx 1$; intanto le connessioni normali
+isolate prendono score alti.
+\begin{attenzione}[un attacco non è per forza un outlier di densità]
+Un attacco etichettato non è per forza un outlier di densità. Il dataset sembra adatto ad anomalie \textbf{globali}, non locali: prima
+di scartare il metodo verificate se è sbagliata la metodologia o solo la configurazione (es.\ \code{n\_neighbors} più grande dei gruppi
+di attacchi).
+\end{attenzione}
+
+\subsection{K-means: distanza dal centroide}
+\begin{enumerate}
+  \item \textbf{Scegliere $K$} con l'SSE per $K$ da 2 a 20. Nel grafico in aula l'SSE risale: probabile cluster vuoto. Andava fatta almeno
+        un'altra esecuzione: \textbf{3--10 run per ogni $K$}. Il gomito non è netto; si sceglie $K=10$ anche per costo: con 50 cluster
+        bisognerebbe poi validarli e interpretarli tutti.
+  \item \textbf{Indici interni} (solo le feature): silhouette. Silhouette media bassa ($\approx 0{,}23$): struttura debole; alcuni
+        cluster hanno punti con silhouette negativa (starebbero meglio in un altro cluster).
+  \item \textbf{Indici esterni} (label originali, solo per interpretare): tabella cluster $\times$ label, normalizzata per riga. I cluster
+        grandi sono per oltre il 90\% normali; alcuni cluster piccoli sono quasi solo attacchi (es.\ un cluster è 100\% \code{teardrop}:
+        circa 750 punti, tutti lì e solo lì). Serve guardare insieme purezza e \textbf{dimensione}: un cluster ``puro'' di 5 punti dice poco.
+  \item \textbf{Score} = distanza dal centroide; soglia = percentile del training pari alla contaminazione.
+\end{enumerate}
+\begin{lstlisting}
+_, dist_train = pairwise_distances_argmin_min(X_train, kmeans.cluster_centers_)
+_, dist_test = pairwise_distances_argmin_min(X_test, kmeans.cluster_centers_)
+threshold = np.percentile(dist_train, 100 * (1 - CONTAMINATION))
+y_pred_test = (dist_test > threshold).astype(int)
+\end{lstlisting}
+Risultato: meglio di LOF (ROC-AUC $\approx 0{,}88$), ma F1 delle anomalie $\approx 0{,}47$. I normali tendono a stare vicini al centroide,
+le anomalie più lontane; però gli attacchi che formano un \textbf{cluster tutto loro} (come \code{teardrop}) sono vicinissimi al loro
+centroide e sfuggono. Usare anche la dimensione del cluster come segnale li catturerebbe; e un gruppo così denso e separato non lo
+troverebbe nemmeno un metodo basato sulla densità locale.
+
+\subsection{DBSCAN: i punti di rumore}
+DBSCAN restituisce già $-1$ per il rumore. Con \code{min\_samples} = 4 si sceglie $\varepsilon$ con il \textbf{k-distance plot}: distanza
+di ogni punto dal suo $k$-esimo vicino, ordinata; si cerca il ginocchio. In aula la curva non convince: proverei un numero di vicini un
+po' più alto (6, 9, 10; non 100).
+\begin{lstlisting}
+dbscan = DBSCAN(eps=0.15, min_samples=4).fit(X_train)
+# DBSCAN non ha predict: un nuovo punto e' normale se dista <= eps da un core point
+nn_core = NearestNeighbors(n_neighbors=1).fit(dbscan.components_)
+scores_test = nn_core.kneighbors(X_test)[0][:, 0]
+y_pred_test = (scores_test > 0.15).astype(int)
+\end{lstlisting}
+Risultato: \textbf{pessimo}, precision delle anomalie molto bassa: molti punti normali sono ``rumore'', cioè non hanno altri punti vicini.
+Nel notebook, con $\varepsilon=0{,}15$, centinaia di cluster e circa il 30\% del training come rumore (F1 $\approx 0{,}15$). La curva senza
+ginocchio è la maledizione della dimensionalità in pratica: in 50+ dimensioni le distanze crescono in modo uniforme.
+
+\subsection{Isolation Forest}
+OCSVM con kernel RBF, LOF, k-means e DBSCAN si basano tutti sulle \textbf{distanze}, e con 50+ feature (nessuna riduzione di dimensione)
+ne soffrono. L'Isolation Forest no.
+\begin{lstlisting}
+iforest = IsolationForest(n_estimators=200, contamination=CONTAMINATION)
+iforest.fit(X_train)
+scores_test = -iforest.score_samples(X_test)   # piu' alto = piu' anomalo
+\end{lstlisting}
+\begin{itemize}
+  \item \code{n\_estimators}: né troppo pochi alberi né mille (overfitting o tempi lunghi, senza bisogno).
+  \item È velocissimo. La distribuzione del numero di tagli necessari per isolare un punto: ai normali ne servono di solito tanti, alle
+        anomalie a volte pochi, a volte molti.
+  \item Meglio di DBSCAN; nel notebook è il migliore tra i metodi shallow interamente non supervisionati (ROC-AUC $\approx 0{,}94$,
+        F1 $\approx 0{,}52$). Il punto debole è la soglia fissa al 6\%.
+\end{itemize}
+\begin{attenzione}[la ROC-AUC può ingannare]
+Una ROC-AUC altissima può dipendere dai pochi falsi negativi su un dataset fortemente sbilanciato, come l'accuracy. Guardate anche le
+componenti: precision, recall e F1 della classe delle anomalie.
+\end{attenzione}
+
+% =====================================================================
+\section{Il notebook: autoencoder}
+Non esiste un modello pre-addestrato adatto: si addestra da zero. Prima: tensori e \code{DataLoader}.
+
+\subsection{La loss di ricostruzione mista}
+L'input mescola feature numeriche (scalate) e categoriche (one-hot), quindi la loss è mista: \textbf{errore quadratico} sulle numeriche,
+\textbf{cross-entropy} su ogni gruppo one-hot, e la somma è l'errore di ricostruzione. Adattatela alle feature del vostro problema.
+\begin{lstlisting}
+def per_sample_reconstruction_error(x, x_recon, categorical_dims, numerical_idx):
+    mse = torch.mean((x[:, numerical_idx] - x_recon[:, numerical_idx]) ** 2, dim=1)
+    ce = torch.zeros(x.shape[0])
+    for start, end in categorical_dims:                  # un blocco per feature categorica
+        target = torch.argmax(x[:, start:end], dim=1)    # la CE vuole l'indice della classe
+        ce += F.cross_entropy(x_recon[:, start:end], target, reduction="none")
+    return mse + ce                                      # anche lo score di anomalia
+\end{lstlisting}
+Il modello semplice: encoder \code{input $\to$ 64 $\to$ 8} e decoder simmetrico, ReLU, Adam, 30 epoch, batch 64.
+
+\subsection{Addestrare solo sui normali o su tutti?}
+\begin{itemize}
+  \item \textbf{Solo normali}: la loss di training scende; sul validation l'errore dei normali è piccolo, quello delle anomalie
+        \textbf{cresce} con le epoch. Il modello si specializza sul traffico normale: questa separazione (nel notebook circa 30 volte) è ciò
+        che rende l'errore di ricostruzione un buon score.
+  \item \textbf{Normali + anomalie}: errore di training un po' più alto; sul validation l'errore delle anomalie \textbf{scende}, perché il
+        modello impara a ricostruire anche parte di esse, e le due curve si avvicinano: lo spazio si ``comprime''.
+\end{itemize}
+
+\subsection{Score, soglia e risultati}
+Si confronta l'\textbf{ECDF} dell'errore di ricostruzione di normali e anomalie su training, validation e test. Le curve dei tre set sono
+quasi uguali perché vengono dalla stessa distribuzione; il test qui si guarda solo per mostrarlo, non per decidere. Con il modello ``solo
+normali'' i normali hanno errore basso e la maggior parte delle anomalie (rosse) alto. La soglia si fissa su training o validation
+(nel notebook: percentile del training pari alla contaminazione).
+\begin{lstlisting}
+scores_train = reconstruction_scores(ae_normal, X_train_t)
+threshold = np.percentile(scores_train, 100 * (1 - CONTAMINATION))
+y_pred_test = (reconstruction_scores(ae_normal, X_test_t) > threshold).astype(int)
+\end{lstlisting}
+\begin{itemize}
+  \item \textbf{AE solo normali}: pochi normali classificati male, numero di anomalie trovate ragionevole. Nel notebook è il miglior metodo
+        (ROC-AUC $\approx 0{,}99$, F1 $\approx 0{,}75$); circa un quarto delle anomalie ha però un errore basso come il traffico normale e resta
+        invisibile con qualunque soglia.
+  \item \textbf{AE normali + anomalie}: circa il 60\% delle anomalie di training finisce sotto la soglia; più falsi positivi e meno anomalie
+        trovate (F1 $\approx 0{,}41$). Messaggio: \textbf{inserire anomalie nel training peggiora} le prestazioni; ciò che il modello vede in
+        training conta più del modello stesso.
+  \item Un AE più profondo con batch norm e dropout (cap.~\ref{cap:regolarizzazione}; lo si salta in aula) non migliora: il dropout
+        regolarizza e il modello ricostruisce meglio anche le anomalie. Per l'anomaly detection un modello che generalizza ``troppo'' non è
+        ciò che si vuole.
+\end{itemize}
+
+\subsection{L'encoder come estrattore di feature}
+È il framework \en{learning feature representation}: si usa solo la prima metà del modello (\code{encode}): dai dati si ottiene la
+rappresentazione nello spazio latente (8 dimensioni), che si visualizza con t-SNE. Poi si ripete la one-class SVM ``solo normali'' (stesso
+$\nu$, stesso kernel) sui vettori latenti.
+\begin{lstlisting}
+def encode(model, X_t):
+    model.eval()
+    with torch.no_grad():
+        return model.encode(X_t).cpu().numpy()
+
+Z_train_normal = encode(ae_normal, X_train_normal_t)
+ocsvm_latent = OneClassSVM(kernel="rbf", gamma="scale", nu=0.001).fit(Z_train_normal)
+\end{lstlisting}
+Risultato: buona precision, recall scarsa: la trasformazione \textbf{non aiuta} (nel notebook recall da $\approx 0{,}64$ a $\approx 0{,}47$).
+L'encoder è stato addestrato a ricostruire il normale, non a separare le anomalie: comprimendo un'anomalia la avvicina ai normali che le
+somigliano, e l'informazione che la rende anomala è proprio quella scartata dal bottleneck, cioè quella che finisce nell'errore di
+ricostruzione. Nel paper visto nelle slide (LSTM autoencoder su InSDN) la combinazione funzionava bene; qui no.
+
+% =====================================================================
+\section{Confronto finale}
+Tabella finale con tutti i metodi su validation e test. Secondo la ROC-AUC sul validation vince l'AE addestrato solo sui normali; ma la
+ROC-AUC può ingannare, quindi si guarda anche l'\textbf{F1 della classe anomala}: alto per l'AE e per la one-class SVM solo normali. Il
+docente si affida più a precision, recall e F1 che alla curva ROC.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metodo (test, versione pubblicata del notebook)} & \textbf{ROC-AUC} & \textbf{F1 anomalie}\\
+\midrule
+AE solo normali & 0,99 & 0,75\\
+AE migliorato (BN + dropout), solo normali & 0,97 & 0,72\\
+OC-SVM solo normali & 0,88 & 0,74\\
+Isolation Forest & 0,94 & 0,52\\
+OC-SVM su tutti i dati & --- & 0,48\\
+K-means (distanza dal centroide) & 0,88 & 0,47\\
+AE normali + anomalie & 0,88 & 0,41\\
+OC-SVM nello spazio latente & 0,83 & ---\\
+DBSCAN & 0,65 & 0,15\\
+LOF & 0,45 & ---\\
+\bottomrule
+\end{tabular}
+\end{center}
+Valori indicativi. Nessun metodo è stato ottimizzato: \textbf{non è un confronto equo} (LOF e DBSCAN sono molto sensibili ai parametri).
+
+\begin{sintesi}
+\begin{itemize}
+  \item Anomaly detection = pattern che deviano dall'atteso; novelty = nuovo, magari benigno. Complessità: unknowingness, rarità e
+        sbilanciamento, eterogeneità, evoluzione. Anomalie \textbf{point}, \textbf{contextual}, \textbf{collective}.
+  \item In cybersecurity le label mancano: si preferisce l'\textbf{unsupervised}; le label, se ci sono, servono \textbf{solo a valutare}.
+        Output: score (ranking, budget) o label (numero controllato da iperparametri come $\nu$ o la contaminazione).
+  \item \textbf{One-class SVM}: confine attorno al normale, $\nu$ = frazione di outlier; meglio addestrata solo sui normali.
+  \item \textbf{K-means}: SSE e gomito, più run per $K$; score = distanza dal centroide, più cluster piccoli. \textbf{DBSCAN}: core,
+        border, noise; $\varepsilon$ dal k-distance plot. \textbf{LOF}: densità relativa ai vicini, anomalie locali.
+  \item Tutti questi metodi usano distanze $\Rightarrow$ \textbf{maledizione della dimensionalità}; scalare sempre prima di PCA e metodi a
+        distanza. \textbf{Isolation Forest}: percorso corto = anomalo, niente distanze.
+  \item Deep: tre framework (feature representation, representation of normality, end-to-end score); \textbf{autoencoder} con loss
+        MSE + CE, score = errore di ricostruzione, addestrato su dati normali puliti.
+  \item Nel lab: studiare il dataset, split stratificato prima del preprocessing, tenere la label originale, intervalli ampi di
+        parametri (perplexity, $\varepsilon$, \code{n\_neighbors}, più run di k-means), tuning sul validation e \textbf{una sola} valutazione
+        sul test; non fidarsi della sola ROC-AUC.
+\end{itemize}
+\end{sintesi}

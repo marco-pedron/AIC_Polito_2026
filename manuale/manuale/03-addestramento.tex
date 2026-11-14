@@ -1,0 +1,406 @@
+\chapter{Addestramento: ottimizzazione, loss e valutazione}
+\label{cap:addestramento}
+\fonti{\rif{2026-09-30}{30/09}}{2-foundament-deep-learning, pp.\ 19--49}
+\section{Il ciclo di addestramento}
+Chiamiamo $\phi$ l'insieme di \textbf{tutti i pesi e bias} della rete. All'inizio sono casuali e vanno tarati sul
+\textbf{training set} (il validation set serve solo a verificare che i pesi funzionino anche su altri dati).
+\begin{enumerate}
+  \item \textbf{Forward pass}: i dati attraversano la rete dall'input all'output e si ottengono le predizioni $\hat{y}$.
+  \item Si calcola l'\textbf{errore} tra predizione $\hat{y}$ e label vera $y$: è la \textbf{loss}.
+  \item \textbf{Backpropagation}: il segnale d'errore viene mandato indietro, dall'output verso l'input, per capire come
+        cambiare i pesi layer per layer.
+  \item \textbf{Aggiornamento dei pesi} secondo un \textbf{ottimizzatore}.
+\end{enumerate}
+\begin{definizione}[epoch]
+Un passaggio completo dell'\textbf{intero training set} attraverso la rete. Si addestra per molte epoch
+(10, 100, 1000\ldots a seconda di dati e compito).
+\end{definizione}
+
+\section{La funzione di loss}
+\begin{definizione}[loss function $\mathcal{L}(\phi)$]
+La funzione obiettivo che misura l'errore e che si vuole \textbf{minimizzare}. Dipende dal compito
+(classificazione, regressione\ldots). Esempio per la regressione, il \textbf{Mean Squared Error}:
+\[
+\mathcal{L}(\phi) = \mathrm{MSE}(\phi) = \frac{1}{N}\sum_{i=1}^{N}\big(y_i - \phi^T\mathbf{x}_i\big)^2
+\]
+\end{definizione}
+\begin{itemize}
+  \item Formalmente è $\mathcal{L}(\phi, X, y)$, ma $X$ e $y$ sono \textbf{fissi}: non si possono modificare i dati per far
+        quadrare le predizioni (non trasformi la foto del gatto in un cane perché il modello ha detto ``cane''). Si agisce solo su $\phi$.
+  \item Loss $=0$ vorrebbe dire predizioni perfette: non succede mai, e se succede bisogna \textbf{insospettirsi} (overfitting).
+\end{itemize}
+
+\subsection{Soluzione in forma chiusa vs iterativa}
+Per modelli semplici (regressione lineare) la loss è una parabola convessa: si risolve analiticamente con
+$\partial\mathcal{L}/\partial\phi = 0$, oppure provando valori diversi di $\phi$ e prendendo il migliore. Con un trilione di
+parametri non si può fare né l'una né l'altra cosa: si parte da $\phi$ \textbf{casuale} e ci si \textbf{muove} secondo
+una \textbf{policy} (un algoritmo di ottimizzazione).
+
+\subsection{Loss per la classificazione binaria: Binary Cross-Entropy}
+\[
+\mathcal{L} = -\,y\log\hat y - (1-y)\log(1-\hat y), \qquad y\in\{0,1\},\ \hat y = \text{model}(x)\in[0,1]
+\]
+La label $y$ fa da \textbf{selettore}:
+\begin{itemize}
+  \item $y=1$: $\mathcal{L} = -\log\hat y$ $\Rightarrow$ loss bassa se $\hat y\approx 1$, molto alta se $\hat y\approx 0$;
+  \item $y=0$: $\mathcal{L} = -\log(1-\hat y)$ $\Rightarrow$ loss bassa se $\hat y\approx 0$, molto alta se $\hat y\approx 1$.
+\end{itemize}
+Per il multi-classe si generalizza nella \textbf{cross-entropy}.
+
+\subsection{Quale loss per quale problema}\label{sec:quale-loss}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Problema} & \textbf{Loss} & \textbf{Note}\\
+\midrule
+Regressione & $\mathrm{MSE} = \frac1N\sum (y_i-\hat y_i)^2$ & semplice, \textbf{differenziabile} ovunque; il quadrato amplifica gli outlier\\
+Regressione & $\mathrm{MAE} = \frac1N\sum |y_i-\hat y_i|$ & \textbf{meno sensibile agli outlier}; derivata problematica in 0\\
+Binaria & BCE $= -\frac1N\sum [y_i\log\hat y_i + (1-y_i)\log(1-\hat y_i)]$ & differenziabile, molto usata\\
+Multi-classe & CE $= -\sum_{i=1}^{C} y_i\log\hat y_i$ & $y$ one-hot della label vera, $\hat y$ output della softmax\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Gradient descent (GD)}
+\[
+\phi_{t+1} = \phi_t - \alpha \nabla_\phi \mathcal{L}(\phi_t)
+\]
+\begin{itemize}
+  \item Il \textbf{gradiente} indica la direzione in cui la loss \textbf{sale}; si va nella direzione \textbf{opposta}.
+  \item La visione è solo \textbf{locale}: non si conosce la forma globale della loss, solo come cambia intorno al punto attuale.
+  \item Funziona benissimo con funzioni \textbf{convesse} (un solo minimo); con funzioni \textbf{non convesse} può fermarsi in un
+        \textbf{minimo locale}.
+\end{itemize}
+
+\subsection{Il learning rate}
+\begin{definizione}[learning rate $\alpha$]
+Controlla \textbf{quanto} si aggiornano i pesi a ogni passo: è la dimensione del passo nella direzione indicata dal
+gradiente. Il gradiente dice \emph{la direzione}, $\alpha$ dice \emph{quanto muoversi}.
+\end{definizione}
+\begin{itemize}
+  \item $\alpha$ piccolo (es.\ $0{,}0001$): passi minuscoli, ottimizzazione fine ma lenta.
+  \item $\alpha$ grande: passi lunghi, si esplora in fretta ma si rischia di \textbf{scavalcare} il minimo e oscillare.
+\end{itemize}
+
+
+\begin{esempio}[regressione lineare $y = x\phi_1 + \phi_0$]
+Con 12 punti di training, partendo da un punto casuale e seguendo la direzione di massima discesa, in circa 4 iterazioni si
+arriva vicino al minimo: la retta (il modello) migliora a ogni passo.
+\end{esempio}
+
+\subsection{Quando fermarsi}
+\begin{itemize}
+  \item il \textbf{miglioramento è trascurabile} (10\%, 3\%, 1\%, 0,1\%, 0,0000001\%: l'ultimo non vale il tempo);
+  \item \textbf{budget}: numero massimo di epoch o di tempo;
+  \item si è raggiunto un minimo (miglioramento nullo);
+  \item la loss di \textbf{validation} inizia a peggiorare (\en{early stopping}, cap.~\ref{cap:regolarizzazione}).
+\end{itemize}
+
+\subsection{Limiti del GD}
+\begin{enumerate}
+  \item \textbf{Sensibile all'inizializzazione}: inizializzazioni diverse $\Rightarrow$ soluzioni diverse.
+  \item Non funziona bene con loss \textbf{non convesse} (sempre, nella pratica): si blocca in minimi locali.
+  \item Usa \textbf{tutti i dati} per decidere la direzione.
+\end{enumerate}
+\begin{esempio}[esperienza del docente]
+Previsione con una rete piccola (2 layer, $\sim$64 neuroni) contro una SVM: la rete era leggermente migliore, ma
+cambiando \textbf{solo l'inizializzazione casuale} le prestazioni cambiavano drasticamente. La casualità non si controlla,
+quindi la rete era inaffidabile: si è scelta la SVM, un po' peggiore ma \textbf{stabile}.
+\end{esempio}
+
+\section{Mini-batch e stochastic gradient descent}
+Usare tutti i dati insieme prima di ogni aggiornamento ha due problemi:
+\begin{enumerate}
+  \item \textbf{tempo}: con 1 TB di dati devo far passare tutto il dataset prima di correggere i pesi una sola volta;
+  \item \textbf{memoria}: il dataset non entra nella RAM della GPU, quindi andrebbe caricato a pezzi e si aspetterebbe
+        la fine di tutti i pezzi per aggiornare.
+\end{enumerate}
+\begin{definizione}[mini-batch]
+Un sottoinsieme di punti \textbf{campionati a caso senza reinserimento} dal training set. I pesi si aggiornano
+\textbf{dopo ogni mini-batch}; l'epoch resta il tempo per processare \textbf{tutto} il dataset.
+\end{definizione}
+\begin{itemize}
+  \item \textbf{Senza reinserimento}: ogni punto compare in \textbf{un solo} mini-batch per epoch, così tutti i punti pesano
+        uguale (un punto ripetuto in 100 mini-batch diventerebbe artificialmente importante).
+  \item Vantaggi: aggiornamenti \textbf{più frequenti}, \textbf{meno memoria}, migliore \textbf{generalizzazione} e
+        \textbf{scalabilità}. È la strategia che userete sempre.
+\end{itemize}
+
+\subsection{Stochastic gradient descent (SGD)}
+Il gradiente si calcola su un \textbf{mini-batch casuale} $B_t$ alla volta:
+\[
+\phi_{t+1} = \phi_t - \alpha \sum_{i\in B_t}\frac{\partial \mathcal{L}_i(\phi_t)}{\partial\phi}
+\]
+\begin{itemize}
+  \item Mini-batch diversi indicano direzioni diverse: \textbf{in media} si scende, ma il singolo passo può non essere quello
+        di massima discesa, e \textbf{può anche salire} rispetto alla loss globale.
+  \item Proprio questo permette di \textbf{uscire dai minimi locali} e saltare da una ``valle'' all'altra.
+  \item La traiettoria è rumorosa (``cammina come un ubriaco''), ma nell'esempio delle slide arriva al minimo globale
+        anche partendo dall'inizializzazione in cui GD si bloccava.
+  \item È \textbf{più veloce} del GD: con 3 mini-batch decide la direzione in un terzo del tempo; sbaglia a volte, ma
+        il più delle volte va bene.
+\end{itemize}
+
+\textbf{Proprietà dell'SGD}
+\begin{enumerate}
+  \item Aggiunge rumore ma la loss migliora sull'intera epoch.
+  \item Mini-batch senza reinserimento: tutti gli esempi contribuiscono in egual modo.
+  \item Più veloce del GD: aggiorna senza aspettare la fine del dataset.
+  \item Meno costoso: il gradiente su un sottoinsieme; il mini-batch entra in memoria.
+  \item Può (in principio) \textbf{uscire dai minimi locali} (non è garantito).
+  \item Riduce il rischio di bloccarsi vicino a \en{saddle point}: qualche batch avrà sempre un gradiente significativo.
+  \item In pratica trova parametri che \textbf{generalizzano bene}.
+\end{enumerate}
+\begin{attenzione}
+L'SGD non ``converge'' nel senso classico (può risalire). L'idea: vicino al minimo globale tutti i punti sono ben
+descritti, quindi il gradiente è piccolo qualunque batch si scelga.
+\end{attenzione}
+
+\subsection{Learning rate scheduler}
+Spesso l'SGD si usa con $\alpha$ \textbf{alto all'inizio}, ridotto di un fattore costante ogni $N$ epoch:
+\begin{itemize}
+  \item all'inizio si \textbf{esplora} lo spazio dei parametri e si salta tra valli;
+  \item alla fine si è vicini al minimo e si fa \textbf{fine-tuning} con passi piccoli.
+\end{itemize}
+Un $\alpha$ \textbf{estremamente} grande resta comunque dannoso: si salta da una parte all'altra senza imparare.
+La dimensione del passo dipende da $\alpha$, non dalla dimensione del batch.
+
+\subsection{Dimensione del mini-batch}\label{sec:batch-size}
+Si usano di solito \textbf{potenze di 2} per efficienza computazionale.
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Batch size} & \textbf{Pro} & \textbf{Contro / quando}\\
+\midrule
+1 (streaming) & aggiornamenti rapidi, pochissima memoria & molto rumoroso, convergenza lenta (troppi aggiornamenti, spesso sbagliati)\\
+16--64 (piccolo) & buona generalizzazione con dataset piccoli & aggiornamenti lenti; per dataset piccoli e hardware limitato\\
+128--512 (medio) & buon compromesso prestazioni/tempo & il più comune\\
+1024+ (grande) & training veloce, gradiente più liscio & generalizzazione peggiore; solo con dataset molto grandi\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Momentum}
+Invece di decidere ogni mini-batch da zero, si \textbf{ricorda la direzione dei passi precedenti}:
+\[
+m_{t+1} = \beta\, m_t + (1-\beta)\sum_{i\in B_t}\frac{\partial\mathcal{L}_i(\phi_t)}{\partial\phi},
+\qquad \phi_{t+1} = \phi_t - \alpha\, m_{t+1}
+\]
+\begin{itemize}
+  \item $\beta$ = quanto pesa il \textbf{passato} rispetto al presente; $1-\beta$ = quanto pesa il presente.
+  \item Effetto: \textbf{traiettoria più liscia}, meno oscillazioni nelle valli.
+  \item $\beta$ troppo basso: quasi nessuna memoria $\Rightarrow$ rumore (passeggiata casuale).
+        $\beta$ troppo alto: si segue quasi solo il passato $\Rightarrow$ aggiornamenti lenti, si continua in una direzione
+        che ora non è più la migliore. In entrambi i casi la convergenza rallenta.
+\end{itemize}
+
+\section{Learning rate fisso e normalizzazione del gradiente}
+Con $\alpha$ fisso si fanno passi \textbf{grandi} sui parametri con gradiente grande (già molto esplorati) e passi
+\textbf{piccoli} su quelli con gradiente piccolo (che andrebbero esplorati di più).
+\begin{itemize}
+  \item $\alpha$ piccolo: si converge in fretta sul parametro che influenza di più la loss, l'altro si muove pochissimo.
+  \item $\alpha$ grande: entrambi si muovono, ma in modo molto instabile.
+\end{itemize}
+\textbf{Normalizzazione del gradiente} (usando tutti i dati):
+\[
+m_{t+1} = \frac{\partial\mathcal{L}(\phi_t)}{\partial\phi}, \qquad
+v_{t+1} = \Big(\frac{\partial\mathcal{L}(\phi_t)}{\partial\phi}\Big)^2, \qquad
+\phi_{t+1} = \phi_t - \alpha\frac{m_{t+1}}{\sqrt{v_{t+1}}+\epsilon}
+\]
+\begin{itemize}
+  \item $\epsilon$ piccolo evita la divisione per zero.
+  \item Il risultato dà in pratica il \textbf{segno} del gradiente per ogni coordinata: ci si muove di una distanza fissa
+        $\alpha$, dando \textbf{la stessa importanza a tutte le direzioni}.
+  \item Prezzo: si può \textbf{oscillare} attorno al minimo.
+\end{itemize}
+
+\section{Adam (Adaptive Moment Estimation)}
+Combina momentum e normalizzazione: momentum sia sul gradiente sia sul gradiente al quadrato (di solito su mini-batch).
+\begin{align*}
+m_{t+1} &= \beta\, m_t + (1-\beta)\,\frac{\partial\mathcal{L}(\phi_t)}{\partial\phi} && \text{(primo momento)}\\
+v_{t+1} &= \gamma\, v_t + (1-\gamma)\Big(\frac{\partial\mathcal{L}(\phi_t)}{\partial\phi}\Big)^2 && \text{(secondo momento)}\\
+\hat m_{t+1} &= \frac{m_{t+1}}{1-\beta^{t+1}}, \qquad \hat v_{t+1} = \frac{v_{t+1}}{1-\gamma^{t+1}} && \text{(bias correction)}\\
+\phi_{t+1} &= \phi_t - \alpha\,\frac{\hat m_{t+1}}{\sqrt{\hat v_{t+1}}+\epsilon}
+\end{align*}
+\begin{itemize}
+  \item $\beta, \gamma \in [0,1)$ sono i coefficienti di momentum.
+  \item \textbf{Bias correction}: $m$ e $v$ partono da 0, quindi all'inizio sono stime irrealisticamente piccole. Il fattore
+        $1-\beta^{t+1}$ compensa: è significativo nei primi passi e trascurabile dopo (l'esponente fa decadere la correzione).
+  \item Risultato: traiettoria liscia, convergenza più rapida e stabile, buona anche con gradienti sparsi.
+  \item Costo: $\alpha$, $\beta$, $\gamma$ hanno valori di default ma sono \textbf{iperparametri} da tarare.
+  \item \textbf{Adam/AdamW} è l'ottimizzatore che userete di più.
+\end{itemize}
+\begin{integrazione}[AdamW]
+AdamW è Adam con \en{weight decay} (regolarizzazione L2) \textbf{disaccoppiato} dall'aggiornamento adattivo; in PyTorch si
+attiva con il parametro \code{weight\_decay}.
+\end{integrazione}
+
+\begin{sintesi}[ottimizzatori]
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Ottimizzatore} & \textbf{Risolve} & \textbf{Introduce}\\
+\midrule
+GD & --- & minimi locali, lento, tutti i dati\\
+SGD & velocità, memoria, minimi locali & traiettoria rumorosa\\
+SGD + momentum & rumore della traiettoria & iperparametro $\beta$\\
+Normalizzazione & passi sbilanciati tra parametri & oscillazioni vicino al minimo\\
+Adam & tutto quanto sopra & iperparametri $\alpha,\beta,\gamma$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Ottimizzatore, batch size, learning rate e coefficienti di momentum sono \textbf{iperparametri}: influenzano le prestazioni
+ma sono distinti dai parametri e dall'architettura. Sceglierli è ``più arte che scienza'': si addestrano molti modelli e si
+sceglie il migliore (\en{hyperparameter search}, es.\ \en{grid search} su una griglia di valori).
+\end{sintesi}
+
+\section{Backpropagation}
+Ogni combinazione di loss e modello richiederebbe un calcolo del gradiente diverso, e derivare in un colpo solo rispetto a un
+trilione di parametri è impraticabile. La \textbf{backpropagation} è ``solo un nome elegante'' per la \textbf{regola della
+catena}:
+\[
+\frac{\partial f}{\partial x} = \frac{\partial f}{\partial g}\cdot\frac{\partial g}{\partial x}
+\qquad\text{ovvero}\qquad \big(f(g(x))\big)' = f'(g(x))\,g'(x)
+\]
+applicata dalla fine del \textbf{grafo computazionale} all'indietro. Il gradiente di un layer si ottiene
+\textbf{riusando quello del layer successivo} moltiplicato per il gradiente locale: si lavora un layer alla volta.
+
+\begin{definizione}[grafo computazionale]
+Grafo orientato in cui ogni nodo è un'operazione e ogni arco il flusso di dati. Esempio $y = wx + q$:
+prima $a = wx$, poi $y = a + q$. PyTorch lo costruisce e lo deriva in automatico.
+\end{definizione}
+
+\begin{esempio}[backprop passo per passo]
+Un punto $(x,y)$, modello (strano) $\hat y = \phi_1\phi_2 x$, loss $\mathcal{L} = (\phi_1\phi_2x - y)^2$.
+Variabili intermedie: $a=\phi_1\phi_2$, \ $b = ax$, \ $c = b - y$, \ $\mathcal{L} = c^2$.
+
+\textbf{Forward}: si calcola $\mathcal{L}$ dagli input $\phi_1,\phi_2,x,y$.
+
+\textbf{Backward}:
+\begin{align*}
+\frac{\partial\mathcal{L}}{\partial c} &= 2c\\
+\frac{\partial\mathcal{L}}{\partial b} &= \frac{\partial\mathcal{L}}{\partial c}\frac{\partial c}{\partial b} = 2c\cdot 1 = 2c\\
+\frac{\partial\mathcal{L}}{\partial a} &= \frac{\partial\mathcal{L}}{\partial b}\frac{\partial b}{\partial a} = 2c\,x\\
+\frac{\partial\mathcal{L}}{\partial \phi_1} &= \frac{\partial\mathcal{L}}{\partial a}\frac{\partial a}{\partial \phi_1} = 2c\,x\,\phi_2 = 2(\phi_1\phi_2x-y)\,x\,\phi_2\\
+\frac{\partial\mathcal{L}}{\partial \phi_2} &= 2c\,x\,\phi_1 = 2(\phi_1\phi_2x-y)\,x\,\phi_1
+\end{align*}
+\end{esempio}
+
+\section{L'importanza dell'attivazione: vanishing gradient}
+Il gradiente di ogni layer è il prodotto dei gradienti dei layer successivi: se un layer dà $0{,}1$ e il successivo $0{,}5$,
+si ottiene $0{,}05$. Le attivazioni \textbf{limitate} (sigmoid, tanh) producono derivate piccole $\Rightarrow$ il prodotto
+di tanti numeri piccoli tende a zero.
+\begin{definizione}[vanishing gradient]
+Durante la backpropagation i gradienti diventano troppo piccoli e ``svaniscono'': i pesi dei layer vicini all'input ricevono
+aggiornamenti minimi e restano quasi uguali all'inizializzazione casuale. Allora a cosa servono quei layer?
+\end{definizione}
+\begin{esempio}[sigmoid vs ReLU, 4 layer]
+Dall'output (L4) al primo hidden layer (L1): con la \textbf{sigmoid} il gradiente cala di circa \textbf{3 ordini di
+grandezza}; con la \textbf{ReLU} resta molto più stabile.
+\end{esempio}
+\begin{integrazione}
+La derivata della sigmoid vale al massimo $0{,}25$ (in $y=0$): per questo, anche nel caso migliore, ogni layer sigmoid
+riduce il gradiente di almeno un fattore 4.
+\end{integrazione}
+La famiglia ReLU permette un flusso di gradiente migliore. Nelle RNN però vedremo che la ReLU risolve un problema ma ne crea
+un altro (cap.~\ref{cap:rnn}).
+
+\section{Il flusso di lavoro in pratica}
+\begin{enumerate}
+  \item \textbf{Definire problema e dati}: obiettivo (classificazione, regressione, clustering, anomaly detection,
+        generazione\ldots) $\Rightarrow$ loss; preprocessing (pulizia, augmentation, bilanciamento, trasformazione); split
+        train/validation/test; batch size.
+  \item \textbf{Model engineering}: scegliere l'architettura (tipo di dato, quanti layer, quanti neuroni).
+  \item Scegliere \textbf{ottimizzatore} e \textbf{loss}.
+  \item \textbf{Addestrare} e (se possibile) \textbf{validare}, facendo \en{hyperparameter tuning}: valutare le prestazioni e
+        studiare underfitting e overfitting.
+\end{enumerate}
+Batch size e loss si scelgono secondo le tabelle delle sezioni~\ref{sec:batch-size} e~\ref{sec:quale-loss}.
+
+\section{Metriche di valutazione}
+\begin{attenzione}[loss $\neq$ modello migliore]
+La loss serve alla macchina per addestrarsi, ma tra due modelli \textbf{quello con loss più bassa non è per forza il
+migliore}: posso avere loss bassa sbagliando poco sulla classe facile (normale) e molto su quella che conta (malware).
+La scelta finale si fa con le \textbf{metriche}.
+\end{attenzione}
+
+\begin{definizione}[metriche di classificazione]
+\[
+\text{Accuracy} = \frac{\text{predizioni corrette}}{\text{tutte le predizioni}}
+\]
+Per ogni classe $C_i$:
+\[
+\text{Precision}(C_i) = \frac{TP_i}{TP_i + FP_i}, \qquad
+\text{Recall}(C_i) = \frac{TP_i}{TP_i + FN_i}, \qquad
+F1(C_i) = \frac{2\cdot P\cdot R}{P + R}
+\]
+\begin{itemize}
+  \item \textbf{Precision}: degli elementi \emph{predetti} come $C_i$, quanti lo sono davvero? (punti di altre classi predetti come $C_i$ = $FP$)
+  \item \textbf{Recall}: degli elementi che \emph{sono} $C_i$, quanti ne ho trovati? (punti di $C_i$ predetti come altro = $FN$)
+  \item \textbf{F1}: media armonica, \textbf{schiacciata verso il valore più basso} dei due.
+\end{itemize}
+\end{definizione}
+
+\begin{esempio}[il classificatore pigro]
+9.900 goodware e 100 malware. Il classificatore risponde sempre ``goodware'':
+\begin{itemize}
+  \item accuracy $= 9900/10000 = 99\%$ (sembra ottimo);
+  \item malware: recall $= 0/100 = 0$; precision $= 0/0$, non definita. Il classificatore è inutile.
+\end{itemize}
+Se risponde sempre ``malware'': recall(malware) $= 1$, ma precision(malware) $= 100/10000 = 0{,}01$: quasi tutti falsi
+allarmi, e nessuno si fiderà più del modello.
+\end{esempio}
+
+\begin{esame}[quale metrica?]
+Con dati \textbf{sbilanciati} l'accuracy non va usata. Si sceglie un compromesso tra precision e recall in base al costo
+degli errori: per la classe malware si vuole \textbf{recall alta} con una precision \textbf{decente} (altrimenti nessuno
+crede agli allarmi). In caso di dubbio, l'\textbf{F1}.
+\end{esame}
+
+\section{Learning curve: underfitting e overfitting}
+Si osservano le \textbf{learning curve}: loss di training e di validation in funzione delle epoch.
+\begin{itemize}
+  \item Il training set serve a \textbf{cambiare} i pesi; sul validation set si calcola la loss \textbf{senza mai} modificare i pesi.
+  \item Situazione buona: entrambe le loss scendono e si stabilizzano; quella di training è un po' più bassa, quella di
+        validation simile.
+\end{itemize}
+
+\begin{definizione}[underfitting]
+Il modello è \textbf{troppo semplice}: la loss resta \textbf{alta anche sul training set}, scende poco, e la validation è
+similmente alta. Le metriche sono pessime. \emph{Attenzione alla scala}: scendere da 1 a 0,9 è poco, da 0,15 a 0,05 è molto.
+\end{definizione}
+
+\begin{definizione}[overfitting]
+Il modello è perfetto (o quasi) \textbf{solo sui dati di training}: la loss di training continua a scendere (anche verso 0)
+mentre quella di \textbf{validation, dopo essere scesa, risale}. Il modello ha memorizzato il dataset invece di imparare.
+\end{definizione}
+
+\subsection{Rimedi all'underfitting}
+\begin{itemize}
+  \item \textbf{Preprocessing migliore}: togliere rumore, gestire outlier, cambiare l'encoding delle feature categoriche.
+  \item \textbf{Model engineering}: più complessità (più neuroni), architettura diversa, più epoch, batch size diverso.
+\end{itemize}
+
+\subsection{Rimedi all'overfitting}
+Si agisce con la \textbf{regolarizzazione} (penalità sui pesi, dropout, early stopping, batch normalization, noise injection),
+trattata nel cap.~\ref{cap:regolarizzazione}. Se la rete è enorme e memorizza i dati, la cura è ridurne la complessità.
+
+\begin{sintesi}
+\begin{itemize}
+  \item Ciclo: forward pass $\to$ loss $\to$ backpropagation (regola della catena sul grafo computazionale) $\to$ aggiornamento
+        dei pesi con un ottimizzatore; un'epoch è un passaggio su tutto il training set.
+  \item Loss: MSE/MAE per la regressione, BCE per la binaria, cross-entropy per il multi-classe. Si agisce solo sui pesi $\phi$.
+  \item GD $\to$ SGD su mini-batch senza reinserimento (più veloce, può uscire dai minimi locali) $\to$ momentum $\to$
+        normalizzazione del gradiente $\to$ \textbf{Adam/AdamW} (l'ottimizzatore di riferimento). Learning rate, batch size e
+        coefficienti di momentum sono iperparametri.
+  \item Attivazioni limitate $\Rightarrow$ vanishing gradient: i primi layer non imparano; la famiglia ReLU lo mitiga.
+  \item Si sceglie il modello con le \textbf{metriche}, non con la loss: con classi sbilanciate niente accuracy, ma
+        precision/recall/F1 per la classe che conta.
+  \item Learning curve: underfitting = loss alta anche in training; overfitting = validation loss che risale mentre la training
+        scende (rimedi nel cap.~\ref{cap:regolarizzazione}).
+\end{itemize}
+\end{sintesi}

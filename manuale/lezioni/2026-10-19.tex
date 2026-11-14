@@ -1,0 +1,98 @@
+% =====================================================================
+\lezione{19/10/2026}{GNN in pratica e feature categoriche}
+  {Prof.~Danilo Giordano}
+  {GNN con PyTorch Geometric (dati, GCN, GraphSAGE, GAT, training loop); scelte progettuali e iperparametri
+   delle GNN; feature categoriche: ordinali e nominali; ID sequenziali, feature engineering, one-hot, embedding;
+   token \code{<UNK>}}
+\label{lez:2026-10-19}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con le slide
+\emph{3-deep-learning-methodologies} (pp.~124--136), \emph{4-embedding-introduction} (pp.~1--22) e con il
+notebook sulle GNN mostrato in aula.
+\end{nota}
+
+\section{Sintesi}
+La lezione chiude la parte sulle architetture con il notebook delle \textbf{GNN} e apre il tema delle
+\textbf{feature categoriche}, necessario per il Lab~2. Il filo conduttore: RNN e GNN servono a
+\textbf{estrarre una rappresentazione} quando costruirla a mano (serie temporali, grafi) è difficile. Nella
+seconda parte il docente costruisce una ``roadmap'' per trasformare le categorie in numeri sensati per il
+modello, fino agli \textbf{embedding appresi}, che verranno approfonditi il giorno dopo
+(\rif{2026-10-20}{20/10}). Approfondimenti nei capitoli~\ref{cap:cnn-gnn} e~\ref{cap:embedding}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il \textbf{Lab~2} (supervisionato, dataset con feature categoriche) si svolge \textbf{mercoledì 21/10 e
+    mercoledì 28/10}: servono le GNN viste oggi e la codifica delle feature categoriche
+    (capitolo~\ref{cap:lab2}).
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{GNN in PyTorch Geometric}
+Il preprocessing è lo stesso delle altre reti (one-hot per le feature categoriche dei nodi, normalizzazione
+o standardizzazione delle numeriche). Un grafo è un oggetto \code{Data} di \code{torch\_geometric} con
+feature dei nodi \code{x}, archi \code{edge\_index} di forma \code{[2, n\_archi]} e label \code{y}: gli archi
+sono \textbf{diretti}, quindi un collegamento percorribile nei due sensi diventa due archi. Il
+\code{DataLoader} di \code{torch\_geometric.loader} unisce grafi di dimensioni diverse in un unico grafo
+disconnesso, \textbf{senza padding}: in un batch di due grafi \code{x} ha come prima dimensione la somma dei
+nodi (nel notebook 288). Per visualizzare un grafo piccolo si usa NetworkX (\code{to\_networkx},
+\code{spring\_layout}).
+
+Il modello: due layer \code{GCNConv} (due hop), \code{global\_mean\_pool} per passare dagli embedding dei
+nodi a \textbf{un embedding per grafo}, poi una head lineare. GraphSAGE e GAT si ottengono cambiando il
+layer (\code{SAGEConv}, \code{GATConv} con più \en{heads}: con \code{concat=True} l'output ha dimensione
+\code{hidden\_dim} $\times$ \code{heads}). Il training loop è quasi identico ai precedenti, con due
+differenze: la label è un attributo del batch (\code{batch.y}) e la loss va pesata con
+\code{batch.num\_graphs}, non con \code{x.size(0)}, che conta i nodi. Sul dataset del notebook le tre
+architetture superano il 90\%; la GAT converge meglio ma è molto più lenta. Con il \code{NeighborLoader}
+GraphSAGE campiona i vicini in training (es.\ 10 al primo hop, 5 al secondo), mentre in validation e test
+usa tutti i vicini.
+
+\begin{attenzione}[da ricordare per il Lab~2]
+Nel training loop di una GNN per la classificazione di grafi la loss si accumula moltiplicando per il
+\textbf{numero di grafi} del batch, non per il numero di nodi (288 invece di 2, nell'esempio). Il docente
+ricorda che questo codice servirà nel lab del mercoledì.
+\end{attenzione}
+
+\subsection{Scelte progettuali per una GNN}
+Le slide elencano le decisioni da prendere: tipo di GNN (GCN per grafi non troppo grandi, GraphSAGE per grafi
+grandi e nodi ad alto grado, GAT per rappresentazioni migliori con l'attenzione), task (nodo, arco o grafo),
+scala (full-batch o mini-batch con campionamento), aggregazione, dimensione dell'embedding, \textbf{numero di
+layer} (2--3, legato al \en{receptive field}; troppi portano all'\textbf{over-smoothing}), head di predizione
+con pooling per i grafi. Le best practice sugli iperparametri (potenze di 2 per l'hidden size, Adam,
+learning rate 0,01 o 0,001, dropout 0,2--0,5) sono nel capitolo~\ref{cap:cnn-gnn}.
+
+\subsection{Feature categoriche: dalle categorie ai numeri}
+Le reti richiedono numeri e assumono che le relazioni tra i numeri abbiano senso: assegnare numeri a caso
+alle categorie non va bene. Per le \textbf{label} basta quasi sempre l'ID sequenziale. Per le feature:
+\begin{itemize}
+  \item \textbf{ordinali} (gravità, livello di accesso): si ordinano con la \textbf{conoscenza del dominio},
+    non in ordine alfabetico, e si mappano su 1, 2, 3;
+  \item \textbf{nominali} (es.\ AES, DES, RC4, RSA): un ID sequenziale introduce un ordine falso e mette il
+    modello su una pista sbagliata; il \textbf{feature engineering} (sicuro/insicuro) dà una chiave di
+    lettura ma può essere sbagliata o cambiare nel tempo; il \textbf{one-hot} non introduce bias (vettori
+    ortogonali ed equidistanti) ma soffre la \textbf{maledizione della dimensionalità} e va rifatto se il
+    vocabolario si estende; gli \textbf{embedding} mappano ogni categoria su un vettore \textbf{denso} di
+    dimensione $H \ll V$, appreso con la backpropagation risolvendo un task (quindi solo con reti neurali).
+\end{itemize}
+Il docente mostra ``dietro le quinte'' come, epoch dopo epoch, la rappresentazione 2D degli algoritmi si
+separa tra sicuri e insicuri. Le categorie mai viste in training finiscono nel token \textbf{\code{<UNK>}}.
+
+\begin{esame}[la roadmap delle feature categoriche]
+Saper scegliere e giustificare la codifica: ordine intrinseco $\Rightarrow$ ID sequenziali; poche
+categorie $\Rightarrow$ one-hot; si può definire un task per una rete $\Rightarrow$ embedding; altrimenti
+feature engineering. Un ID sequenziale su una feature nominale ``non si dovrebbe, ma si può'' se si sa
+cosa si fa: il rischio è introdurre un bias e pagare scelte sub-ottimali con più dati ed epoch.
+\end{esame}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item La slide indica come distanza tra due vettori one-hot distinti il valore 2: è la distanza euclidea
+    \emph{al quadrato}; la distanza euclidea è $\sqrt{2}$.
+  \item I tempi di training delle tre GNN (GCN, GraphSAGE, GAT) detti in aula dipendono dall'esecuzione del
+    notebook: vanno presi come ordini di grandezza.
+\end{itemize}
+\end{verifica}

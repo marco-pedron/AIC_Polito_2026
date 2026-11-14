@@ -1,0 +1,148 @@
+\chapter{Lab 3 -- Anomaly detection}
+\label{cap:lab3}
+
+\begin{nota}[Fonti e limiti di questo capitolo]
+Testo del laboratorio ``\emph{Project 3: Supervised vs Unsupervised Anomaly Detection}'' pubblicato
+sul portale; teoria dalle lezioni del \rif{2026-11-02}{02/11} e del \rif{2026-11-09}{09/11}. La
+consegna è \textbf{parafrasata}; per i dettagli fa fede il testo originale. Il lab è valutato: qui
+\textbf{non} ci sono soluzioni, codice, numeri o scelte di un gruppo.
+\end{nota}
+
+\begin{verifica}
+Nel testo i task passano dal 4 (clustering) al 6 (autoencoder): manca il paragrafo del
+\textbf{Task 5}, che dal budget suggerito (``un paio di run per l'Isolation Forest'') e dal sottotitolo
+dovrebbe riguardare l'\textbf{Isolation Forest}. Il testo dice inoltre che il report si può consegnare
+fino a 10 giorni prima di un appello, mentre quello del Lab~1 dice due settimane (cap.~\ref{cap:formato}).
+\end{verifica}
+
+\section{Contesto e obiettivi}
+Costruire un semplice \textbf{IDS basato su AI} a partire dai log delle connessioni di rete, ognuna
+etichettata come normale o intrusione (con il tipo di attacco). Il lab valuta se gli algoritmi
+\textbf{non supervisionati} trovano da soli pattern anomali e come cambiano le prestazioni in base a
+ciò che si sa dei dati (sapere quali punti sono normali oppure non sapere nulla). La progressione:
+\begin{itemize}
+  \item analisi ``da esperto di dominio'': come ogni attacco differisce dal traffico normale;
+  \item anomaly detection \textbf{shallow} con famiglie diverse: a confine (one-class SVM), a densità
+        (LOF), a clustering (k-means, DBSCAN), a isolamento (Isolation Forest);
+  \item anomaly detection \textbf{deep}: autoencoder addestrato sul normale, errore di ricostruzione
+        come score;
+  \item \textbf{rappresentazione}: PCA (lineare) contro bottleneck dell'autoencoder (non lineare) come
+        input dello stesso detector, con visualizzazione t-SNE.
+\end{itemize}
+\textbf{Domanda centrale}: quanto bisogna sapere del traffico normale per trovare gli attacchi, e le
+feature di un attacco sembrano sempre un'anomalia?
+
+\section{Dataset}
+Log a livello di connessione di un IDS di rete, già divisi in \code{train.csv} e \code{test.csv}.
+Il training contiene traffico normale e tre categorie di attacco: \en{Denial of Service} (dos),
+\en{Probing} (probe), \en{Remote-to-Local} (r2l). Le feature sono di tre tipi:
+\begin{itemize}
+  \item \textbf{basic}: durata, protocollo (TCP, UDP, \ldots), servizio (HTTP, FTP, \ldots), flag di stato;
+  \item \textbf{content}: informazioni dal payload (login falliti, accessi a file sensibili, comandi);
+  \item \textbf{traffic}: statistiche su finestre temporali (connessioni verso lo stesso host o servizio),
+        utili per scansioni e flooding.
+\end{itemize}
+Le ultime due colonne sono il tipo di attacco e la label binaria (0 normale, 1 anomalia). Il test si
+usa \textbf{solo dove il task lo chiede}; un eventuale validation set va ricavato dal training con una
+strategia motivata.
+
+\section{Consegna (parafrasi)}
+Regole comuni: logbook con un run per ogni fit di detector, clustering o autoencoder; budget di circa
+25 run, con una ripartizione indicativa per task; uno sweep diagnostico per scegliere un parametro
+conta come un run (cap.~\ref{cap:lab-report}).
+
+\begin{description}[style=nextline,leftmargin=1.2em]
+\item[Task 1 -- I dati visti da un esperto (nessun run)]
+  Contare attributi categorici e numerici (le feature 0/1 contano come numeriche), descrivere la
+  distribuzione delle label di attacco e binarie in training e test e la frazione di anomalie, con le
+  implicazioni per l'anomaly detection. Preprocessing di categoriche e numeriche, dicendo da dove si
+  stimano i parametri. Poi tre \textbf{heatmap} (righe = tipo di attacco, colonne = feature numeriche)
+  di media, deviazione standard e mediana, e discussione delle feature che distinguono gli attacchi.
+\item[Task 2 -- One-class SVM e impatto delle anomalie]
+  OC-SVM con kernel RBF; le label servono solo a costruire i sottoinsiemi e a valutare. (i) Training
+  sul solo normale: scegliere e motivare $\nu$ e confrontarlo con il default, riportando falsi positivi
+  e macro-F1 di training; domande su cosa controlla $\nu$, se può essere zero, perché il normale
+  ``pulito'' aiuta. (ii) Training su normale + una frazione crescente di anomalie (da nessuna a tutte),
+  con contaminazione nota, e per il caso completo anche con contaminazione ignota; grafico della
+  macro-F1 e domande sull'equità del confronto. (iii) Generalizzazione: tre modelli valutati sullo
+  stesso test con macro-F1, matrice di confusione e recall per tipo di attacco, collegando gli
+  errori all'analisi delle heatmap.
+\item[Task 3 -- Local Outlier Factor]
+  Sul training con anomalie, confrontare quattro valori di \code{n\_neighbors} con un criterio di
+  scelta motivato, poi valutare sul test. Domande: gli attacchi hanno densità locale più bassa dei
+  vicini? Come incide \code{n\_neighbors}?
+\item[Task 4A -- K-means]
+  Fit sul training completo, scelta motivata di $k$; dimensione e purezza dei cluster rispetto alle
+  label, silhouette per cluster; distanza dal centroide più vicino come score con soglia scelta e
+  motivata; t-SNE del training con tre perplexity, colorato per label e per cluster.
+\item[Task 4B -- DBSCAN]
+  Scelta motivata di \code{min\_points} ed $\varepsilon$; il rumore (cluster $-1$) è l'anomalia.
+  Domande: il rumore contiene solo attacchi? Quanti cluster? Somiglianze con LOF?
+\item[Task 5 -- Isolation Forest]
+  Vedi il riquadro ``Da verificare'': il paragrafo manca nel testo.
+\item[Task 6 -- Autoencoder]
+  Architettura libera ma con encoder che si restringe, bottleneck e decoder che si espande. Training
+  sul \textbf{solo normale}, scegliendo epoch e learning rate su un validation di soli normali; soglia
+  sull'errore di ricostruzione; ECDF degli errori su validation normale, training completo e test.
+  Poi un secondo autoencoder addestrato su normale + anomalie e confronto dei due sul test.
+\item[Task 7 -- PCA contro bottleneck dell'autoencoder]
+  Stessa dimensione per le due rappresentazioni. Bottleneck del miglior autoencoder sui normali di
+  training $\to$ OC-SVM $\to$ valutazione sugli embedding del test. PCA fittata sui soli normali di
+  training, numero di componenti dalla varianza spiegata, poi OC-SVM come sopra. Confronto con la
+  migliore OC-SVM sulle feature originali e con l'autoencoder a errore di ricostruzione.
+\end{description}
+
+\section{Teoria coinvolta}
+\begin{itemize}
+  \item Tipi di anomalia, novelty vs outlier, score vs label, sfide dell'anomaly detection, OC-SVM,
+        k-means e SSE, DBSCAN, LOF, Isolation Forest, silhouette, PCA, t-SNE, autoencoder:
+        cap.~\ref{cap:anomaly}.
+  \item Encoding delle categoriche, scaling e leakage: cap.~\ref{cap:ffnn} e~\ref{cap:embedding}.
+  \item Autoencoder come apprendimento self-supervised di una rappresentazione: cap.~\ref{cap:embedding}.
+  \item Training dell'autoencoder, loss, learning curve, metriche e macro-F1: cap.~\ref{cap:addestramento}.
+\end{itemize}
+
+\section{Metodo generale}
+\begin{enumerate}
+  \item \textbf{Label solo per valutare}: possono servire a costruire i sottoinsiemi (es.\ ``solo
+        normali'') e a misurare, mai come segnale di training.
+  \item \textbf{Dichiarare le assunzioni}: per ogni metodo, cosa si suppone di sapere (normali noti,
+        contaminazione nota o ignota, nulla).
+  \item \textbf{Preprocessing stimato sul training} e applicato a validation e test; scaling prima di
+        PCA, distanze e densità.
+  \item \textbf{Ogni soglia è una scelta}: $\nu$, \code{n\_neighbors}, $k$, $\varepsilon$, soglia
+        sull'errore di ricostruzione vanno motivati con evidenze (grafici, sweep diagnostici) e fissati
+        senza guardare il test.
+  \item \textbf{Ragionare per tipo di attacco}: l'analisi delle heatmap serve dopo a spiegare perché
+        alcuni attacchi vengono trovati e altri no.
+  \item \textbf{Confronto finale} su prestazioni, tempo di training e conoscenza richiesta da ogni metodo.
+\end{enumerate}
+
+\section{Insidie tipiche}
+\begin{attenzione}[errori da evitare]
+\begin{itemize}
+  \item Fittare encoder e scaler su tutto il dataset prima dello split.
+  \item Calcolare la soglia sugli score del test, o scegliere i parametri guardando il test.
+  \item Addestrare l'autoencoder ``sul normale'' includendo per errore anche le anomalie.
+  \item Dimenticare lo scaling prima della PCA: una feature con scala enorme domina la varianza.
+  \item Leggere distanze e dimensioni dei gruppi nella mappa t-SNE come se fossero quelle reali.
+  \item Riportare solo la ROC-AUC con dati molto sbilanciati: servono precision, recall e F1 della
+        classe anomala e la recall per tipo di attacco.
+  \item Confrontare punteggi ottenuti su insiemi di training diversi come se fossero comparabili.
+  \item Assumere che un attacco sia per forza un outlier: un gruppo piccolo ma denso può avere densità
+        simile ai propri vicini.
+\end{itemize}
+\end{attenzione}
+
+\section{Checklist}
+\begin{itemize}
+  \item[$\square$] Conteggi delle feature e distribuzione delle label in training e test, con implicazioni.
+  \item[$\square$] Le tre heatmap con discussione per tipo di attacco.
+  \item[$\square$] Per ogni metodo: assunzioni dichiarate, parametri e soglie motivati con evidenze.
+  \item[$\square$] OC-SVM: tre scenari, grafico al variare della contaminazione, recall per attacco sul test.
+  \item[$\square$] LOF, k-means (purezza, silhouette, soglia, t-SNE), DBSCAN discussi rispetto alle label.
+  \item[$\square$] Autoencoder: ECDF degli errori, confronto normale-only vs con anomalie.
+  \item[$\square$] PCA vs bottleneck con stessa dimensione e stesso detector.
+  \item[$\square$] Classifica finale dei metodi (prestazioni, tempo, conoscenza richiesta).
+  \item[$\square$] Logbook entro il budget; checklist generale del cap.~\ref{cap:lab-report}.
+\end{itemize}

@@ -1,0 +1,250 @@
+\chapter{Regolarizzazione: dropout, batch normalization e oltre}
+\label{cap:regolarizzazione}
+\fonti{\rif{2026-09-30}{30/09}, \rif{2026-10-06}{06/10}, \rif{2026-10-20}{20/10}}{2-foundament-deep-learning, pp.\ 50--51;
+2a-dropout\_batchnorm, pp.\ 1--7; notebook FFNN}
+
+\section{Overfitting e regolarizzazione}
+Una rete va in \textbf{overfitting} quando è (quasi) perfetta solo sui dati di training: la loss di training continua a scendere,
+anche verso 0, mentre quella di \textbf{validation}, dopo essere scesa, \textbf{risale} (learning curve e diagnosi nel
+cap.~\ref{cap:addestramento}). Il modello ha memorizzato il dataset invece di imparare.
+
+\begin{definizione}[regolarizzazione]
+Insieme di tecniche che aggiungono \textbf{vincoli o penalità} al processo di apprendimento per ridurre l'overfitting e migliorare la
+\textbf{generalizzazione}. È cruciale nel deep learning perché le reti neurali hanno una grande capacità di \textbf{memorizzare} i
+dati di training. Le penalità si aggiungono alla loss:
+\[
+\mathcal{L} = \mathcal{L}_{std} + \text{penalty term}.
+\]
+\end{definizione}
+
+Le slide raggruppano le tecniche secondo la ``leva'' su cui agiscono:
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Si agisce su\ldots} & \textbf{Tecnica} & \textbf{Idea}\\
+\midrule
+Pesi & L1 (Lasso), L2 (Ridge) / weight decay & penalità nella loss sul valore dei pesi\\
+Architettura & Dropout & spegnere a caso neuroni durante il training\\
+Processo di training & Early stopping & fermarsi quando la validation peggiora\\
+Dati & Batch normalization & normalizzare gli input dei layer con le statistiche del mini-batch\\
+Dati & Noise injection & rumore casuale su input, pesi o attivazioni\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Regolarizzazione sui pesi: L1 e L2}
+\begin{itemize}
+  \item \textbf{L1 (Lasso)}: penalità proporzionale al \textbf{valore assoluto} dei pesi, $\lambda\sum_i|\phi_i|$. Spinge alcuni pesi
+        \textbf{a zero} $\Rightarrow$ sparsità, una sorta di selezione delle feature: parti diverse della rete si specializzano.
+  \item \textbf{L2 (Ridge)}: penalità proporzionale al \textbf{quadrato} dei pesi, $\lambda\sum_i\phi_i^2$. Scoraggia i
+        \textbf{pesi grandi} e distribuisce l'importanza su più feature.
+  \item $\lambda$ è la \textbf{forza della regolarizzazione} (un iperparametro).
+  \item In PyTorch la L2 si ottiene con il parametro \code{weight\_decay} dell'ottimizzatore (es.\ \code{AdamW}, vedi
+        cap.~\ref{cap:addestramento}); un valore tipico di partenza indicato nelle linee guida di progettazione è $0{,}01$
+        (cap.~\ref{cap:ffnn}).
+\end{itemize}
+\begin{integrazione}[sul ``rumore'']
+A lezione L1/L2 sono state descritte come ``aggiungere un po' di rumore'' all'aggiornamento dei pesi. È un'intuizione:
+tecnicamente sono \textbf{penalità} deterministiche nella loss che impediscono ai pesi di adattarsi perfettamente al training
+set. L'aggiunta di rumore vera e propria è la \en{noise injection} (sezione~\ref{sec:noise-injection}).
+\end{integrazione}
+
+\section{Dropout}
+\begin{definizione}[dropout]
+Durante ogni iterazione di training si ``spegne'' (si pone a zero l'output di) un sottoinsieme \textbf{casuale} di neuroni.
+I neuroni non possono diventare troppo dipendenti gli uni dagli altri $\Rightarrow$ la rete impara \textbf{feature più robuste}.
+In predizione si usano \textbf{tutti} i neuroni.
+\end{definizione}
+
+\subsection{Cosa succede in training}
+\begin{itemize}
+  \item A ogni forward pass di training, l'output di ogni neurone è posto a 0 con probabilità $p$.
+  \item La scelta è \textbf{indipendente per ogni campione} del mini-batch, e nuova a ogni mini-batch: ogni campione è elaborato da una
+        \textbf{sotto-rete diversa}. Un neurone spento ora può essere acceso dopo (non si ``congela'' una volta per tutte).
+  \item Gli output sopravvissuti sono \textbf{scalati di} $1/(1-p)$, così il valore atteso dell'output resta uguale con e senza dropout.
+  \item Obiettivo: i neuroni non possono fare affidamento su altri neuroni specifici $\Rightarrow$ feature più robuste, meno overfitting.
+  \item Il dropout \textbf{non rimuove} neuroni né pesi: azzera temporaneamente degli output.
+\end{itemize}
+
+\subsection{Dropout e backpropagation}
+\begin{itemize}
+  \item Forward, backward e aggiornamento avvengono \textbf{una volta per mini-batch}; il gradiente usato è la \textbf{media} sul mini-batch.
+  \item Tutti i pesi vengono aggiornati, ma \textbf{ogni neurone impara solo dai campioni in cui era acceso}: si riduce la capacità di
+        apprendimento e ogni neurone vede campioni diversi.
+\end{itemize}
+
+\subsection{Training vs validation/test}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Training} (\code{model.train()}) & \textbf{Validation/Test} (\code{model.eval()})\\
+\midrule
+neuroni casuali spenti, nuova maschera a ogni passaggio & tutti i neuroni usati, nessuna maschera\\
+sopravvissuti scalati di $1/(1-p)$ & nessuno scaling: il dropout diventa l'identità\\
+output casuale: stesso input, output diversi & output deterministico, usa i pesi appresi\\
+output 2, $p=0{,}5$ $\to$ 0 oppure 4 (in media 2) & output 2 $\to$ 2 (stesso valore atteso)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{attenzione}[\code{no\_grad} non basta]
+\code{torch.no\_grad()} disattiva solo i gradienti: è \code{model.eval()} che spegne il dropout. Se si valuta senza
+\code{model.eval()}, le predizioni restano casuali.
+\end{attenzione}
+
+\subsection{Quanto dropout?}
+Con $p=0{,}5$ metà dei neuroni del layer ha output 0 durante un passo di training. Secondo il docente $0{,}5$ è probabilmente troppo:
+conviene provare valori tra $0{,}2$ e $0{,}5$ (stessa indicazione nelle tabelle di progettazione di FFNN, RNN e GNN:
+cap.~\ref{cap:ffnn}, \ref{cap:rnn}, \ref{cap:cnn-gnn}).
+
+\begin{integrazione}[validation loss più bassa della training con dropout]
+Nel notebook d'esempio, con dropout $0{,}5$ la validation loss risulta \textbf{più bassa} di quella di training. È normale: in
+training il dropout spegne neuroni e peggiora la loss, in validation la rete lavora al completo.
+\end{integrazione}
+
+\section{Batch normalization}
+Un layer tra due layer che \textbf{ri-normalizza} i dati mentre attraversano la rete: normalizza gli input di uno o più layer per
+\textbf{stabilizzare e velocizzare} il training. Riduce l'overfitting rendendo il training \textbf{meno sensibile all'inizializzazione}
+dei pesi e si può applicare anche \textbf{prima} della funzione di attivazione.
+
+\subsection{Cosa succede in training}
+Per ogni \textbf{feature}, sull'output del layer precedente (\code{N} campioni $\times$ \code{F} feature):
+\begin{enumerate}
+  \item media $\mu_B$ e varianza $\sigma^2_B$ \textbf{del mini-batch corrente} (statistiche calcolate lungo il batch);
+  \item standardizzazione: $\hat x = \dfrac{x-\mu_B}{\sqrt{\sigma^2_B+\epsilon}}$ $\Rightarrow$ media 0, varianza 1;
+  \item scala e traslazione: $y = \gamma\hat x + \beta$, con $\gamma, \beta$ \textbf{appresi} (parametri della rete, aggiornati dalla
+        backpropagation): la rete impara quanto conta la normalizzazione.
+\end{enumerate}
+\begin{itemize}
+  \item Batch diversi $\Rightarrow$ $\mu, \sigma$ diversi: l'output di un campione \textbf{dipende dagli altri campioni del batch}
+        (da qui il nome).
+  \item A ogni mini-batch si aggiornano anche \textbf{media e varianza mobili} (\en{running}), \textbf{non apprese} ma calcolate:
+        \[ \text{running} = 0{,}9\cdot\text{running} + 0{,}1\cdot\text{statistica del batch} \]
+\end{itemize}
+
+\subsection{Training vs validation/test}
+\begin{itemize}
+  \item \textbf{Training}: usa $\mu, \sigma$ del mini-batch corrente e aggiorna le running statistics.
+  \item \textbf{Validation/Test}: usa le \textbf{running mean/variance memorizzate} (congelate). La BN \textbf{non sparisce}: diventa una
+        scala e traslazione fissa. Senza, il layer successivo riceverebbe in validation dati con una distribuzione diversa da quella
+        vista in training.
+\end{itemize}
+\begin{esempio}[stesso valore, output diversi]
+Valore $x=6$ di una feature, $\gamma=1$, $\beta=0$:
+\begin{center}
+\small
+\begin{tabular}{llcc}
+\toprule
+\textbf{Fase} & \textbf{Batch} & \textbf{Statistiche} & \textbf{Output}\\
+\midrule
+Training & A $=[2,4,6,8]$ & $\mu=5$, $\sigma\approx2{,}24$ & $+0{,}45$\\
+Training & B $=[6,10,12,14]$ & $\mu=10{,}5$, $\sigma\approx2{,}96$ & $-1{,}52$\\
+Validation/Test & qualsiasi & running $\mu=5$, $\sigma\approx2{,}24$ & $+0{,}45$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Stesso input, output diversi in training: questo ``rumore di batch'' dà un lieve effetto di \textbf{regolarizzazione}.
+\end{esempio}
+
+\begin{nota}[Dropout e batch norm in PyTorch]
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{l X X l}
+\toprule
+& \code{model.train()} & \code{model.eval()} & \textbf{Appreso in backprop}\\
+\midrule
+Dropout & maschera casuale per campione, scala $1/(1-p)$ & identità: tutti i neuroni, nessuno scaling & niente ($p$ fisso)\\
+BatchNorm & $\mu,\sigma$ del batch + aggiorna le running stats & running $\mu,\sigma$ (congelate) & $\gamma, \beta$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\end{nota}
+
+\section{Early stopping}
+Si monitora la loss (o la performance) sul \textbf{validation set}: quando inizia a peggiorare mentre quella di training continua a
+migliorare, si \textbf{interrompe} il training, prima che il modello si adatti troppo ai dati di training. Si usa il modello
+\textbf{prima} dell'overfitting (all'epoch $t$, non $t+10$).
+\begin{itemize}
+  \item \code{min\_delta}: miglioramento minimo della validation loss per considerarlo significativo.
+  \item \code{patience}: numero massimo di epoch consecutive senza miglioramento significativo prima di fermarsi (5, 10, 20\ldots).
+  \item Più lunga la patience, più a lungo si addestra; più grande il min\_delta, più forte deve essere il miglioramento.
+        Una richiesta troppo severa (calo di 0,5 in 2 epoch) ferma tutto subito.
+  \item \code{best\_model\_state}: si \textbf{salvano i pesi del modello migliore} e li si ricarica alla fine. Senza, si
+        restituirebbe il modello dell'ultima epoch (già in overfitting), oppure bisognerebbe ri-addestrare da zero fino all'epoch
+        migliore: ore perse con dataset grandi.
+\end{itemize}
+\begin{lstlisting}
+import copy
+best_val, wait = float('inf'), 0
+patience, min_delta = 20, 1e-4
+best_state = None
+for epoch in range(num_epochs):
+    ...                                   # training + validation, calcola val_loss
+    if val_loss < best_val - min_delta:   # miglioramento significativo
+        best_val, wait = val_loss, 0
+        best_state = copy.deepcopy(model.state_dict())
+    else:
+        wait += 1
+        if wait >= patience:
+            break                         # stop
+model.load_state_dict(best_state)         # ripristina il modello migliore
+\end{lstlisting}
+
+\section{Noise injection}\label{sec:noise-injection}
+Si aggiunge \textbf{rumore casuale} a input, pesi o attivazioni durante il training per rendere il modello più robusto.
+È citata nelle slide ma non la useremo nel corso.
+
+\section{Regolarizzazione nel codice}
+In PyTorch dropout e batch norm sono \textbf{layer} come gli altri, definiti in \code{\_\_init\_\_}; la L2 è un parametro
+dell'ottimizzatore.
+\begin{lstlisting}
+class RegularizedNN(nn.Module):
+    def __init__(self, input_size, num_classes, p=0.5):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.bn2 = nn.BatchNorm1d(128)        # batch normalization
+        self.drop = nn.Dropout(p)             # dropout: si definisce come un layer
+        self.fc3 = nn.Linear(128, num_classes)
+        self.relu = nn.ReLU()
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.bn2(self.fc2(x)))  # BN prima della prossima trasformazione
+        x = self.drop(x)
+        return self.fc3(x)
+
+optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)  # L2
+\end{lstlisting}
+
+\begin{esempio}[cosa mostra il notebook d'esempio]
+Sul dataset giocattolo della lezione del \rif{2026-10-06}{06/10} (pipeline completa nel cap.~\ref{cap:ffnn}):
+\begin{itemize}
+  \item \textbf{early stopping} (patience 20, min\_delta piccolo): il training si ferma molto prima;
+  \item \textbf{dropout 0,5}: curva più stabile; la validation loss è più bassa di quella di training;
+  \item \textbf{batch norm + weight decay}: curva molto più rumorosa. Le prestazioni restano buone solo perché l'esempio è facile:
+        ``se vedo una validation loss così nel vostro report, penso che non abbiate valutato la soluzione''.
+\end{itemize}
+\end{esempio}
+
+\section{Quando la regolarizzazione non basta}
+\begin{attenzione}
+Se l'overfitting è forte perché la rete è enorme e memorizza i dati, i rimedi ``leggeri'' non bastano: riduci layer e
+neuroni, oppure ripensa preprocessing e architettura.
+\end{attenzione}
+Tra gli iperparametri, il \code{weight\_decay} è quello da toccare \textbf{se c'è overfitting}; il learning rate resta il primo su cui
+lavorare (cap.~\ref{cap:ffnn}).
+
+\begin{sintesi}
+\begin{itemize}
+  \item La regolarizzazione aggiunge vincoli o penalità all'apprendimento ($\mathcal{L} = \mathcal{L}_{std} + \text{penalty}$) per
+        combattere l'overfitting.
+  \item \textbf{Pesi}: L1 (sparsità, pesi a zero) e L2 (pesi piccoli; in PyTorch \code{weight\_decay}).
+  \item \textbf{Dropout}: in training azzera ogni output con probabilità $p$ (maschera per campione, scala $1/(1-p)$); in
+        \code{eval()} è l'identità. Valori tipici $0{,}2$--$0{,}5$.
+  \item \textbf{Batch norm}: standardizza ogni feature con $\mu_B,\sigma_B$ del mini-batch, poi $\gamma\hat x+\beta$ appresi; in
+        \code{eval()} usa le running statistics congelate. Stabilizza il training, lieve effetto regolarizzante.
+  \item \textbf{Early stopping}: \code{patience} e \code{min\_delta} sulla validation loss, e si ripristinano i pesi migliori.
+  \item Ricorda \code{model.train()}/\code{model.eval()}: è ciò che accende e spegne dropout e statistiche di batch.
+\end{itemize}
+\end{sintesi}

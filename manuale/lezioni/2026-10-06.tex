@@ -1,0 +1,120 @@
+% =====================================================================
+\lezione{06/10/2026}{Feed-forward neural network in PyTorch}
+  {Prof.~Danilo Giordano}
+  {shuffle in validation e test; classe \code{nn.Module}; logit e \code{CrossEntropyLoss}; training
+   loop con e senza mini-batch; \code{model.eval()}; early stopping; dropout, batch norm e weight
+   decay nel codice; inizializzazione dei pesi; GPU e riproducibilità; TensorFlow Playground;
+   notebook d'esempio}
+\label{lez:2026-10-06}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione (lezione di recupero del martedì), revisionata. Codice e
+parametri sono ripresi dalle slide \emph{3-deep-learning-methodologies} (pp.~23--33) e dal notebook
+FFNN mostrato in aula.
+\end{nota}
+
+\section{Sintesi}
+Lezione pratica che prepara il Lab~1. Dopo un breve ripasso della checklist per progettare una FFNN,
+il docente risponde alla domanda lasciata in sospeso (lo shuffle in validation e test) e mostra, pezzo
+per pezzo, come si scrive una FFNN in PyTorch: definizione della rete come classe, loss e
+ottimizzatore, training loop prima senza e poi con mini-batch, early stopping, regolarizzazione,
+inizializzazione, GPU e seed. Seguono una prova su TensorFlow Playground e il notebook d'esempio con
+una pipeline completa su un dataset sintetico. Approfondimento nei capitoli~\ref{cap:ffnn},
+\ref{cap:addestramento} e \ref{cap:regolarizzazione}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item \textbf{Lab~1 mercoledì 7 ottobre}: dataset tabellare piccolo e semplice, solo FFNN.
+  \item Ambiente: PyTorch su \textbf{Google Colab} (consigliato, non obbligatorio: CPU e GPU, notebook
+    condivisibili nel gruppo); vanno bene anche un Jupyter locale o Anaconda. La GPU servirà
+    soprattutto dal Lab~2.
+  \item Lab~2 userà lo stesso dato come tabella, serie temporale e grafo; seguiranno anomaly
+    detection e NLP.
+  \item Il notebook d'esempio mostra \textbf{come usare la libreria}, non come risolvere un problema
+    reale: non va copiato così com'è nei lab.
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Shuffle in validation e test}
+No: la stocasticità serve all'SGD, cioè solo al training. In validation e test i pesi non si
+aggiornano, quindi l'ordine non cambia le predizioni.
+
+\subsection{Rete, loss e ottimizzatore}
+Una rete è una classe che eredita da \code{nn.Module}: \code{\_\_init\_\_} descrive i layer,
+\code{forward} come li attraversano i dati. Una rete fatta solo di \code{nn.Linear} \textbf{non ha
+non linearità} (equivale a un solo layer lineare): serve un'attivazione come \code{nn.ReLU}.
+L'output sono i \textbf{logit}, non normalizzati; la loss (\code{criterion}, es.\
+\code{nn.CrossEntropyLoss}, eventualmente con \code{weight}) e l'ottimizzatore (es.\ \code{AdamW} con
+learning rate e \code{weight\_decay}) completano il quadro. Appena creato, il modello ha pesi
+casuali: non è ancora un modello.
+
+\begin{esame}
+\begin{itemize}
+  \item Nell'ultimo layer in teoria serve un'attivazione (softmax nel multi-classe), ma
+    \code{nn.CrossEntropyLoss} si aspetta i \textbf{logit} e applica la softmax al suo interno:
+    nel modello non va messa. Prima di usare una loss si legge la documentazione.
+  \item \code{model.eval()} \textbf{deve esserci} in validation e test (il docente parla di ``errore
+    enorme''): spegne il dropout e fa usare alla batch norm le statistiche memorizzate.
+    \code{torch.no\_grad()} invece disattiva solo il calcolo dei gradienti. Non sono la stessa cosa.
+\end{itemize}
+\end{esame}
+
+\subsection{Il training loop}
+Per ogni epoch: \code{model.train()}, \code{zero\_grad}, forward, loss, \code{backward},
+\code{step}, salvataggio della loss; poi \code{model.eval()} e validation sotto
+\code{torch.no\_grad()}. Con i mini-batch \code{zero\_grad/backward/step} stanno
+\textbf{dentro} il ciclo sui batch (i pesi si aggiornano a ogni batch) e la loss di epoch è la
+\textbf{media pesata} per la dimensione dei batch (con 90 punti e batch da 64 l'ultimo batch ha 26
+punti). Nella prima learning curve d'esempio la loss scende ancora senza plateau: il training è
+stato fermato troppo presto. La loss dice se il modello converge; per giudicarlo servono le metriche
+(capitolo~\ref{cap:addestramento}).
+
+\subsection{Early stopping e regolarizzazione}
+Early stopping con \code{min\_delta} (miglioramento minimo significativo) e \code{patience} (epoch
+consecutive senza miglioramento); si salva lo stato del \textbf{modello migliore} e lo si ricarica alla
+fine, invece di restituire quello dell'ultima epoch. Il dropout si definisce come un layer: a ogni
+passo spegne neuroni diversi scelti a caso (non li ``congela'' una volta per tutte) e in validation
+sono tutti attivi; valori ragionevoli 0,2--0,5. La batch norm è un layer (\code{BatchNorm1d}); la
+regolarizzazione L2 è il \code{weight\_decay} dell'ottimizzatore. Dettagli nel
+capitolo~\ref{cap:regolarizzazione}.
+
+\subsection{Inizializzazione, GPU e riproducibilità}
+L'inizializzazione automatica sceglie il metodo in base all'attivazione; nell'esempio manuale con
+pesi dell'ordine di $10^{-5}$ si va incontro al vanishing gradient: si può fare, ma porta più
+problemi che benefici. Modello e dati vanno sullo stesso \code{device} (\code{cuda} se disponibile) e
+riportati su CPU quando servono fuori da PyTorch; la GPU va usata solo se serve. Per la
+riproducibilità si fissano i seed di tutto ciò che è casuale; su hardware diverso i risultati possono
+comunque cambiare un po', e se dipendono molto dal seed il modello è instabile.
+
+\subsection{TensorFlow Playground}
+Con buone feature basta anche un solo layer; un learning rate di 10 rende il training rumorosissimo,
+uno minuscolo lentissimo; con attivazione lineare il problema non lineare non si risolve; una rete
+profonda con sigmoid resta bloccata. Morale: basta una scelta sbagliata per non imparare nulla.
+
+\subsection{Il notebook d'esempio}
+Dataset sintetico con 2 feature e 3 classi, sporcato con outlier, valori mancanti e duplicati. Passi:
+rimozione di duplicati e mancanti tenendo traccia di quante righe si perdono; \code{LabelEncoder}
+per la label; visualizzazione; split 60/20/20 con \code{train\_test\_split}; \code{StandardScaler}
+fittato solo sul training; modello lineare (loss quasi ferma, come previsto), poi non lineare (3
+hidden layer da 128 con ReLU), mini-batch, early stopping, dropout, batch norm e weight decay. Con
+dropout la validation loss può stare sotto quella di training. Sulla curva molto rumorosa dell'ultima
+variante il docente avverte: una validation loss così in un report fa pensare che la soluzione non sia
+stata valutata.
+
+\subsection{Quali iperparametri toccare}
+Non si sa a priori: dipende da dataset, split e architettura. Si lavora soprattutto sul
+\textbf{learning rate} (partendo dall'ordine di $10^{-3}$, eventualmente con scheduler); momentum e
+\code{betas} si possono lasciare di default; il weight decay si tocca in caso di overfitting. Nel
+Lab~1 si chiede proprio di sperimentare per farsi un'idea.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Il docente dice che senza \code{model.eval()} si commette un errore grave; non dice
+    esattamente cosa succede. Integrazione dei redattori: i pesi non cambiano senza
+    \code{optimizer.step()}, ma il dropout resta attivo e la batch norm aggiorna le sue statistiche
+    con i dati di validation (capitolo~\ref{cap:regolarizzazione}).
+\end{itemize}
+\end{verifica}

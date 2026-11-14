@@ -1,0 +1,175 @@
+% =====================================================================
+% Preambolo -- Manuale AI and Cybersecurity
+% =====================================================================
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.4cm,headheight=14pt]{geometry}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{mindmap,trees,positioning,arrows.meta,shapes.geometric,shapes.misc,calc,fit,backgrounds}
+\usepackage[edges]{forest}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!60!black,
+  pdftitle={AI and Cybersecurity -- Manuale del corso}
+}
+\usepackage{bookmark}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\renewcommand{\arraystretch}{1.25}
+\setcounter{tocdepth}{1}
+\setlength{\emergencystretch}{3em}
+
+% ---------------------------------------------------------------------
+% Colori e intestazioni
+% ---------------------------------------------------------------------
+\definecolor{polblu}{HTML}{1F3A5F}
+\definecolor{defcol}{HTML}{2E6DA4}
+\definecolor{esecol}{HTML}{2E8B57}
+\definecolor{codebg}{HTML}{F5F7FA}
+\definecolor{codekw}{HTML}{0B5394}
+\definecolor{codecm}{HTML}{6A8759}
+\definecolor{codestr}{HTML}{A64D79}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{AI and Cybersecurity}}
+\fancyhead[R]{\small\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------------------------------------------------------------------
+% Riquadri sulle fonti (comuni a tutti i manuali della pipeline)
+% ---------------------------------------------------------------------
+% Punto che il docente ha indicato come rilevante per l'esame (titolo opzionale)
+\newtcolorbox{esame}[1][]{breakable,colback=red!4,colframe=red!60!black,
+  fonttitle=\bfseries,title={Per l'esame\ifx&#1&\else: #1\fi}}
+
+% Nota generica (titolo opzionale)
+\newtcolorbox{nota}[1][Nota]{breakable,colback=gray!6,colframe=gray!60!black,
+  fonttitle=\bfseries,title={#1}}
+
+% Informazione non confermata in aula o ricostruita da noi: da verificare
+\newtcolorbox{verifica}{breakable,colback=orange!6,colframe=orange!80!black,
+  fonttitle=\bfseries,title=Da verificare}
+
+% Soluzione di quiz, esercizi e simulazioni (titolo opzionale)
+\newtcolorbox{soluzione}[1][Soluzione]{breakable,colback=green!4,colframe=green!45!black,
+  fonttitle=\bfseries,title={#1}}
+
+% Integrazione dei redattori: contenuto NON detto a lezione né presente nelle slide
+\newtcolorbox{integrazione}[1][]{breakable,colback=violet!5,colframe=violet!60!black,
+  fonttitle=\bfseries,title={Integrazione -- non dal corso\ifx&#1&\else: #1\fi}}
+
+% Segnaposto per parti ancora da scrivere
+\newcommand{\dacompletare}[1]{%
+  \begin{tcolorbox}[colback=yellow!8,colframe=yellow!60!black,
+    fonttitle=\bfseries,title=Da completare]#1\end{tcolorbox}}
+
+% ---------------------------------------------------------------------
+% Riquadri didattici (dal corso)
+% ---------------------------------------------------------------------
+\tcbset{aicbox/.style={enhanced,breakable,boxrule=0.6pt,arc=2pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\small,
+  before skip=8pt,after skip=8pt}}
+\newtcolorbox{definizione}[1][]{aicbox,colback=defcol!5,colframe=defcol,
+  title={Definizione\ifx&#1&\else: #1\fi}}
+\newtcolorbox{esempio}[1][]{aicbox,colback=esecol!5,colframe=esecol,
+  title={Esempio\ifx&#1&\else: #1\fi}}
+\newtcolorbox{attenzione}[1][]{aicbox,colback=red!3,colframe=red!45!black,
+  title={Attenzione\ifx&#1&\else: #1\fi}}
+\newtcolorbox{sintesi}[1][]{aicbox,colback=polblu!4,colframe=polblu,
+  title={In sintesi\ifx&#1&\else: #1\fi}}
+
+% ---------------------------------------------------------------------
+% Intestazione di una lezione del diario
+%   \lezione{data}{titolo}{docenti}{argomenti}
+% ---------------------------------------------------------------------
+\newcommand{\lezione}[4]{%
+  \chapter[#1 -- #2]{#2}%
+  \begin{tcolorbox}[colback=blue!3,colframe=blue!50!black,
+    fonttitle=\bfseries,title=Scheda lezione]
+  \textbf{Data:} #1\\
+  \textbf{Docenti:} #3\\
+  \textbf{Argomenti:} #4
+  \end{tcolorbox}}
+
+% Rimando cliccabile a una lezione del diario: \rif{AAAA-MM-GG}{GG/MM}
+\newcommand{\rif}[2]{\hyperref[lez:#1]{lez.~#2}}
+
+% ---------------------------------------------------------------------
+% Quiz: domanda numerata + opzioni (a), (b), ...
+% ---------------------------------------------------------------------
+\newcounter{domanda}
+\newenvironment{domanda}[1][]{%
+  \refstepcounter{domanda}\par\medskip\noindent
+  \textbf{Domanda \thedomanda}\ifx&#1&\else\ \textit{(#1)}\fi\textbf{.}~}%
+  {\par}
+\newenvironment{opzioni}{\begin{enumerate}[label=(\alph*),nosep,leftmargin=2.2em]}{\end{enumerate}}
+
+% ---------------------------------------------------------------------
+% Codice Python
+% ---------------------------------------------------------------------
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecm}\itshape,
+  stringstyle=\color{codestr},
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{black!15},
+  numbers=left, numberstyle=\tiny\color{black!45}, numbersep=6pt,
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false, columns=fullflexible, keepspaces=true,
+  tabsize=4, xleftmargin=14pt, framexleftmargin=12pt,
+  morekeywords={self, True, False, None},
+  literate={à}{{\`a}}1 {è}{{\`e}}1 {é}{{\'e}}1 {ì}{{\`i}}1 {ò}{{\`o}}1 {ù}{{\`u}}1
+}
+\lstset{style=py}
+
+% ---------------------------------------------------------------------
+% Macro
+% ---------------------------------------------------------------------
+\newcommand{\en}[1]{\textit{#1}}             % termine inglese
+\newcommand{\code}[1]{\texttt{\small #1}}    % codice inline
+\newcommand{\R}{\mathbb{R}}
+% Fonte di un capitolo tematico: \fonti{lezioni}{slide}
+\newcommand{\fonti}[2]{%
+  \noindent{\small\color{black!60}\textbf{Lezioni:} #1 \quad\textbf{Slide:} #2}\par\medskip}
+
+% ---------------------------------------------------------------------
+% Mappe concettuali (forest)
+% ---------------------------------------------------------------------
+\forestset{
+  mappa/.style={
+    for tree={grow'=0, draw=black!35, rounded corners=2pt, node options={align=left},
+      font=\scriptsize, inner sep=2.5pt, l sep=5mm, s sep=1.2mm,
+      edge={draw=black!45, thin}, anchor=west, child anchor=west, parent anchor=east},
+    forked edges,
+    where level=0{fill=polblu!18, font=\small\bfseries, text width=2.4cm}{},
+    where level=1{fill=defcol!10, font=\scriptsize\bfseries, text width=3.0cm}{},
+    where level=2{fill=white, text width=8.6cm}{},
+  },
+  mappa3/.style={
+    mappa,
+    where level=2{fill=esecol!6, text width=3.2cm}{},
+    where level=3{fill=white, text width=5.2cm}{},
+  }
+}

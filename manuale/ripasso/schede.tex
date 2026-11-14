@@ -1,0 +1,151 @@
+\chapter{Schede: quale scelta quando}
+\label{cap:schede}
+
+Tabelle di decisione rapida per il ripasso e per gli esercizi di pipeline dello scritto
+(cap.~\ref{cap:esercizi}). Ogni riga rimanda implicitamente al capitolo del manuale sull'argomento:
+output e loss nel cap.~\ref{cap:addestramento}, dati nel cap.~\ref{cap:ffnn}, architetture nei
+cap.~\ref{cap:rnn} e~\ref{cap:cnn-gnn}, embedding nel cap.~\ref{cap:embedding}, anomaly detection
+nel cap.~\ref{cap:anomaly}. Le mappe concettuali sono nel cap.~\ref{cap:mappe}.
+
+\section{Output, attivazione finale e loss}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+\textbf{Task} & \textbf{Neuroni output} & \textbf{Attivazione} & \textbf{Loss (PyTorch)}\\
+\midrule
+Regressione & 1 (per target) & lineare (nessuna) & MSE (\code{nn.MSELoss}), MAE (\code{nn.L1Loss}) se ci sono outlier\\
+Binaria & 1 & sigmoid & BCE; in PyTorch \code{nn.BCEWithLogitsLoss} include la sigmoid$^{*}$\\
+Multi-classe & $C$ & softmax & \code{nn.CrossEntropyLoss}: riceve i \textbf{logit}, softmax interna\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{integrazione}[$^{*}$ \code{BCEWithLogitsLoss}]
+A lezione si è usata \code{CrossEntropyLoss} anche per il binario (2 neuroni di output), che funziona allo stesso modo;
+\code{BCEWithLogitsLoss} con un solo neurone è l'alternativa equivalente.
+\end{integrazione}
+
+\section{Quale metrica}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Situazione} & \textbf{Metrica}\\
+\midrule
+Classi bilanciate, errori di pari costo & accuracy (con precision/recall per sicurezza)\\
+Classi sbilanciate & precision, recall, F1 \textbf{per classe}; media \textbf{macro}\\
+Il falso negativo costa molto (malware) & \textbf{recall} alta sulla classe critica, con precision accettabile\\
+Troppi falsi allarmi inaccettabili & \textbf{precision} sulla classe ``allarme''\\
+Regressione & MSE/MAE sulla scala originale dei dati\\
+Clustering & SSE (scelta di $K$); senza label la validazione è la parte difficile\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Quale architettura}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Dato} & \textbf{Architettura} & \textbf{Attenzione a}\\
+\midrule
+Tabella di feature & FFNN (o shallow come baseline) & encoding, scaling, sbilanciamento\\
+Sequenza / serie & RNN, LSTM se memoria lunga, Bi-RNN se sequenza completa e non tempo reale & tensore 3D, padding nel batch, split temporale\\
+Immagine (o dato trasformabile in immagine) & CNN, spesso pre-addestrata + fine-tuning & dimensione d'ingresso fissa (es.\ $224\times224$)\\
+Grafo & GNN: GCN, GraphSAGE (grafi grandi), GAT (attenzione) & numero di layer (over-smoothing), pooling per la graph classification\\
+Feature categorica ad alta cardinalità & \code{nn.Embedding} prima della rete & vocabolario dal training, \code{<UNK>}\\
+Pochi dati etichettati & self-supervised/pre-addestrato + fine-tuning, semi-supervised & domain mismatch\\
+Nessuna label, eventi rari & anomaly detection (OC-SVM, clustering, \ldots) & falsi positivi, novità vs anomalie\\
+Tabella, normali noti, nessuna label degli attacchi & autoencoder o OC-SVM addestrati sui soli normali & soglia sull'errore di ricostruzione, contaminazione\\
+Molte feature, nessuna label & Isolation Forest (nessuna distanza) o riduzione di dimensione prima dei metodi a distanza & maledizione della dimensionalità\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+
+\section{Codificare una feature categorica}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Codifica} & \textbf{Quando} & \textbf{Limiti}\\
+\midrule
+ID sequenziali & feature \textbf{ordinale}; label di classificazione & su una nominale impone un ordine e distanze false\\
+One-hot & nominale con \textbf{poche} categorie; va bene anche per modelli shallow & esplode con molte categorie; non gestisce categorie nuove\\
+Feature engineering & esiste una chiave di lettura di dominio (es.\ porte note) & può essere sbagliata, cambiare nel tempo o essere impossibile\\
+Embedding appreso & nominale ad \textbf{alta cardinalità} con una rete neurale & serve un task e abbastanza dati; vocabolario dal training, \code{<UNK>}, \code{<PAD>}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Scaling e split}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Situazione} & \textbf{Scelta}\\
+\midrule
+Serve un intervallo fisso $[0,1]$, niente outlier & normalizzazione min-max\\
+Outlier o code lunghe & standardizzazione z-score (eventualmente log prima)\\
+Dataset grande & hold-out train/validation/test\\
+Dataset medio & k-fold cross-validation, poi ri-addestramento su tutto\\
+Dataset minuscolo & leave-one-out\\
+Classi sbilanciate & split \textbf{stratificato}\\
+Dati con ordine temporale & split \textbf{temporale} (finestra scorrevole o crescente)\\
+Sempre & fit di scaler, encoder, vocabolario e pesi di classe sul \textbf{solo training}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Sintomo nelle learning curve $\rightarrow$ rimedio}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.4cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Sintomo} & \textbf{Rimedio}\\
+\midrule
+Train e val alte, scendono poco (underfitting) & più capacità, architettura diversa, più epoch, preprocessing migliore\\
+Train $\to 0$, val risale (overfitting) & early stopping con salvataggio, weight decay, dropout, rete più piccola, batch norm\\
+Loss oscillante o divergente & learning rate più basso, batch più grande, scaling delle feature\\
+Loss che scende lentissima & learning rate più alto, scaling, ottimizzatore adattivo\\
+Gradienti che esplodono (RNN) & gradient clipping\\
+Gradienti che svaniscono & ReLU, LSTM/GRU, skip connection\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Training e valutazione in PyTorch}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+ & \textbf{Training} & \textbf{Validation / test}\\
+\midrule
+Modalità & \code{model.train()} & \code{model.eval()}\\
+Gradienti & calcolati: \code{zero\_grad} $\to$ \code{backward} $\to$ \code{step} per batch & \code{torch.no\_grad()}\\
+Dropout & attivo, sopravvissuti scalati di $1/(1-p)$ & spento\\
+Batch norm & statistiche del batch, aggiorna le running & usa running mean e variance\\
+DataLoader & \code{shuffle=True} & \code{shuffle=False}\\
+Preprocessing & \code{fit\_transform} & solo \code{transform}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Metodi di anomaly detection a confronto}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Metodo} & \textbf{Score / decisione} & \textbf{Parametro chiave} & \textbf{Punti deboli}\\
+\midrule
+One-class SVM & fuori dal confine attorno al normale & $\nu$, kernel & soffre la contaminazione; costoso su dati grandi\\
+K-means & distanza dal centroide; cluster piccoli & $K$ (SSE + gomito) & cluster sferici; ogni punto in un cluster; inizializzazione\\
+DBSCAN & punti di rumore (cluster $-1$) & $\varepsilon$, MinPts & $\varepsilon$ critico; densità diverse; nessuno score graduato\\
+LOF & densità del punto vs vicini & $k$ (\code{n\_neighbors}) & gruppi piccoli e densi hanno LOF $\approx 1$; costoso\\
+Isolation Forest & percorso medio corto & contaminazione & meno interpretabile\\
+Autoencoder & errore di ricostruzione & soglia, architettura & va addestrato sul normale; soglia mai dal test\\
+\bottomrule
+\end{tabularx}
+\end{center}
+I metodi a distanza e densità soffrono l'alta dimensionalità: ridurre le dimensioni (PCA dopo lo
+scaling) o preferire l'Isolation Forest.

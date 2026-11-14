@@ -1,0 +1,136 @@
+% =====================================================================
+\lezione{23/09/2026}{Paradigmi di apprendimento e modi di usare i modelli}
+  {Prof.~Danilo Giordano}
+  {training, validation e test; overfitting e underfitting; supervised, unsupervised,
+   semi-supervised, self-supervised e reinforcement learning; ensemble e stacking; federated,
+   transfer learning e modelli generativi; AI per difesa e attacco; adversarial machine learning}
+\label{lez:2026-09-23}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. I contenuti seguono le slide
+\emph{1-intro-ai-for-cybersecurity} (pp.~26--54); i dati numerici sono ripresi dalle slide.
+\end{nota}
+
+\section{Sintesi}
+Dopo un breve riepilogo su \emph{shallow} e \emph{deep learning} (più efficace e flessibile, ma
+poco trasparente e poco interpretabile: per questo esiste l'\en{explainable AI}, fuori
+programma), il docente introduce il lessico di base (training, validation, test) e passa in
+rassegna i paradigmi di apprendimento, ciascuno con esempi cyber, benefici e problemi. Chiude con i
+modi di usare i modelli (ensemble, federated, transfer, generativi) e con le tre facce del rapporto
+tra AI e sicurezza: AI per difendere, AI per attaccare, attacchi ai modelli stessi. L'intera
+lezione completa il primo deck di slide. Approfondimento nel capitolo~\ref{cap:ai-cyber}.
+
+\section{Contenuti}
+
+\subsection{Training, validation e test}
+Il \textbf{training} (o \en{fitting}: nelle librerie si chiama \code{model.fit}) costruisce il modello
+sul training set. Il \textbf{validation set}, mai usato per addestrare, serve a scegliere gli
+\textbf{iperparametri} (per esempio l'architettura della rete). Il \textbf{test set}, mai visto né in
+training né in validation, serve solo a controllare che le prestazioni restino simili a quelle di
+validation, cioè che il modello sia \textbf{generale}. L'analogia dell'esame: le lezioni sono il
+training, un tema mai visto è la validazione; chi impara a memoria dieci temi passati senza capire
+la materia va in \textbf{overfitting}, chi non impara nulla nemmeno sul training è in
+\textbf{underfitting}. Nella realtà spesso un test set adeguato non c'è nemmeno.
+
+\begin{esame}
+Il docente chiede esplicitamente di ricordare la distinzione tra i tre insiemi e i loro ruoli: è
+alla base di qualunque modello affidabile e torna in tutto il corso (learning curve, scelta degli
+iperparametri, capitolo~\ref{cap:addestramento}).
+\end{esame}
+
+\subsection{Supervised learning}
+Con un dataset \textbf{etichettato} il modello impara a mappare le feature sulla label (classificazione
+se categorica, regressione se numerica). La label è la \textbf{ground truth}: costosa, data da un umano,
+e deve essere \textbf{molto affidabile}. Esempi: filtro antispam, classificazione di malware,
+previsione del volume di traffico, in versione shallow (feature costruite) o deep (dato grezzo). Il
+modello conosce solo ciò che ha visto: l'attaccante si adatta (dal ``principe nigeriano'' al finto
+amico che chiede soldi), i dati cambiano nel tempo (\textbf{drift}) e le classi malevole sono rare
+(\textbf{sbilanciamento}). Rimedi: drift detection con ri-addestramento, pesi delle classi nella loss,
+metriche adatte, ricampionamento.
+
+\subsection{Unsupervised learning}
+Nessuna label: si cercano strutture nei dati, con dati economici da raccogliere (tutto il traffico
+della rete del Politecnico). Metodo \textbf{descrittivo}: \textbf{clustering} (gruppi di IP che si
+comportano in modo simile, per esempio una botnet, poi da studiare) e \textbf{anomaly detection}
+(impari il normale, segnali ciò che se ne discosta; capitolo~\ref{cap:anomaly}). Problemi: anche qui
+c'è drift (la botnet cambia macchine, l'esfiltrazione viene ``spalmata'' nel tempo) e soprattutto
+\textbf{l'interpretazione}: senza ground truth le metriche misurano differenze, non correttezza, e i
+falsi allarmi crescono. Lo sforzo risparmiato nell'etichettare si paga dopo, nell'analisi; aiutano
+l'analisi manuale e la XAI. Il docente cita il ``mantra'' di Jain e Dubes sulla validazione del
+clustering come ``arte oscura''.
+
+\subsection{Semi-supervised learning}
+Un piccolo insieme etichettato addestra un primo modello, che etichetta il grande insieme non
+etichettato (\emph{pseudo-label}); il modello finale si addestra su entrambi. Esempi: IDS con pochi
+attacchi etichettati e molto traffico normale; rilevamento di dispositivi infetti da botnet. Unisce la
+ground truth del supervised al basso costo dell'unsupervised, ma il campione etichettato può non
+essere rappresentativo (pochissimi malevoli) e i dati non etichettati evolvono.
+
+\subsection{Self-supervised learning}
+Nessuno in aula lo conosceva: il docente sottolinea che è il paradigma alla base dei modelli moderni,
+LLM inclusi, e che il corso ne parla molto. Sono i dati stessi a fornire la supervisione. In un
+\emph{pretext task} un \textbf{encoder} comprime l'input in un \textbf{bottleneck} a bassa dimensione
+(la \en{feature extraction} la fa il modello); nel \emph{downstream task} un \textbf{decoder} ricostruisce
+l'input, oppure un classificatore usa la rappresentazione. Se l'output è molto diverso dall'input, la
+rappresentazione non è ancora buona. Esempi: denoising delle foto dello smartphone (idea
+dell'\en{autoencoder}), analisi dei log (una mossa diversa da quella attesa è sospetta), malware,
+immagini false con GAN (generatore contro discriminatore). Benefici: nessun costo di etichettatura,
+feature automatiche, robustezza alle piccole variazioni. Problemi: costo computazionale enorme,
+servono dataset enormi \textbf{e di qualità} (cento libri pieni di errori non insegnano l'italiano),
+bias appresi, valutazione difficile.
+
+\subsection{Reinforcement learning}
+Un \textbf{agente} agisce in un \textbf{ambiente} (stato, azioni) per massimizzare una
+\textbf{reward} a lungo termine, per tentativi ed errori; i dati li genera l'agente stesso. Esempi:
+regole di firewall o soglie di IDS adattive, simulazione di attacchi, controllo di una lampadina smart
+che accetta comandi in chiaro. Problemi: costo, progettazione della reward (se è sbagliata l'agente
+smette di esplorare), apprendimento lento e instabile, scarsa interpretabilità.
+
+\subsection{Come si usano i modelli}
+\begin{itemize}
+  \item \textbf{Ensemble}: più modelli addestrati su dati, sottoinsiemi o feature diversi, con voto di
+    maggioranza o media (la random forest). Nel \textbf{model stacking} un \emph{meta-learner} impara
+    di quale modello base fidarsi e quando. Più robusto, ma costoso e poco utile se i modelli base sono
+    correlati.
+  \item \textbf{Federated learning}: ogni dispositivo addestra sui propri dati e invia al server
+    \textbf{il modello, non i dati}; il modello aggregato torna ai dispositivi (esempio dello spam
+    filter addestrato sui telefoni degli studenti). Privacy e GDPR, scalabilità; ma costo sull'edge,
+    dati eterogenei e \textbf{model poisoning}.
+  \item \textbf{Transfer learning}: si riusa un modello pre-addestrato e se ne ri-addestrano di solito
+    solo gli ultimi layer (\en{fine-tuning}) con pochi dati. Esempio: STAMINA di Intel, che trasforma
+    i binari di malware in immagini in scala di grigi e fa fine-tuning di ResNet-50
+    (capitolo~\ref{cap:cnn-gnn}). Rischi: \emph{domain mismatch} e bias ereditati.
+  \item \textbf{Modelli generativi}: campionano nuovi esempi dalla distribuzione appresa (dati
+    sintetici, varianti di malware, agenti che cercano vulnerabilità). Problemi: costo, valutazione
+    difficile, bias, uso improprio (deepfake, phishing), privacy dei dati inviati ai chatbot, questioni
+    etiche, legali e sociali.
+\end{itemize}
+
+\begin{esame}
+Commentando l'uso di ChatGPT e del \en{vibe coding}, il docente ricorda che allo scritto c'è una
+domanda di codice da risolvere senza strumenti: bisogna saper capire da soli se un codice è giusto o
+sbagliato, e perché.
+\end{esame}
+
+\subsection{AI e cybersecurity}
+Tre famiglie. \textbf{AI per la difesa}: IDS e analisi di malware senza firme statiche, novelty
+detection per gli zero-day, SIEM e SOAR potenziati, predictive security e analisi comportamentale
+(secondo le slide oltre il 90\% dei SOC dipende ancora da processi manuali, e chi usa AI e
+automazione risparmia in media 2,22 milioni di dollari per breach). \textbf{AI per l'attacco}:
+social engineering con deepfake e phishing generato e tradotto, scoperta automatica di vulnerabilità,
+evasione; l'AI generativa abbassa la barriera d'ingresso. \textbf{Adversarial machine learning}:
+\emph{data poisoning}, \emph{adversarial examples} (rumore impercettibile sull'input, non sul modello:
+la demo del cane classificato come ``hot dog'' o ``chiesa''), aggiramento dei \emph{guardrail} degli
+LLM (l'``exploit della nonna'', jailbreak a pochi giorni da ogni rilascio; gli agenti con tool
+allargano la superficie d'attacco) e \emph{model inversion}, che ricostruisce i dati di training dal
+modello, anche nel federated learning. Approfondimento nel capitolo~\ref{cap:ai-cyber}.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Parlando dei report scritti con ChatGPT il docente accenna a una possibile chiamata
+    ``all'orale''. Il formato d'esame presentato il 21/09 prevede solo scritto e report: chiarire se
+    esiste un orale di verifica sui report sospetti.
+\end{itemize}
+\end{verifica}

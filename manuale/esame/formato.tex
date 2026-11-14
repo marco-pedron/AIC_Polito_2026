@@ -1,0 +1,229 @@
+\chapter{Formato dell'esame e regole del corso}
+\label{cap:formato}
+
+\begin{nota}[Fonti]
+Slide \emph{0-Intro-Course}, quanto detto in aula alla \rif{2026-09-21}{21/09} (presentazione del
+corso) e alla \rif{2026-10-20}{20/10} (linee guida per il report), testi dei laboratori pubblicati
+sul portale (sezione ``Lab Rules''). Dove le fonti non coincidono lo segnaliamo nei riquadri
+``Da verificare'': controllate sul portale della didattica o chiedete al docente prima dell'esame.
+\end{nota}
+
+\begin{verifica}
+\begin{itemize}
+  \item \textbf{Punteggio dello scritto}: la slide dice \textbf{32 punti}; in aula il docente ha
+        detto \textbf{33}.
+  \item \textbf{Dimensione dei gruppi}: in aula, in una slide (``Classes' structure'') e nei testi dei
+        lab \textbf{4 persone} (``novità di quest'anno''); un'altra slide (``Lab activities'') dice
+        \textbf{3 persone}.
+  \item \textbf{Scadenza dei report}: la slide e il testo del Lab~3 dicono \textbf{10 giorni} prima
+        dell'appello; il testo del Lab~1 dice ``fino a \textbf{due settimane} prima'' di un appello.
+  \item \textbf{Lab 2}: la slide lo chiama \en{supervised traffic classification}; in aula è stato
+        descritto come classificazione malware/goodware a partire da sequenze di API call (vedi
+        cap.~\ref{cap:lab2}).
+\end{itemize}
+La guida del corso sul portale (\code{didattica.polito.it}) richiede l'accesso autenticato: non è
+stato possibile consultarla per risolvere i dubbi.
+\end{verifica}
+
+\section{Dati generali}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X}
+\toprule
+Insegnamento & AI and Cybersecurity (codici 01GYZUV, 01GYZUW) \\
+CFU & 6 CFU $\approx$ 60 ore \\
+Ripartizione ore & 39 h di lezione (teoria + esempi di codice) + 21 h di laboratorio \\
+Docenti & Prof.\ \textbf{Danilo Giordano} (titolare, gran parte del corso) --- \code{danilo.giordano@polito.it} \\
+        & Prof.\ \textbf{Matteo Boffa} (NLP e ultima parte del corso) --- \code{matteo.boffa@polito.it} \\
+Lingua & Inglese (lezioni e slide) \\
+Materiale & Portale della didattica: slide, notebook Python, testi dei lab, registrazioni \\
+Ambiente & Python + PyTorch; consigliato \textbf{Google Colab} (GPU gratuita a tempo limitato,
+           collaborazione sul notebook). Alternative: Jupyter locale / Anaconda \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Orari e aule}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Giorno} & \textbf{Orario} & \textbf{Aula / note}\\
+\midrule
+Lunedì & 13:00--14:30 (1,5 h) & 2C --- lezione \\
+Martedì & 16:00--17:30 (1,5 h) & 8I --- \textbf{opzionale}: si usa solo se annunciato sul portale \\
+Mercoledì & 11:30--14:30 (3 h) & 2S --- lezione o, quando possibile, laboratorio \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Materiale e libri}
+\begin{itemize}
+  \item Le \textbf{slide} sono volutamente verbose e \textbf{autosufficienti}: secondo il docente
+        bastano per prendere anche il voto massimo. Vengono caricate a ridosso della lezione.
+  \item Le lezioni sono registrate; dei laboratori si registra solo la spiegazione iniziale.
+  \item Libri consigliati (non necessari):
+  \begin{itemize}
+    \item I.\,H.\ Sarker, \emph{AI-Driven Cybersecurity and Threat Intelligence}, Springer, 2024.
+    \item S.\,J.\,D.\ Prince, \emph{Understanding Deep Learning}, MIT Press, 2023 (molte figure
+          delle slide vengono da qui).
+  \end{itemize}
+\end{itemize}
+
+\subsection{Prerequisiti}
+Concetti base di data science e machine learning (il corso fa un rapido ripasso iniziale);
+Python con \code{numpy}, \code{pandas}, \code{sklearn}, \code{matplotlib}. PyTorch viene
+introdotto durante il corso. Corso utile come base (non obbligatorio):
+\emph{Machine Learning for Networking} (01DSMBG, Prof.\ Luca Vassio).
+
+\subsection{Programma}
+\begin{multicols}{2}
+\textbf{Lezioni (39 h)}
+\begin{itemize}
+  \item Introduzione ad AI e ML per la cybersecurity
+  \item Fondamenti di deep learning
+  \item Architetture deep: teoria e implementazione (FFNN, RNN, CNN, GNN)
+  \item Supervised e unsupervised, anomaly detection
+  \item Introduzione al deep NLP e alle tecniche di embedding
+  \item Casi d'uso di cybersecurity (seminari)
+  \item Simulazione d'esame (ultima settimana)
+\end{itemize}
+\columnbreak
+\textbf{Laboratori (21 h)}
+\begin{enumerate}
+  \item Introduzione ai framework di deep learning (3 h)
+  \item Classificazione supervisionata (6 h)
+  \item Unsupervised e anomaly detection, es.\ rilevamento DDoS (6 h)
+  \item NLP e clustering per il rilevamento di botnet (6 h)
+\end{enumerate}
+\end{multicols}
+
+\section{Laboratori e report}
+
+\subsection{Gruppi}
+\begin{itemize}
+  \item Gruppi \textbf{auto-organizzati} di \textbf{4 persone} (vedi il riquadro ``Da verificare'':
+        una slide dice 3), da registrare con il form Moodle entro fine ottobre.
+  \item Il tempo in aula non basta per finire un lab: si completa a casa.
+\end{itemize}
+
+\subsection{Cosa consegnare (per ogni lab, Lab 1 incluso)}
+Un \textbf{file zip} per lab, chiamato \code{groupID\_labX.zip} secondo i testi dei lab, con:
+\begin{enumerate}
+  \item \textbf{Report} di \textbf{massimo 10 pagine} (\code{groupID\_labX.pdf}): cosa e come avete
+        fatto, decisioni, esperimenti e risultati, con figure e tabelle; frammenti di codice solo se
+        servono. Nell'intestazione: \textbf{ID del lab, ID del gruppo, nomi ed email} dei membri.
+  \item \textbf{Notebook Jupyter} (nessun limite di pagine), \textbf{eseguito} (output e numeri di
+        esecuzione visibili), \textbf{commentato} e \textbf{rieseguibile} (seed fissati); secondo i testi
+        dei lab va incluso sia il \code{.ipynb} sia un export HTML.
+  \item \textbf{Experiment logbook} (novità di quest'anno): una tabella con una riga per ogni
+        addestramento, con budget di circa 25 run per lab; \textbf{non conta} nelle 10 pagine
+        (dettagli nel cap.~\ref{cap:lab-report}).
+\end{enumerate}
+
+\subsection{Scadenze e valutazione}
+\begin{itemize}
+  \item \textbf{Lab 1} (solo formativo): consegna \textbf{obbligatoria} per far valutare gli altri lab;
+        è valutato solo valido/non valido. Se si consegna una soluzione ``ragionevole''
+        \textbf{entro il 1° dicembre} si ottiene \textbf{+1 punto bonus} sul voto finale.
+        Se va riconsegnato, o si consegna dopo il 1° dicembre, il bonus si perde.
+  \item \textbf{Altri lab}: scadenza \textbf{10 giorni prima della data di un appello} (es.\ appello
+        il 15 $\Rightarrow$ consegna entro il 5); il testo del Lab~1 parla invece di due settimane
+        (vedi riquadro iniziale).
+  \item Si valuta \textbf{il report}; il notebook si guarda solo in caso di dubbi. Il report deve
+        quindi essere \textbf{autocontenuto}.
+  \item Ogni report vale \textbf{da 0 a 32}; \textbf{tutti} devono avere voto $\geq 18$.
+        \begin{itemize}
+          \item voto $\geq 18$: \textbf{non} si può riconsegnare per migliorarlo;
+          \item voto $< 18$: si \textbf{deve} riconsegnare.
+        \end{itemize}
+  \item I voti dei report valgono \textbf{2 anni accademici} (fino all'ultimo appello 2027/2028).
+  \item Report e scritto possono essere fatti in appelli diversi; l'esame si registra quando
+        entrambe le parti sono sufficienti.
+\end{itemize}
+
+\begin{esame}[come si scrive il report]
+Le indicazioni del docente su come scrivere un buon report e la checklist prima della consegna sono
+raccolte nel cap.~\ref{cap:lab-report}.
+\end{esame}
+
+\subsection{Uso di ChatGPT e strumenti simili}
+È \textbf{permesso} usare l'AI per idee, bozze di codice e struttura del report. Restate però
+responsabili di verificare e capire tutto ciò che consegnate: niente copia-incolla. Se la consegna
+sembra interamente ``GPT-made'', senza ragionamento, il gruppo viene \textbf{chiamato per un orale}.
+I testi dei lab aggiungono che saper trovare e correggere bug, anche nel codice generato dall'AI,
+può essere valutato allo scritto, dove c'è una parte di comprensione del codice da fare senza AI.
+
+\section{Esame scritto}
+\begin{itemize}
+  \item In aula, sulla piattaforma \textbf{Exam (Moodle)} con \textbf{LockDown Browser},
+        \textbf{con il proprio portatile} (obbligatorio). Aggiorna LockDown Browser all'ultima versione.
+  \item Copre \textbf{teoria e codice}: non si chiede di scrivere codice da zero, ma di capire se
+        un codice funziona, perché no e cosa correggere.
+  \item \textbf{Durata: 100 minuti} (in genere si finisce in 70--80).
+  \item \textbf{Totale: 32 punti} secondo la slide (33 a voce, vedi riquadro iniziale).
+\end{itemize}
+
+\textbf{Struttura (descritta in aula):}
+\begin{enumerate}
+  \item domande a \textbf{scelta multipla}, due delle quali \textbf{senza penalità};
+  \item \textbf{quattro gruppi di vero/falso}: risposta giusta = punto, risposta sbagliata = \textbf{piccola penalità};
+  \item \textbf{due domande aperte} di teoria;
+  \item \textbf{tre esercizi aperti} di difficoltà crescente sulla pipeline di ML e sul codice.
+\end{enumerate}
+
+\begin{verifica}
+Dalla registrazione non è chiaro se le domande a scelta multipla siano \textbf{due in tutto} o se solo
+due siano senza penalità; la slide dice soltanto ``\en{some with penalties for wrong answers}''.
+\end{verifica}
+
+\begin{esame}[cosa conta davvero]
+Il docente ha ripetuto più volte che \textbf{non chiederà di ricordare le formule} delle slide:
+conta capire \emph{perché} funzionano (es.\ perché il momentum stabilizza la traiettoria,
+perché la sigmoid causa il \en{vanishing gradient}). Le formule nel manuale servono a
+ragionare, non a essere memorizzate. Esempi di domande nei cap.~\ref{cap:quiz} e~\ref{cap:esercizi}.
+\end{esame}
+
+\section{Voto finale}
+\[
+\text{Voto} = 0{,}6 \cdot \text{Scritto} + 0{,}4 \cdot \overline{\text{Report}} + \text{punti aggiuntivi}
+\]
+\begin{itemize}
+  \item Si arrotonda all'intero più vicino \textbf{solo alla fine} ($\geq 0{,}5$ per eccesso).
+  \item Registrazione solo se \textbf{scritto $\geq 18$} \textbf{e ogni report $\geq 18$}.
+  \item Punti aggiuntivi: +1 del Lab 1 consegnato entro il 1° dicembre ed eventuali altre attività proposte.
+  \item \textbf{Orale facoltativo} se il voto è $\geq 26$, oppure su richiesta del docente in caso
+        di dubbi sullo scritto o sul report.
+\end{itemize}
+
+\begin{esempio}[calcolo, dalla slide]
+$24 \cdot 0{,}6 + 28 \cdot 0{,}4 + 1 = 14{,}4 + 11{,}2 + 1 = 26{,}6 \Rightarrow 27$\\
+$20 \cdot 0{,}6 + 28 \cdot 0{,}4 + 1 = 12 + 11{,}2 + 1 = 24{,}2 \Rightarrow 24$
+\end{esempio}
+
+\begin{attenzione}[errore nella slide]
+La slide riporta $23{,}2 \Rightarrow 23$ per il secondo esempio; il conto corretto è
+$24{,}2 \Rightarrow 24$.
+\end{attenzione}
+
+\section{Mappa lezioni $\leftrightarrow$ slide}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X l}
+\toprule
+\textbf{Lezione} & \textbf{Argomenti} & \textbf{Slide}\\
+\midrule
+\rif{2026-09-21}{21/09} & Presentazione; perché AI in cybersecurity; AI/ML/NN/DL; storia; shallow vs deep & 0, 1 (pp.\ 1--25)\\
+\rif{2026-09-23}{23/09} & Terminologia; paradigmi di apprendimento; uso dei modelli; AI \& cybersecurity & 1 (pp.\ 26--54)\\
+\rif{2026-09-28}{28/09} & Perceptron, bias, attivazioni, stacking, non linearità, approssimazione universale, logit/softmax & 2 (pp.\ 1--18)\\
+\rif{2026-09-30}{30/09} & Training: epoch, mini-batch, learning rate, GD/SGD/momentum/Adam, backprop, loss, metriche, over/underfitting & 2 (pp.\ 19--51)\\
+\rif{2026-10-05}{05/10} & Data handling: pulizia, encoding, scaling, split, sbilanciamento, leakage; progettare una FFNN; tensori & 3 (pp.\ 1--22)\\
+\rif{2026-10-06}{06/10} & FFNN in PyTorch: classe, training loop, mini-batch, early stopping, dropout, weight decay, GPU & 3 (pp.\ 23--33)\\
+\rif{2026-10-12}{12/10} & RNN: hidden state, architetture, BPTT, gradienti, LSTM, dati 3D & 3 (pp.\ 34--71)\\
+\rif{2026-10-14}{14/10} & RNN in PyTorch (padding); CNN; GNN (teoria) & 3 (pp.\ 72--123)\\
+\rif{2026-10-19}{19/10} & GNN in PyTorch Geometric; feature categoriche ed embedding appresi & 3 (pp.\ 124--136), 4 (pp.\ 1--22)\\
+\rif{2026-10-20}{20/10} & Embedding supervisionati e self-supervised; dropout e batch norm nel dettaglio; linee guida report & 4 (pp.\ 23--51), 2a\\
+\rif{2026-11-02}{02/11} & Anomaly detection: definizioni, tipi, sfide; one-class SVM; clustering e k-means & 5 (pp.\ 1--33)\\
+\rif{2026-11-09}{09/11} & Notebook di anomaly detection su KDD99: preprocessing, PCA/t-SNE, OC-SVM, LOF, k-means, DBSCAN, Isolation Forest, autoencoder & 5 (pp.\ 33--57), 6\\
+\bottomrule
+\end{tabularx}
+\end{center}

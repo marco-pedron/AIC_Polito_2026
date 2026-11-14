@@ -1,0 +1,105 @@
+% =====================================================================
+\lezione{12/10/2026}{Recurrent neural network e LSTM}
+  {Prof.~Danilo Giordano}
+  {perché servono le RNN; hidden state; varianti input/output; RNN mono e bidirezionale; cella RNN e
+   classification head; relazione di ricorrenza; BPTT; vanishing ed exploding gradient; dipendenze a
+   lungo termine; LSTM; dati in forma di tensore 3D; progettazione di una RNN; da tabella a sequenze}
+\label{lez:2026-10-12}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. Formule, tabelle e best practice sono
+riprese dalle slide \emph{3-deep-learning-methodologies} (pp.~34--71) e dal notebook
+\emph{RNN-Pollution-Multivariate}.
+\end{nota}
+
+\section{Sintesi}
+Dopo una battuta sul Lab~1 (una guida passo passo per imparare a usare una rete, più che una vera
+pipeline di data science), si entra nelle architetture deep vere e proprie con le
+\textbf{recurrent neural network}. Una FFNN tratta ogni punto in modo indipendente; una RNN mantiene
+uno \textbf{stato} che evolve nel tempo e riassume la serie. La lezione costruisce la RNN a partire
+dalla FFNN, introduce la \en{backpropagation through time} e i suoi problemi di gradiente, motiva e
+descrive l'LSTM, poi passa alla preparazione dei dati (tensore 3D, lunghezze diverse) e alla
+progettazione. Approfondimento nel capitolo~\ref{cap:rnn}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il Lab~2 si concentra sul caso \textbf{many-to-one} (una serie in input, una label in output).
+  \item L'esempio di codice sulle sequenze prosegue mercoledì (\rif{2026-10-14}{14/10}).
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Perché le RNN}
+Da un solo punto non si può predire la traiettoria: manca la storia. Le RNN gestiscono input
+sequenziali di lunghezza variabile e mantengono uno \textbf{hidden state} che rappresenta la serie
+fino a $t-1$ (``\en{my brother plays}\ldots'': il contesto suggerisce cosa viene dopo; in modo
+semplificatissimo è l'idea della predizione della parola successiva). Applicazioni: traduzione,
+previsione di serie (scostamenti forti dalla previsione possono indicare un'anomalia), classificazione
+di serie, riconoscimento vocale, \en{part-of-speech tagging}.
+
+\subsection{Varianti e architetture}
+Quattro configurazioni: \textbf{one-to-one}, \textbf{many-to-one} (sentiment, sequenza di log per
+rilevare un attacco), \textbf{one-to-many} (image captioning), \textbf{many-to-many} (traduzione).
+La RNN \textbf{mono-direzionale} va bene per il tempo reale ma fatica con le dipendenze lunghe; la
+\textbf{bidirezionale} usa due RNN con pesi diversi in direzioni opposte, cattura passato e futuro ma
+costa di più e richiede la sequenza completa (es.\ un'email da classificare come phishing).
+
+\subsection{Dentro la cella}
+\[
+h_t = F_1\big(W_{hh}h_{t-1} + W_{xh}x_t + b_{hh}\big), \qquad
+\hat y_t = F_2\big(W_{yh}h_t + b_{yh}\big)
+\]
+con $F_1$ tipicamente \textbf{tanh}. Il passaggio dalla FFNN alla RNN: la stessa rete applicata a ogni
+istante, poi collegata propagando lo stato. Relazione di ricorrenza $h_t = f_W(x_t, h_{t-1})$:
+\textbf{stessa funzione e stessi pesi} a ogni passo. Nel many-to-one solo l'ultima cella ha la
+classification head.
+
+\begin{esame}
+La parte ricorrente fa \textbf{feature extraction}: lo stato finale comprime la serie in pochi numeri
+(un \textbf{embedding} della serie), e la head (da un layer lineare a una FFNN) lo usa per
+classificare. Le due parti si addestrano \textbf{insieme}. Il docente insiste anche sul capire
+\textbf{perché} la BPTT è più complessa della backpropagation classica.
+\end{esame}
+
+\subsection{BPTT e problemi di gradiente}
+La \en{backpropagation through time} somma le loss dei passi, propaga l'errore attraverso output e
+stati fino all'inizio della sequenza e accumula i gradienti sui pesi condivisi. Il gradiente rispetto
+agli stati iniziali contiene molti fattori di $W_{hh}$: valori $>1$ portano all'\textbf{exploding
+gradient} (rimedio: \en{gradient clipping}), valori $<1$ al \textbf{vanishing gradient} (rimedi:
+attivazione, inizializzazione, architettura). Esempio delle dipendenze lunghe: ``\en{the clouds are in
+the}\ldots'' si risolve con il passato recente; una lunga storia che parte dalla Francia e finisce con
+``parlo fluentemente\ldots'' no.
+
+\subsection{LSTM}
+Proposta nel 1997, mantiene un \textbf{cell state} $C_t$ (memoria a lungo termine) e un
+\textbf{hidden state} $h_t$ (breve termine), regolati da gate con sigmoid: \textbf{forget gate}
+(quanto passato tenere), \textbf{input gate} e memoria candidata con tanh (quanto presente
+aggiungere: un articolo come ``\en{the}'' conta poco), \textbf{output gate} (quanto del cell state
+diventa $h_t$). Gestisce dipendenze lunghe al prezzo di molti più pesi. Quanto passato ricordi non si
+sa a priori: dipende da dati, training e dimensioni degli stati. I transformer saranno trattati nella
+parte di NLP.
+
+\subsection{Dati e progettazione}
+L'input di una RNN è un tensore 3D \code{(batch, seq\_len, features)}. Una serie mono-dimensionale si
+scrive \code{[[1],[2],[3]]}: \code{[1,2,3]} sarebbe un solo istante con 3 feature. Il numero di
+feature per istante è fisso; il numero di passi può variare tra serie, ma dentro un mini-batch serve
+la stessa lunghezza (padding o troncamento, solo dentro il batch). Checklist: tipo di RNN, lunghezza
+delle sequenze, memoria lunga o no, mono o bidirezionale; input = numero di \textbf{feature}; hidden
+size in potenze di 2; 1--2 layer ricorrenti; head lineare o FFNN; ottimizzazione come per le FFNN
+(Adam, learning rate 0,001 con scheduler, shuffle solo tra serie indipendenti).
+
+\subsection{Da tabella a sequenze}
+Nel dataset sull'inquinamento ogni riga è un'ora (35.040 righe, 7 feature): non ci sono ancora serie.
+Una funzione \code{create\_sequences} prende finestre di 7 righe consecutive e come label il valore
+di inquinamento successivo, producendo il tensore 3D per il training. L'esempio completo si vede nella
+lezione del \rif{2026-10-14}{14/10}.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Label della finestra: a voce il docente dice che è quella dell'``ultimo elemento, il
+    settimo''; nel notebook è \code{labels[i + seq\_length]}, cioè il valore \textbf{successivo} alla
+    finestra (si predice l'ora dopo). Vale il notebook.
+\end{itemize}
+\end{verifica}

@@ -1,0 +1,108 @@
+\chapter{Glossario e acronimi}
+\label{cap:glossario}
+
+Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione breve e il capitolo di riferimento.
+
+\begin{multicols}{2}
+\small
+\begin{description}[style=nextline, leftmargin=0.6em, itemsep=3pt]
+\item[Activation function] funzione di attivazione: non linearità dopo la somma pesata (ReLU, sigmoid, tanh, softmax). Cap.~\ref{cap:reti-neurali}.
+\item[Adam / AdamW] ottimizzatore con momentum su gradiente e gradiente al quadrato + bias correction; AdamW con weight decay disaccoppiato. Cap.~\ref{cap:addestramento}.
+\item[Adjacency matrix] matrice di adiacenza del grafo. Cap.~\ref{cap:cnn-gnn}.
+\item[Adversarial example] input modificato impercettibilmente per ingannare il modello. Cap.~\ref{cap:ai-cyber}.
+\item[Anomaly / outlier] istanza che devia dal comportamento atteso. Cap.~\ref{cap:anomaly}.
+\item[Autoencoder] encoder + decoder addestrati a ricostruire l'input (self-supervised). Cap.~\ref{cap:embedding}.
+\item[Backpropagation] calcolo dei gradienti con la regola della catena dall'output all'input. Cap.~\ref{cap:addestramento}.
+\item[Batch normalization] normalizzazione delle attivazioni con le statistiche del mini-batch; $\gamma, \beta$ appresi. Cap.~\ref{cap:regolarizzazione}.
+\item[Bias] (1) peso che non moltiplica una feature, trasla la funzione; (2) distorsione nei dati o nel modello. Cap.~\ref{cap:reti-neurali}.
+\item[Bottleneck] spazio a bassa dimensione in cui l'encoder comprime l'input. Cap.~\ref{cap:ai-cyber}.
+\item[BPTT] Backpropagation Through Time: backprop lungo i passi temporali di una RNN. Cap.~\ref{cap:rnn}.
+\item[Class imbalance] sbilanciamento tra le classi. Cap.~\ref{cap:ffnn}.
+\item[Class weights] pesi per classe nella loss. Cap.~\ref{cap:ffnn}.
+\item[Contamination] frazione attesa di anomalie; fissa la soglia di molti metodi (\code{nu}, \code{contamination}). Cap.~\ref{cap:anomaly}.
+\item[Contrastive loss] loss che avvicina gli embedding di viste dello stesso oggetto e allontana quelli di oggetti diversi. Cap.~\ref{cap:embedding}.
+\item[Cross-entropy] loss per la classificazione (BCE nel binario). Cap.~\ref{cap:addestramento}.
+\item[Cross-validation (k-fold)] $k$ addestramenti ruotando il fold di validazione. Cap.~\ref{cap:ffnn}.
+\item[Data leakage] informazioni di validation/test che entrano nel training. Cap.~\ref{cap:ffnn}.
+\item[DataLoader] oggetto PyTorch che crea i mini-batch. Cap.~\ref{cap:ffnn}.
+\item[DBSCAN] clustering a densità ($\varepsilon$, MinPts): core, border e noise point; il rumore è l'anomalia. Cap.~\ref{cap:anomaly}.
+\item[Downstream task] compito finale che usa la rappresentazione appresa. Cap.~\ref{cap:ai-cyber}.
+\item[Drift] cambiamento della distribuzione dei dati nel tempo. Cap.~\ref{cap:ai-cyber}.
+\item[Dropout] spegnimento casuale di neuroni in training. Cap.~\ref{cap:regolarizzazione}.
+\item[Early stopping] arresto del training quando la validation loss smette di migliorare. Cap.~\ref{cap:regolarizzazione}.
+\item[Embedding] vettore denso appreso che rappresenta un oggetto (categoria, nodo, serie). Cap.~\ref{cap:embedding}.
+\item[Ensemble / stacking] combinazione di modelli; meta-learner sulle predizioni. Cap.~\ref{cap:ai-cyber}.
+\item[Epoch] un passaggio dell'intero training set. Cap.~\ref{cap:addestramento}.
+\item[Exploding gradient] gradienti che crescono senza controllo; rimedio: clipping. Cap.~\ref{cap:rnn}.
+\item[Feature engineering / extraction] costruzione manuale / estrazione automatica delle feature. Cap.~\ref{cap:ai-cyber}.
+\item[Federated learning] modello globale da modelli addestrati localmente. Cap.~\ref{cap:ai-cyber}.
+\item[Fine-tuning] ri-addestramento (parziale) di un modello pre-addestrato. Cap.~\ref{cap:ai-cyber}.
+\item[Gate (LSTM)] ``rubinetto'' sigmoid che regola il flusso d'informazione. Cap.~\ref{cap:rnn}.
+\item[Gradient descent] aggiornamento dei pesi nella direzione opposta al gradiente. Cap.~\ref{cap:addestramento}.
+\item[Ground truth] la label vera. Cap.~\ref{cap:ai-cyber}.
+\item[Hidden state / size] stato interno di una RNN / sua dimensione. Cap.~\ref{cap:rnn}.
+\item[Hold-out] split fisso train/val/test. Cap.~\ref{cap:ffnn}.
+\item[Hyperparameter] parametro scelto da noi (LR, batch size, layer\ldots), non appreso. Cap.~\ref{cap:addestramento}.
+\item[Inductive / transductive] su grafi nuovi / sullo stesso grafo. Cap.~\ref{cap:cnn-gnn}.
+\item[Isolation Forest] alberi a tagli casuali; percorso medio corto = anomalia; nessuna distanza. Cap.~\ref{cap:anomaly}.
+\item[Kernel] (CNN) filtro convoluzionale; (SVM) funzione che mappa i dati in uno spazio separabile. Cap.~\ref{cap:cnn-gnn}, \ref{cap:anomaly}.
+\item[Learning rate] dimensione del passo di aggiornamento. Cap.~\ref{cap:addestramento}.
+\item[LOF (Local Outlier Factor)] rapporto tra la densità dei vicini e quella del punto; $>1$ = potenziale outlier locale. Cap.~\ref{cap:anomaly}.
+\item[Logit] output grezzo prima dell'attivazione finale. Cap.~\ref{cap:reti-neurali}.
+\item[Loss function] funzione obiettivo da minimizzare. Cap.~\ref{cap:addestramento}.
+\item[Message passing] aggregazione dei messaggi dei vicini in una GNN. Cap.~\ref{cap:cnn-gnn}.
+\item[Mini-batch] sottoinsieme casuale di dati per un aggiornamento. Cap.~\ref{cap:addestramento}.
+\item[Momentum] media mobile delle direzioni di aggiornamento. Cap.~\ref{cap:addestramento}.
+\item[Novelty] pattern nuovo, potenzialmente nuova normalità. Cap.~\ref{cap:anomaly}.
+\item[One-hot encoding] vettore binario con un solo 1. Cap.~\ref{cap:ffnn}.
+\item[Over-smoothing] embedding dei nodi tutti simili con troppi layer GNN. Cap.~\ref{cap:cnn-gnn}.
+\item[Overfitting / underfitting] modello che memorizza il training / troppo semplice. Cap.~\ref{cap:addestramento}.
+\item[Padding] valori aggiunti per uniformare lunghezze o bordi. Cap.~\ref{cap:rnn}, \ref{cap:cnn-gnn}.
+\item[PCA] proiezione lineare su componenti ortogonali ordinate per varianza; richiede lo scaling. Cap.~\ref{cap:anomaly}.
+\item[Permutation invariance / equivariance] indipendenza dall'ordine dei nodi a livello grafo / nodo. Cap.~\ref{cap:cnn-gnn}.
+\item[Pooling] riduzione di dimensione (max pooling) o aggregazione dei nodi (global mean pool). Cap.~\ref{cap:cnn-gnn}.
+\item[Pretext task] compito ``finto'' per imparare una rappresentazione. Cap.~\ref{cap:ai-cyber}.
+\item[Receptive field] insieme di nodi (o pixel) che influenzano una rappresentazione. Cap.~\ref{cap:cnn-gnn}.
+\item[Reconstruction error] distanza tra input e ricostruzione dell'autoencoder; score di anomalia. Cap.~\ref{cap:anomaly}.
+\item[Regularization (L1, L2)] penalità sui pesi per ridurre l'overfitting. Cap.~\ref{cap:regolarizzazione}.
+\item[Shortcut] scorciatoia: il modello usa una feature spuria (sfondo, porta 80). Cap.~\ref{cap:embedding}.
+\item[Silhouette] $s(i) = (b-a)/\max(a,b) \in [-1,1]$: quanto un punto sta bene nel suo cluster. Cap.~\ref{cap:anomaly}.
+\item[Softmax] trasforma $C$ logit in probabilità con somma 1. Cap.~\ref{cap:reti-neurali}.
+\item[SSE] Sum of Squared Error: coesione dei cluster, per scegliere $K$. Cap.~\ref{cap:anomaly}.
+\item[Stratified sampling] split che preserva le proporzioni di classe. Cap.~\ref{cap:ffnn}.
+\item[t-SNE] proiezione non lineare per visualizzare: preserva i vicini, non le distanze; parametro perplexity. Cap.~\ref{cap:anomaly}.
+\item[Tensor] matrice multidimensionale di numeri dello stesso tipo. Cap.~\ref{cap:ffnn}.
+\item[Vanishing gradient] gradienti che svaniscono nei primi layer o passi. Cap.~\ref{cap:addestramento}, \ref{cap:rnn}.
+\item[Weight decay] regolarizzazione L2 nell'ottimizzatore. Cap.~\ref{cap:regolarizzazione}.
+\item[Zero-day] vulnerabilità sconosciuta e senza patch. Cap.~\ref{cap:ai-cyber}.
+\end{description}
+\end{multicols}
+
+\section*{Acronimi}
+\begin{multicols}{3}
+\small
+\begin{description}[leftmargin=0.6em,itemsep=1pt]
+\item[AE] autoencoder
+\item[BCE] binary cross-entropy
+\item[BN] batch normalization
+\item[BPTT] backpropagation through time
+\item[CNN] convolutional neural network
+\item[DBSCAN] density-based spatial clustering of applications with noise
+\item[FFNN] feed-forward neural network
+\item[GAT] graph attention network
+\item[GCN] graph convolutional network
+\item[GD / SGD] (stochastic) gradient descent
+\item[GNN] graph neural network
+\item[IDS] intrusion detection system
+\item[LOF] local outlier factor
+\item[LR] learning rate
+\item[LSTM] long short-term memory
+\item[MAE / MSE] mean absolute / squared error
+\item[OC-SVM] one-class support vector machine
+\item[PCA] principal component analysis
+\item[RNN] recurrent neural network
+\item[SSE] sum of squared errors
+\item[t-SNE] t-distributed stochastic neighbor embedding
+\item[UNK / PAD] token per valori sconosciuti / di riempimento
+\end{description}
+\end{multicols}

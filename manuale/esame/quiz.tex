@@ -1,0 +1,746 @@
+\chapter{Quiz: scelta multipla e vero/falso}
+\label{cap:quiz}
+\setcounter{domanda}{0}
+
+Domande nello stile delle prime due parti dello scritto (cap.~\ref{cap:formato}): scelta multipla e
+gruppi di vero/falso. \textbf{Le soluzioni sono in fondo al capitolo} (sez.~\ref{sec:quiz-soluzioni}),
+ciascuna con il rimando alla lezione in cui l'argomento è trattato: prova prima da solo.
+
+\begin{nota}[Domande dei redattori]
+Sono domande scritte per il ripasso a partire da lezioni e slide, \textbf{non} domande ufficiali
+d'esame. Il formato reale si vedrà nella simulazione d'esame dell'ultima settimana.
+\end{nota}
+
+\section{Domande a scelta multipla}
+Una sola risposta corretta per domanda.
+
+\begin{domanda}[AI e ML]\label{quiz:m1}
+Quale affermazione su AI e machine learning è corretta?
+\begin{opzioni}
+  \item AI e machine learning sono sinonimi.
+  \item Il machine learning non richiede dati: la regola la fornisce l'esperto.
+  \item Un sistema a regole scritte da un esperto è AI ma non machine learning.
+  \item Il deep learning è un sottoinsieme dell'AI che non usa reti neurali.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[shallow vs deep]\label{quiz:m2}
+Cosa distingue principalmente il deep learning dallo shallow learning, secondo il corso?
+\begin{opzioni}
+  \item La feature extraction è fatta dalla rete; lo sforzo si sposta sul model engineering.
+  \item Il deep learning non richiede preprocessing.
+  \item Il deep learning è più interpretabile.
+  \item Il deep learning si applica solo alle immagini.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[terminologia]\label{quiz:m3}
+Il validation set serve a:
+\begin{opzioni}
+  \item aggiornare i pesi della rete;
+  \item aumentare la quantità di dati di training;
+  \item stimare le prestazioni finali dopo aver fissato tutti gli iperparametri;
+  \item scegliere gli iperparametri e valutare l'overfitting.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[paradigmi]\label{quiz:m4}
+Qual è la differenza tra unsupervised e self-supervised learning?
+\begin{opzioni}
+  \item Il self-supervised richiede label umane, l'unsupervised no.
+  \item Il self-supervised genera un segnale di supervisione dai dati stessi per imparare una rappresentazione.
+  \item L'unsupervised impara una rappresentazione, il self-supervised descrive i dati.
+  \item Sono sinonimi.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[federated learning]\label{quiz:m5}
+Nel federated learning, il \en{model poisoning} consiste nel:
+\begin{opzioni}
+  \item iniettare rumore impercettibile nelle immagini di test;
+  \item ricostruire i dati di training a partire dal modello;
+  \item far inviare a un partecipante un modello addestrato per far passare come legittimo il proprio traffico malevolo;
+  \item aggirare i guardrail di un LLM con un prompt.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[adversarial ML]\label{quiz:m6}
+Un \en{adversarial example}:
+\begin{opzioni}
+  \item modifica leggermente l'input perché il modello sbagli, senza toccare il modello;
+  \item modifica i pesi del modello durante il training;
+  \item ricostruisce i dati di training dagli output del modello;
+  \item è un campione con la label sbagliata.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[perceptron]\label{quiz:m7}
+A cosa serve il bias $w_0$ in un perceptron?
+\begin{opzioni}
+  \item A rendere la funzione non lineare.
+  \item A normalizzare l'input.
+  \item A ridurre il numero di parametri.
+  \item A traslare la funzione, che altrimenti passerebbe sempre per l'origine.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[non linearità]\label{quiz:m8}
+Una rete con 10 layer lineari e nessuna funzione di attivazione:
+\begin{opzioni}
+  \item può approssimare qualsiasi funzione continua;
+  \item equivale a un unico layer lineare;
+  \item è più espressiva di una rete con un solo hidden layer ReLU;
+  \item soffre di over-smoothing.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[output layer]\label{quiz:m9}
+Classificazione con 5 classi: quale output layer?
+\begin{opzioni}
+  \item 1 neurone con sigmoid.
+  \item 5 neuroni con ReLU.
+  \item 5 neuroni con softmax.
+  \item 1 neurone con tanh.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[ottimizzazione]\label{quiz:m10}
+Rispetto al gradient descent, lo stochastic gradient descent:
+\begin{opzioni}
+  \item aggiorna i pesi dopo ogni mini-batch e, grazie al rumore, può uscire dai minimi locali;
+  \item usa tutto il training set per ogni aggiornamento;
+  \item garantisce di trovare il minimo globale;
+  \item non richiede un learning rate.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[momentum]\label{quiz:m11}
+Con un coefficiente di momentum $\beta$ molto vicino a 1:
+\begin{opzioni}
+  \item l'aggiornamento segue quasi solo il gradiente del batch corrente;
+  \item il learning rate effettivo diventa nullo;
+  \item l'ottimizzatore equivale all'SGD senza momentum;
+  \item l'aggiornamento segue soprattutto la direzione passata: traiettoria liscia ma lenta a cambiare direzione.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[Adam]\label{quiz:m12}
+La \en{bias correction} di Adam serve a:
+\begin{opzioni}
+  \item correggere i bias dei neuroni;
+  \item compensare il fatto che $m$ e $v$ partono da 0 e sono sottostimati nei primi passi;
+  \item aumentare il learning rate nel tempo;
+  \item prevenire l'overfitting.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[vanishing gradient]\label{quiz:m13}
+Perché la sigmoid negli hidden layer di una rete profonda è problematica?
+\begin{opzioni}
+  \item Non è derivabile.
+  \item Non è limitata e fa esplodere il gradiente.
+  \item Le sue derivate sono piccole e, moltiplicate layer dopo layer, fanno svanire il gradiente.
+  \item Aggiunge troppi parametri.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[metriche]\label{quiz:m14}
+Dataset con 9.800 campioni benigni e 200 malware. Un classificatore che risponde sempre ``benigno'' ha:
+\begin{opzioni}
+  \item accuracy 98\% e recall sul malware pari a 0;
+  \item accuracy 2\% e recall sul malware pari a 1;
+  \item precision sul malware pari a 1;
+  \item F1 sul malware pari a 0,98.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[learning curve]\label{quiz:m15}
+Learning curve: la loss di training scende quasi a 0, quella di validation scende fino all'epoch 30 e poi risale. Cosa fai?
+\begin{opzioni}
+  \item Aumento il numero di neuroni.
+  \item Aumento il learning rate.
+  \item Continuo il training finché anche la validation loss arriva a 0.
+  \item Uso l'early stopping e ripristino i pesi salvati attorno all'epoch 30.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[regolarizzazione]\label{quiz:m16}
+La regolarizzazione L2:
+\begin{opzioni}
+  \item aggiunge alla loss $\lambda\sum_i|\phi_i|$, spingendo molti pesi a 0;
+  \item aggiunge alla loss $\lambda\sum_i\phi_i^2$, scoraggiando i pesi grandi;
+  \item spegne neuroni a caso durante il training;
+  \item normalizza gli input di ogni layer.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[scaling]\label{quiz:m17}
+Quando la standardizzazione (z-score) è preferibile alla normalizzazione min-max?
+\begin{opzioni}
+  \item Quando servono valori nell'intervallo $[0,1]$.
+  \item Per le feature categoriche.
+  \item Quando ci sono outlier.
+  \item Solo per la label.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[scaling e leakage]\label{quiz:m18}
+Su quali dati si esegue il \code{fit} dello \code{StandardScaler}?
+\begin{opzioni}
+  \item Solo sul training set.
+  \item Su tutto il dataset.
+  \item Su training e validation.
+  \item Sul test set.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[feature categoriche]\label{quiz:m19}
+La porta TCP di destinazione di un flusso è meglio trattata come feature:
+\begin{opzioni}
+  \item numerica standardizzata;
+  \item numerica normalizzata min-max;
+  \item label;
+  \item categorica.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[cross-validation]\label{quiz:m20}
+Con la k-fold cross-validation, una volta scelti gli iperparametri, il modello finale:
+\begin{opzioni}
+  \item è quello del fold con la validation migliore;
+  \item si ri-addestra su tutti i fold con gli iperparametri scelti;
+  \item è la media dei pesi dei $k$ modelli;
+  \item si addestra sul test set.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[data leakage]\label{quiz:m21}
+Quale di queste pratiche introduce data leakage?
+\begin{opzioni}
+  \item Stratificare lo split.
+  \item Usare il dropout.
+  \item Includere tra le feature un identificativo univoco del campione.
+  \item Fare early stopping sulla validation loss.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[PyTorch: loss]\label{quiz:m22}
+Con \code{nn.CrossEntropyLoss}, l'ultimo layer del modello deve restituire:
+\begin{opzioni}
+  \item i logit grezzi;
+  \item le probabilità dopo la softmax;
+  \item vettori one-hot;
+  \item le probabilità dopo la sigmoid.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[PyTorch: training loop]\label{quiz:m23}
+In un training loop con mini-batch, \code{optimizer.zero\_grad()}, \code{loss.backward()} e \code{optimizer.step()} vanno:
+\begin{opzioni}
+  \item fuori dal ciclo sui batch, una volta per epoch;
+  \item solo nel ciclo di validation;
+  \item prima del ciclo sulle epoch;
+  \item dentro il ciclo sui mini-batch.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[PyTorch: eval]\label{quiz:m24}
+Cosa fa \code{model.eval()}?
+\begin{opzioni}
+  \item Disattiva il calcolo dei gradienti.
+  \item Mette dropout e batch norm in modalità di valutazione.
+  \item Congela definitivamente i pesi.
+  \item Calcola accuracy e F1.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[RNN]\label{quiz:m25}
+Classificare un'email (disponibile per intero) come phishing a partire dalla sequenza delle sue parole è un caso:
+\begin{opzioni}
+  \item one-to-many, solo con RNN mono-direzionale;
+  \item one-to-one;
+  \item many-to-one, in cui si può usare una RNN bidirezionale;
+  \item many-to-many in tempo reale.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[LSTM]\label{quiz:m26}
+Nell'LSTM, il \en{forget gate}:
+\begin{opzioni}
+  \item decide con una sigmoid quanto del cell state precedente mantenere;
+  \item aggiunge nuova informazione al cell state con una tanh;
+  \item produce direttamente l'output della rete;
+  \item azzera l'hidden state a ogni passo.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[tensori RNN]\label{quiz:m27}
+Un batch di 16 serie univariate lunghe 50, con \code{batch\_first=True}, deve avere forma:
+\begin{opzioni}
+  \item \code{(16, 50)};
+  \item \code{(50, 16)};
+  \item \code{(16, 1, 50)};
+  \item \code{(16, 50, 1)}.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[CNN]\label{quiz:m28}
+In una CNN, il max pooling:
+\begin{opzioni}
+  \item aumenta la dimensione spaziale;
+  \item riduce la dimensione sostituendo ogni finestra con il suo massimo;
+  \item aggiunge pesi addestrabili;
+  \item sostituisce la ReLU come non linearità.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[GNN]\label{quiz:m29}
+Perché una FFNN applicata alla matrice di adiacenza non è adatta ai grafi?
+\begin{opzioni}
+  \item Perché i grafi non hanno feature.
+  \item Perché è troppo lenta da addestrare.
+  \item Perché la rappresentazione dipende dall'ordine dei nodi e non gestisce grafi di dimensioni diverse.
+  \item Perché non usa funzioni di attivazione.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[GNN]\label{quiz:m30}
+L'over-smoothing in una GNN è:
+\begin{opzioni}
+  \item l'appiattimento degli embedding dei nodi, che diventano simili perché i receptive field si sovrappongono;
+  \item una loss di training che oscilla;
+  \item un'esplosione dei gradienti;
+  \item la perdita di memoria del passato lontano.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[GNN]\label{quiz:m31}
+GraphSAGE si distingue perché:
+\begin{opzioni}
+  \item usa coefficienti di attenzione appresi;
+  \item usa tutta la matrice di adiacenza normalizzata per il grado;
+  \item non condivide i pesi tra i nodi;
+  \item campiona un numero fisso di vicini.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[PyTorch Geometric]\label{quiz:m32}
+Nel training di una GNN per graph classification, la loss del batch va pesata per:
+\begin{opzioni}
+  \item \code{batch.x.size(0)};
+  \item \code{batch.num\_graphs};
+  \item il numero di archi;
+  \item la hidden size.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[embedding]\label{quiz:m33}
+Per una feature nominale ad alta cardinalità (es.\ il dominio del mittente) in una rete neurale, la scelta migliore è:
+\begin{opzioni}
+  \item label encoding in ordine alfabetico;
+  \item one-hot encoding;
+  \item un embedding appreso, con vocabolario costruito sul training e token \code{<UNK>};
+  \item eliminarla.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[embedding]\label{quiz:m34}
+\code{nn.Embedding(V, H)}:
+\begin{opzioni}
+  \item crea una lookup addestrabile con $V$ righe e $H$ colonne, che riceve indici interi;
+  \item crea una matrice non addestrabile con $H$ righe e $V$ colonne;
+  \item riceve in input le categorie come numeri float;
+  \item si può usare anche con un random forest.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[dropout]\label{quiz:m35}
+Dropout con $p = 0{,}5$ in training: un neurone che sopravvive con output 3 produce:
+\begin{opzioni}
+  \item 3;
+  \item 1,5;
+  \item 0;
+  \item 6.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[batch normalization]\label{quiz:m36}
+In validation, la batch normalization usa:
+\begin{opzioni}
+  \item media e varianza del batch di validation;
+  \item running mean e running variance memorizzate durante il training;
+  \item nessuna normalizzazione;
+  \item media e varianza del test set.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[tipi di anomalia]\label{quiz:m37}
+Backup di 2 ore la domenica, quando l'azienda è chiusa; nei giorni lavorativi backup di 2 ore sono normali. È un'anomalia:
+\begin{opzioni}
+  \item puntuale;
+  \item collettiva;
+  \item contestuale;
+  \item non è un'anomalia.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[one-class SVM]\label{quiz:m38}
+Nella one-class SVM non supervisionata, $\nu$ rappresenta:
+\begin{opzioni}
+  \item la frazione attesa di outlier;
+  \item il numero di cluster;
+  \item il grado del kernel polinomiale;
+  \item il learning rate.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[k-means]\label{quiz:m39}
+Nel grafico SSE in funzione di $K$ (k-means), l'SSE risale passando da $K=5$ a $K=6$. Causa probabile?
+\begin{opzioni}
+  \item $K=6$ è il valore ottimo.
+  \item I dati non hanno struttura a cluster.
+  \item La distanza euclidea non è adatta.
+  \item Un'inizializzazione sfortunata (es.\ un cluster vuoto): va rieseguito k-means.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[anomaly detection]\label{quiz:m40}
+Vantaggio di un algoritmo di anomaly detection che restituisce \textbf{score} invece di label:
+\begin{opzioni}
+  \item non richiede dati di training;
+  \item permette di ordinare le istanze e scegliere un budget di analisi;
+  \item è sempre più accurato;
+  \item elimina i falsi positivi.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[PCA]\label{quiz:m41}
+Su dati non scalati, la PCA dice che una sola componente spiega il 99,9\% della varianza. Causa più probabile?
+\begin{opzioni}
+  \item Il dataset è davvero unidimensionale.
+  \item Ci sono troppe feature categoriche in one-hot.
+  \item Una feature numerica con scala enorme (es.\ byte) domina la varianza: manca lo scaling.
+  \item La PCA andava sostituita con t-SNE.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[autoencoder]\label{quiz:m42}
+Perché un autoencoder addestrato solo su dati normali rileva le anomalie meglio di uno addestrato su normali e anomalie?
+\begin{opzioni}
+  \item Con le anomalie in training impara a ricostruire anche quelle e il loro errore di ricostruzione si avvicina a quello dei normali.
+  \item Con meno dati il training converge sempre a un minimo migliore.
+  \item Solo con i dati normali si può usare la cross-entropy.
+  \item Le anomalie in training causano sempre vanishing gradient.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[Isolation Forest]\label{quiz:m43}
+Quale di questi metodi non si basa su distanze o densità, e soffre quindi meno l'alta dimensionalità?
+\begin{opzioni}
+  \item LOF.
+  \item DBSCAN.
+  \item K-means con distanza dal centroide.
+  \item Isolation Forest.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[LOF]\label{quiz:m44}
+Un attacco forma un gruppo piccolo ma molto denso di connessioni quasi identiche. Con $k=10$ i suoi punti hanno LOF $\approx 1$. Significa che:
+\begin{opzioni}
+  \item i punti sono outlier certi;
+  \item hanno una densità simile ai vicini, quindi LOF non li segnala;
+  \item il modello non è stato addestrato;
+  \item la contaminazione è troppo alta.
+\end{opzioni}
+\end{domanda}
+
+
+\section{Vero o falso}
+Come all'esame: risposta giusta = punto, risposta sbagliata = piccola penalità. Se non sei sicuro,
+valuta se rischiare. Per ogni affermazione indica V o F.
+
+\begin{domanda}[vero/falso -- Training]\label{quiz:vfA}
+Gruppo A -- Training.
+\begin{enumerate}[label=A\arabic*.,nosep,leftmargin=2.6em]
+  \item Un'epoch corrisponde a un singolo aggiornamento dei pesi anche quando si usano i mini-batch. \hfill V\quad F
+  \item I mini-batch si campionano senza reinserimento, così ogni punto è usato una sola volta per epoch. \hfill V\quad F
+  \item Una loss di training pari a 0 indica che il modello è pronto per la produzione. \hfill V\quad F
+  \item Un learning rate scheduler parte tipicamente da valori alti e li riduce durante il training. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- Dati]\label{quiz:vfB}
+Gruppo B -- Dati.
+\begin{enumerate}[label=B\arabic*.,nosep,leftmargin=2.6em]
+  \item Il label encoding è adatto alla label di classificazione perché la cross-entropy non usa distanze tra classi. \hfill V\quad F
+  \item Il one-hot encoding introduce un ordine tra le categorie. \hfill V\quad F
+  \item Con dati temporali, uno split casuale può causare data leakage. \hfill V\quad F
+  \item Con classi molto sbilanciate, la media \en{micro} delle metriche dà lo stesso peso a ogni classe. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- PyTorch]\label{quiz:vfC}
+Gruppo C -- PyTorch.
+\begin{enumerate}[label=C\arabic*.,nosep,leftmargin=2.6em]
+  \item \code{torch.no\_grad()} spegne il dropout. \hfill V\quad F
+  \item Nel DataLoader di validation lo shuffle non serve. \hfill V\quad F
+  \item Se il modello è sulla GPU, anche i tensori dei batch devono essere spostati sullo stesso device. \hfill V\quad F
+  \item Con \code{nn.CrossEntropyLoss} le label devono essere necessariamente vettori one-hot di tipo float. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- RNN e CNN]\label{quiz:vfD}
+Gruppo D -- RNN e CNN.
+\begin{enumerate}[label=D\arabic*.,nosep,leftmargin=2.6em]
+  \item In una RNN la matrice $W_{hh}$ è diversa per ogni passo temporale. \hfill V\quad F
+  \item Una RNN bidirezionale è adatta alla predizione in tempo reale. \hfill V\quad F
+  \item Il gradient clipping è un rimedio all'exploding gradient. \hfill V\quad F
+  \item In una CNN i valori dei filtri convoluzionali sono pesi appresi durante il training. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- GNN ed embedding]\label{quiz:vfE}
+Gruppo E -- GNN ed embedding.
+\begin{enumerate}[label=E\arabic*.,nosep,leftmargin=2.6em]
+  \item Una GNN con aggregazione a somma è invariante all'ordine dei vicini. \hfill V\quad F
+  \item Le GNN non possono produrre embedding per nodi mai visti in training. \hfill V\quad F
+  \item Il vocabolario per gli embedding va costruito su training e validation insieme, per ridurre i \code{<UNK>}. \hfill V\quad F
+  \item Gli embedding appresi con supervisione sono ottimi per il task di training ma possono essere sub-ottimi per altri task. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- Anomaly detection]\label{quiz:vfF}
+Gruppo F -- Anomaly detection.
+\begin{enumerate}[label=F\arabic*.,nosep,leftmargin=2.6em]
+  \item Una novità può diventare la nuova normalità. \hfill V\quad F
+  \item Gli algoritmi shallow riconoscono le anomalie collettive senza bisogno di feature engineering. \hfill V\quad F
+  \item K-means assegna ogni punto a un cluster, quindi non produce direttamente ``punti di rumore''. \hfill V\quad F
+  \item Nella one-class SVM ``supervisionata'' il modello riceve le label normale/anomalo. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+\begin{domanda}[vero/falso -- Anomaly detection in pratica]\label{quiz:vfG}
+Gruppo G -- Anomaly detection in pratica.
+\begin{enumerate}[label=G\arabic*.,nosep,leftmargin=2.6em]
+  \item Nell'anomaly detection le label disponibili si usano per addestrare il modello. \hfill V\quad F
+  \item Nella mappa di t-SNE la distanza tra due gruppi misura quanto sono diversi nello spazio originale. \hfill V\quad F
+  \item DBSCAN etichetta come rumore i punti che non sono né core né border point. \hfill V\quad F
+  \item Su dati molto sbilanciati una ROC-AUC alta garantisce un buon F1 sulla classe delle anomalie. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
+
+
+\section{Soluzioni}
+\label{sec:quiz-soluzioni}
+
+
+\begin{soluzione}[Domanda~\ref{quiz:m1}]
+\textbf{(c)}. L'AI include i sistemi a regole; il ML impara dai dati. (rif.\ \rif{2026-09-21}{21/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m2}]
+\textbf{(a)}. Il preprocessing resta; i modelli deep sono meno interpretabili. (rif.\ \rif{2026-09-21}{21/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m3}]
+\textbf{(d)}. (c) è il ruolo del test set. (rif.\ \rif{2026-09-23}{23/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m4}]
+\textbf{(b)}. Unsupervised = descrizione; self-supervised = rappresentazione con supervisione dai dati. (rif.\ \rif{2026-09-23}{23/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m5}]
+\textbf{(c)}. (b) è model inversion, (d) jailbreak, (a) adversarial example. (rif.\ \rif{2026-09-23}{23/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m6}]
+\textbf{(a)}. (rif.\ \rif{2026-09-23}{23/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m7}]
+\textbf{(d)}. Senza bias, con attivazione lineare, ogni retta passa per l'origine. (rif.\ \rif{2026-09-28}{28/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m8}]
+\textbf{(b)}. Prodotto di matrici = una matrice: il modello resta lineare. (rif.\ \rif{2026-09-28}{28/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m9}]
+\textbf{(c)}. (rif.\ \rif{2026-09-28}{28/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m10}]
+\textbf{(a)}. L'SGD non garantisce il minimo globale: rende solo più probabile uscire da quelli locali. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m11}]
+\textbf{(d)}. $m_{t+1} = \beta m_t + (1-\beta)g$: con $\beta\to1$ il gradiente nuovo pesa pochissimo. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m12}]
+\textbf{(b)}. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m13}]
+\textbf{(c)}. La derivata della sigmoid vale al massimo 0,25. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m14}]
+\textbf{(a)}. $9800/10000 = 98\%$; nessun malware trovato $\Rightarrow$ recall 0; precision 0/0 non definita. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m15}]
+\textbf{(d)}. Il modello dell'ultima epoch è già in overfitting: serve lo stato salvato. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m16}]
+\textbf{(b)}. (a) è L1; (c) dropout; (d) batch norm. (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m17}]
+\textbf{(c)}. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m18}]
+\textbf{(a)}. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m19}]
+\textbf{(d)}. 80, 81, 8080: la distanza numerica non ha significato. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m20}]
+\textbf{(b)}. Scegliere il fold migliore significa sfruttare la fortuna sul fold di validation. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m21}]
+\textbf{(c)}. Un ID permette di memorizzare i campioni; lo split temporale casuale è un altro esempio. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m22}]
+\textbf{(a)}. La softmax è dentro la loss; applicarla due volte appiattisce i gradienti. (rif.\ \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m23}]
+\textbf{(d)}. Fuori dal ciclo si farebbe un solo aggiornamento per epoch (GD con gradienti sommati). (rif.\ \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m24}]
+\textbf{(b)}. \code{no\_grad} spegne i gradienti; \code{eval} cambia il comportamento di dropout e BN. (rif.\ \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m25}]
+\textbf{(c)}. L'email è completa: si può leggere anche all'indietro; un output per tutta la sequenza. (rif.\ \rif{2026-10-12}{12/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m26}]
+\textbf{(a)}. (rif.\ \rif{2026-10-12}{12/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m27}]
+\textbf{(d)}. Ogni istante deve essere un vettore di feature (qui di dimensione 1): \code{x.unsqueeze(-1)}. (rif.\ \rif{2026-10-12}{12/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m28}]
+\textbf{(b)}. (rif.\ \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m29}]
+\textbf{(c)}. Riordinando i nodi cambia la matrice; un nodo in più richiede un neurone in più. (rif.\ \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m30}]
+\textbf{(a)}. (rif.\ \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m31}]
+\textbf{(d)}. (a) è GAT; (b) GCN. (rif.\ \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m32}]
+\textbf{(b)}. \code{batch.x.size(0)} conta i nodi (es.\ 288), non i grafi (2). (rif.\ \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m33}]
+\textbf{(c)}. (rif.\ \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m34}]
+\textbf{(a)}. È l'equivalente efficiente di one-hot + layer lineare; random forest non può imparare embedding. (rif.\ \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m35}]
+\textbf{(d)}. I sopravvissuti sono scalati di $1/(1-p) = 2$: $3\cdot 2 = 6$; il valore atteso resta 3. (rif.\ \rif{2026-10-20}{20/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m36}]
+\textbf{(b)}. (rif.\ \rif{2026-10-20}{20/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m37}]
+\textbf{(c)}. Il valore è normale, è il contesto (giorno festivo) a renderlo anomalo. (rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m38}]
+\textbf{(a)}. (rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m39}]
+\textbf{(d)}. L'SSE dovrebbe scendere con $K$: una risalita indica una cattiva inizializzazione. (rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m40}]
+\textbf{(b)}. (rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m41}]
+\textbf{(c)}. Varianza in byte (milioni) contro varianza in millisecondi: va applicato \code{StandardScaler} prima della PCA. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m42}]
+\textbf{(a)}. Il modello si specializza sul normale solo se vede soltanto il normale; con anomalie in training le ricostruisce. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m43}]
+\textbf{(d)}. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m44}]
+\textbf{(b)}. Un attacco etichettato non è per forza un outlier di densità: servirebbe un $k$ più grande del gruppo. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfA} (gruppo A)]
+\textbf{A1 F, A2 V, A3 F, A4 V}.\\
+A1: l'epoch è il passaggio di tutto il dataset; con i mini-batch ci sono molti aggiornamenti per epoch. A3: loss 0 è sospetta (overfitting). (rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfB} (gruppo B)]
+\textbf{B1 V, B2 F, B3 V, B4 F}.\\
+B2: i vettori one-hot sono equidistanti. B4: è la media \en{macro} a pesare ugualmente le classi. (rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfC} (gruppo C)]
+\textbf{C1 F, C2 V, C3 V, C4 F}.\\
+C1: è \code{model.eval()} a spegnere il dropout. C4: si passano gli indici di classe interi (\code{torch.long}). (rif.\ \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfD} (gruppo D)]
+\textbf{D1 F, D2 F, D3 V, D4 V}.\\
+D1: i pesi sono condivisi tra i passi. D2: richiede la sequenza completa, il futuro non è disponibile in tempo reale. (rif.\ \rif{2026-10-12}{12/10}, \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfE} (gruppo E)]
+\textbf{E1 V, E2 F, E3 F, E4 V}.\\
+E2: le GNN sono induttive. E3: il vocabolario va costruito solo sul training (leakage); gli sconosciuti vanno in \code{<UNK>}. (rif.\ \rif{2026-10-14}{14/10}, \rif{2026-10-19}{19/10}, \rif{2026-10-20}{20/10})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfF} (gruppo F)]
+\textbf{F1 V, F2 F, F3 V, F4 F}.\\
+F2: servono feature aggregate su finestre. F4: si addestra solo su dati normali, ma senza passare label. (rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfG} (gruppo G)]
+\textbf{G1 F, G2 F, G3 V, G4 F}.\\
+G1: le label servono solo a validare (anomalie note). G2: t-SNE preserva i vicini, non le distanze. G4: con forte sbilanciamento la ROC-AUC può ingannare come l'accuracy: guarda precision, recall e F1. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}

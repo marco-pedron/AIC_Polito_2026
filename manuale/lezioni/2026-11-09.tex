@@ -1,0 +1,127 @@
+% =====================================================================
+\lezione{09/11/2026}{Anomaly detection in pratica: dal clustering agli autoencoder}
+  {Prof.~Danilo Giordano}
+  {notebook \code{anomaly\_detection} su KDD Cup 1999: studio del dataset e preprocessing; PCA (con e senza
+   scaling) e t-SNE; contaminazione; one-class SVM, LOF, k-means, DBSCAN, Isolation Forest; autoencoder con
+   loss di ricostruzione mista; encoder come estrattore di feature; confronto finale e validazione}
+\label{lez:2026-11-09}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con il notebook
+\code{anomaly\_detection} (versione pubblicata sul portale) e con le slide
+\emph{5-Supervised-vs-Unsupervised-shallow} (pp.~33--57) e \emph{6-Supervised-vs-Unsupervised-deep}.
+\end{nota}
+
+\begin{verifica}
+La lezione dà per vista la teoria di k-means per l'anomaly detection, DBSCAN, validazione del clustering,
+LOF, PCA, Isolation Forest (slide~5, pp.~33--57) e dell'anomaly detection con il deep learning (slide~6).
+La lezione del 02/11 si ferma alla scelta di $K$ e annuncia il seguito ``domani o mercoledì'': quella
+parte \textbf{non è nelle registrazioni} disponibili. Il diario non ricostruisce cosa sia stato detto: la
+teoria, presa dalle slide, è nel capitolo~\ref{cap:anomaly}.
+\end{verifica}
+
+\section{Sintesi}
+Ultima lezione del Prof.~Giordano sull'anomaly detection, tutta sul notebook che prepara il Lab~3. Il
+docente non commenta ogni riga (le funzioni di servizio sono molte e il codice è semplice), ma mostra
+\textbf{cosa fare e come leggere i risultati}. Si applicano allo stesso dataset tutti i metodi del blocco,
+shallow e deep, con lo stesso schema: fit, score, soglia, valutazione con le label. Il messaggio
+principale: ciò che il modello vede in training conta più del modello stesso; i metodi addestrati su
+\textbf{dati normali puliti} (one-class SVM, autoencoder) vanno molto meglio di quelli addestrati su
+tutto. Approfondimenti nei capitoli~\ref{cap:anomaly} e~\ref{cap:lab3}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Prima parte del \textbf{Lab~3} (anomaly detection) \textbf{mercoledì 11/11}.
+  \item Il notebook è solo dimostrativo: iperparametri fissati senza tuning, nessuna fase di validazione.
+\end{itemize}
+
+\begin{esame}[nel lab va fatto ciò che il notebook non fa]
+Il docente lo chiede esplicitamente: nel lab \textbf{training}, \textbf{tuning sul validation set} e una
+sola \textbf{valutazione finale sul test}. Nel notebook i metodi si confrontano sul test solo perché
+nessuno è stato ottimizzato; gli autoencoder usano il validation per monitorare il training, quindi un
+confronto equo richiede un set che nessun metodo ha visto.
+\end{esame}
+
+\section{Contenuti}
+
+\subsection{Il dataset e il preprocessing}
+KDD Cup 1999: una riga per connessione, 41 feature generiche (non pensate per l'anomaly detection) e una
+label con il tipo di attacco. Le label \textbf{non si usano in training}: servono solo a verificare se si
+ritrovano le anomalie note. Prima si studia il dataset: rimuovendo i \textbf{duplicati} resta circa un
+terzo delle righe; le categorie di \code{service} e \code{flag} sono in gran parte rarissime; \code{normal}
+domina, \code{neptune} (SYN flood) è molto frequente e molti attacchi sono rari. Scelte del notebook: si
+toglie \code{neptune} (crea regioni dense, quindi non è un'anomalia per densità), si crea una label
+binaria, si fa uno split \textbf{stratificato} (circa 6\% di anomalie) \textbf{prima} di encoding e
+scaling, e le categorie rare confluiscono in \code{other}.
+
+\begin{esame}[studiare il dataset e non buttare la label]
+``Prima di qualsiasi pipeline, studiate il problema e il dataset.'' La colonna con la label originale
+\textbf{non va eliminata}: serve dopo per interpretare cluster ed errori. I risultati vanno rappresentati
+in modo che si veda ciò che si vuole mostrare (asse logaritmico o una tabella per conteggi molto
+sbilanciati).
+\end{esame}
+
+\subsection{Visualizzare: PCA e t-SNE}
+Senza scaling delle numeriche, una sola componente della PCA spiega il 99,9\% della varianza: non è una
+scoperta ma un \textbf{errore}, perché una feature in byte domina tutte le altre. Con
+\code{StandardScaler} (fit solo sul training) la prima componente spiega circa il 10\% e se ne scelgono una
+ventina al ginocchio della curva. Con t-SNE le coordinate non hanno significato: si può dire se un gruppo
+di attacchi è separato, non quanto è lontano. Nel lab la \textbf{perplexity} va esplorata su un intervallo
+ampio (fino a 50 e oltre), non 1, 2, 3.
+
+\subsection{I metodi shallow}
+La \textbf{contaminazione} (frazione attesa di anomalie, qui presa dalle label, nella realtà da stimare)
+trasforma lo score in una decisione.
+\begin{itemize}
+  \item \textbf{One-class SVM} solo sui normali (kernel RBF, $\nu = 0{,}001$): buona precision sulle
+    anomalie, recall migliorabile. Addestrata su tutti i dati con $\nu$ uguale alla contaminazione:
+    precision e recall delle anomalie crollano. Il non supervisionato è più difficile.
+  \item \textbf{LOF}: risultato pessimo (in aula 36 anomalie trovate su più di 600). Molti attacchi sono
+    raffiche di connessioni quasi identiche, cioè gruppi piccoli ma densi: il dataset sembra adatto ad
+    anomalie globali più che locali. Prima di scartare il metodo, provare altri \code{n\_neighbors}.
+  \item \textbf{K-means}: $K$ con l'SSE (nel grafico in aula l'SSE risale: servivano più run per ogni $K$),
+    silhouette media bassa, tabella cluster $\times$ label per interpretare (un cluster contiene tutti e
+    solo i \code{teardrop}); score = distanza dal centroide. Gli attacchi che formano un cluster proprio
+    sfuggono.
+  \item \textbf{DBSCAN}: $\varepsilon$ dal \en{k-distance plot}, che però non mostra un ginocchio netto;
+    molti normali finiscono nel rumore e la precision è molto bassa. È la maledizione della
+    dimensionalità in pratica.
+  \item \textbf{Isolation Forest}: non usa distanze, è velocissimo ed è il migliore tra gli shallow
+    interamente non supervisionati.
+\end{itemize}
+
+\begin{attenzione}[la ROC-AUC può ingannare]
+Su dati molto sbilanciati una ROC-AUC alta non basta: il docente si affida più a precision, recall e F1
+della classe anomala. La matrice di confusione si usa solo per leggere i risultati, non perché il
+problema sia una classificazione.
+\end{attenzione}
+
+\subsection{Autoencoder}
+Input misto (numeriche scalate e one-hot), quindi \textbf{loss di ricostruzione mista}: errore quadratico
+sulle numeriche più cross-entropy su ogni blocco one-hot; da adattare alle feature del proprio problema.
+Addestrato \textbf{solo sui normali}, l'errore delle anomalie sul validation cresce con le epoch e
+l'errore di ricostruzione diventa un ottimo score: è il metodo migliore del notebook. Addestrato su
+\textbf{normali e anomalie}, impara a ricostruire anche parte di queste e le prestazioni peggiorano. Una
+versione più profonda con batch norm e dropout non migliora: un modello che generalizza ``troppo''
+ricostruisce bene anche le anomalie. Usare l'\textbf{encoder come estrattore di feature} e applicare la
+one-class SVM nello spazio latente qui non aiuta: il bottleneck scarta proprio l'informazione che rende
+anomalo un punto.
+
+\begin{sintesi}[da portare nel lab]
+Dati normali puliti in training; scaling prima di PCA e metodi a distanza; intervalli ampi per
+perplexity, $\varepsilon$, \code{n\_neighbors}; più run di k-means per ogni $K$; tuning sul validation,
+una sola valutazione sul test.
+\end{sintesi}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item I valori numerici mostrati in aula (ROC-AUC, F1, numero di anomalie trovate) differiscono in
+    qualche punto dalla versione del notebook pubblicata sul portale: per i numeri fare riferimento a
+    quest'ultima (tabella nel capitolo~\ref{cap:lab3} o~\ref{cap:anomaly}).
+  \item La teoria di DBSCAN, LOF, Isolation Forest, validazione del clustering e deep anomaly detection
+    (slide~5, pp.~33--57, e slide~6) non è nelle registrazioni: eventuali indicazioni d'esame date in aula
+    su quegli argomenti non sono note.
+\end{itemize}
+\end{verifica}

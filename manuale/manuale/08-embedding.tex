@@ -1,0 +1,329 @@
+\chapter{Feature categoriche ed embedding}
+\label{cap:embedding}
+\fonti{\rif{2026-10-19}{19/10}, \rif{2026-10-20}{20/10}}{4-embedding-introduction, pp.\ 1--51}
+
+Tutte le architetture viste finora (RNN nel cap.~\ref{cap:rnn}, GNN nel cap.~\ref{cap:cnn-gnn}) servono a \textbf{estrarre una
+rappresentazione} dei dati quando costruirla a mano è difficile (le feature di una serie o di un grafo). Questo capitolo affronta lo
+stesso problema per un tipo di dato onnipresente in cybersecurity: le \textbf{feature categoriche}. Prima si vedono le codifiche
+classiche (ID sequenziali, feature engineering, one-hot), poi gli \textbf{embedding appresi} e i due modi di impararli: con le label
+(supervisionati) o senza (self-supervised).
+
+% =====================================================================
+\section{Feature categoriche: dalle categorie ai numeri}
+Le reti (e molti algoritmi ML) richiedono input numerici e assumono relazioni matematiche significative tra i numeri.
+L'obiettivo è convertire le categorie in numeri \textbf{significativi per il problema} e per la rete (assegnare numeri a caso
+come 10, 5, 6, 1 non lo è). Le feature categoriche possono essere stringhe o numeri.
+\begin{itemize}
+  \item Esempi: titoli di lavoro, processi chiamati durante l'esecuzione di un file, algoritmi di cifratura;
+        soddisfazione del cliente, livello di accesso a un server, gravità di un attacco.
+  \item Per le \textbf{label} la soluzione migliore è quasi sempre l'ID sequenziale (label encoding).
+\end{itemize}
+
+\subsection{Prima domanda: le categorie hanno un ordine intrinseco?}
+\textbf{Ordinali} (soddisfazione, livello di accesso, gravità): \textbf{ordina e mappa}.
+\begin{enumerate}
+  \item identifica i valori unici;
+  \item ordinali con la \textbf{conoscenza del dominio} (non in ordine alfabetico!) e assegna indici: Low = 1, Medium = 2, High = 3;
+  \item mappa il dataset originale.
+\end{enumerate}
+Il modello non sa cosa significhi la categoria né se ``alto'' sia buono (gravità: basso è meglio; soddisfazione: alto è meglio):
+sa solo che 1 è più vicino a 2 che a 3, e lo scoprirà durante il training.
+
+% =====================================================================
+\section{Feature nominali: le alternative}
+Esempio: AES, DES, RC4, RSA. Non c'è una mappatura intuitiva. Il corso presenta quattro opzioni.
+
+\subsection{1. ID sequenziale comunque}
+AES = 1, DES = 2, RC4 = 3, RSA = 4.
+\begin{itemize}
+  \item Mettiti nei panni del modello: perché AES è più vicino a DES che a RSA? Il ML scopre pattern nei dati: una mappatura sbagliata lo
+        mette su una \textbf{falsa pista} (gli dai un \textbf{bias} da ignorare).
+  \item Anche se da esperto ordino per sicurezza (meno sicuro = 1, più sicuro = 4): se domani RSA viene rotto, devo cambiare la mappatura
+        e il suo significato. Il modello impara ``RSA viene dopo AES'', non perché siano simili.
+\end{itemize}
+
+\subsection{2. Feature engineering}
+AES, RSA = sicuri = 1; DES, RC4 = insicuri = 0.
+\begin{itemize}
+  \item \textbf{Pro}: riduce lo sforzo di interpretazione: dai al modello una chiave di lettura, con un vincolo più debole dell'ordine.
+  \item \textbf{Contro}: e se la chiave è sbagliata o cambia? (RSA oggi sicuro, domani rotto.) In un problema benigno/malevolo il modello
+        potrebbe associare gli algoritmi insicuri al traffico malevolo (bias). E a volte il feature engineering è difficile o impossibile.
+\end{itemize}
+
+\subsection{3. One-hot encoding}
+\begin{enumerate}
+  \item si identifica l'insieme delle categorie, il \textbf{vocabolario} $V$;
+  \item ogni categoria diventa un vettore \textbf{sparso} $V$-dimensionale (tutto 0 tranne un 1); i vettori sono \textbf{ortogonali}.
+\end{enumerate}
+\begin{itemize}
+  \item \textbf{Pro}: semplice, \textbf{nessun bias}: tutti i vettori sono equidistanti; con algoritmi tradizionali (random forest) diventa
+        $V$ feature binarie (presenza/assenza di AES, di DES\ldots). Funziona anche con lo shallow learning.
+  \item \textbf{Contro}: \textbf{maledizione della dimensionalità} (tante feature = problema più difficile; 171.000 parole inglesi);
+        se il \textbf{vocabolario si estende} (es.\ ChaCha20, o un futuro algoritmo post-quantum) cambia la rappresentazione e il training fatto
+        va buttato: si riparte da zero.
+\end{itemize}
+\begin{verifica}
+Distanza tra vettori one-hot: due vettori one-hot distinti hanno distanza euclidea $\sqrt{2}$ (la distanza \emph{al quadrato} è 2).
+La slide scrive ``= 2''.
+\end{verifica}
+
+\subsection{4. Embedding appresi (solo reti neurali)}
+\begin{enumerate}
+  \item si identifica il vocabolario $V$ (es.\ $V=4$);
+  \item ogni categoria si mappa su un vettore \textbf{denso} $H$-dimensionale, con $H \ll V$; ogni categoria ha il suo vettore
+        ($V$ vettori diversi); all'inizio i vettori sono \textbf{casuali}, senza relazioni;
+  \item gli embedding si \textbf{imparano risolvendo un task} (es.\ sicuro vs insicuro) tramite backpropagation, per molte epoch.
+\end{enumerate}
+Si può fare solo con le reti neurali perché solo lì si può mandare indietro il segnale e cambiare i valori; random forest e simili no.
+
+\begin{esempio}[cosa succede ``dietro le quinte'']
+Rete: \code{nn.Linear(V, H)} $\to$ \code{nn.Linear(H, 2)} $\to$ softmax, con $V=4$, $H=2$; input = one-hot degli algoritmi; label = sicuro/insicuro.
+\begin{itemize}
+  \item \textbf{Epoch 1}: pesi casuali. Dopo il primo layer ogni algoritmo ha una rappresentazione 2D senza senso (es.\ AES $=[-0{,}7, 0{,}3]$).
+        Il modello dà probabilità alte a predizioni sbagliate (è sicuro di sbagliare): 3 giuste su 5.
+  \item \textbf{Epoch 2}: la backprop cambia i pesi del primo layer, quindi la rappresentazione: lo spazio inizia a separarsi; 4 giuste su 5.
+  \item \textbf{Epoch 3}: tutte giuste; nello spazio 2D gli algoritmi sicuri hanno coordinate positive (AES $[2{,}1, 2{,}5]$, RSA $[1{,}9, 2{,}0]$),
+        quelli insicuri negative (DES $[-2{,}1, -1{,}9]$, RC4 $[-1{,}1, -1{,}3]$).
+\end{itemize}
+Il vettore $H$-dimensionale ``incorpora'' (\en{embeds}) le caratteristiche più salienti dell'oggetto in numeri significativi per il task:
+per questo si chiama \textbf{embedding}. Si possono impilare più layer per rappresentazioni più astratte.
+\end{esempio}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Benefici degli embedding} & \textbf{Problemi}\\
+\midrule
+Rappresentazione \textbf{densa} per costruzione; parte casuale e impara una distribuzione significativa (che ottimizza il task) & Solo con reti neurali (non con random forest)\\
+Più efficiente del one-hot: l'informazione non è sparsa & Serve un \textbf{task} che dia il segnale di backprop (supervisionato o self-supervised)\\
+Le feature codificano \textbf{semantica}, non solo informazione binaria & Se il vocabolario si estende, la lookup ha ancora $V$ righe: ri-addestrare da zero? training incrementale?\\
+Dimensione molto ridotta ($H \ll V$: es.\ 128 invece di 171.000) & \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Categorie sconosciute: il token \code{<UNK>}}
+Un nuovo algoritmo o un nuovo dominio non sono nel vocabolario: non hanno una rappresentazione. Si aggiunge al vocabolario una categoria
+\textbf{sconosciuta} (\code{<UNK>}) a cui si mappa tutto ciò che non è stato visto in training. Succede sempre: validation e test possono
+contenere valori mai visti (il test set spesso è raccolto molto dopo).
+
+\section{La roadmap: dalle categorie ai numeri}
+\begin{center}
+\begin{tikzpicture}[node distance=0.55cm and 0.9cm, every node/.style={font=\small, align=center},
+  q/.style={draw=polblu, fill=polblu!6, rounded corners=2pt, minimum width=3.4cm, minimum height=0.8cm},
+  a/.style={draw=esecol, fill=esecol!10, rounded corners=2pt, minimum width=2.8cm, minimum height=0.8cm}]
+  \node[q] (q0) {Feature categorica};
+  \node[q, below=of q0] (q1) {Ha un ordine intrinseco?};
+  \node[a, right=of q1] (a1) {ID sequenziali};
+  \node[q, below=of q1] (q2) {Poche categorie?};
+  \node[a, right=of q2] (a2) {One-hot encoding};
+  \node[q, below=of q2] (q3) {Posso creare un task\\per una rete neurale?};
+  \node[a, right=of q3] (a3) {Embedding};
+  \node[a, below=of q3] (a4) {Feature engineering};
+  \draw[-{Stealth}] (q0) -- (q1);
+  \draw[-{Stealth}] (q1) -- node[above, font=\scriptsize]{sì} (a1);
+  \draw[-{Stealth}] (q1) -- node[left, font=\scriptsize]{no} (q2);
+  \draw[-{Stealth}] (q2) -- node[above, font=\scriptsize]{sì} (a2);
+  \draw[-{Stealth}] (q2) -- node[left, font=\scriptsize]{no} (q3);
+  \draw[-{Stealth}] (q3) -- node[above, font=\scriptsize]{sì} (a3);
+  \draw[-{Stealth}] (q3) -- node[left, font=\scriptsize]{no} (a4);
+\end{tikzpicture}
+\end{center}
+\begin{itemize}
+  \item \textbf{Feature engineering} quando il resto non va: con Intesa Sanpaolo, per 120--1000 transazioni per utente al mese, si sono
+        progettate oltre 100 feature riassuntive, in numero gestibile qualunque fosse il numero di transazioni.
+  \item \textbf{Si può usare un ID sequenziale per una feature nominale?} Non si \emph{dovrebbe}, ma \textbf{si può}, se sai cosa stai
+        facendo e l'ordine ha senso per il tuo task. Non è una scienza esatta: le scelte sub-ottimali si pagano (più dati, più epoch,
+        training più instabile) e il rischio è introdurre bias.
+  \item La lista non è esaustiva (es.\ \en{feature hashing}).
+\end{itemize}
+
+% =====================================================================
+\section{Come imparare gli embedding (1): supervisionati}
+Gli embedding si possono imparare in due modi (slide 4, p.~40): con un segnale \textbf{supervisionato} o \textbf{self-supervised}.
+L'idea: invece di fare noi feature engineering (a volte impossibile), lasciamo che sia il \textbf{task} a guidare la rappresentazione
+delle feature categoriche.
+
+\textbf{Ipotesi}: scenario \textbf{supervisionato} (label disponibili: traffico benigno/malevolo, email di phishing, famiglia di botnet\ldots),
+dati con feature numeriche e categoriche, e una \textbf{rete neurale}: solo le reti possono imparare embedding. Con un random forest si possono
+risolvere classificazione e regressione, ma non fare \textbf{feature extraction}: ``ottenere embedding'' = feature extraction.
+
+\begin{definizione}[lookup table e \code{nn.Embedding}]
+\code{torch.nn.Embedding(V, H)} crea una tabella \textbf{addestrabile} con $V$ righe (numero di categorie, la dimensione del vocabolario) e
+$H$ colonne (la dimensione dell'embedding, un \textbf{iperparametro}). È equivalente a un one-hot seguito da un layer lineare. Permettendo la
+backpropagation, la rete cambia i valori della tabella per ottimizzare il task.
+\end{definizione}
+\begin{integrazione}
+In pratica \code{nn.Embedding} riceve \textbf{indici interi} (\code{torch.long}) e restituisce la riga corrispondente: è il prodotto one-hot
+$\times$ matrice dei pesi senza costruire il vettore one-hot, molto più efficiente in memoria.
+\end{integrazione}
+Si addestra la rete sul task, si aggiustano i pesi dei layer in base agli errori, e la rappresentazione si ``taglia'' a metà rete (dopo il primo
+layer e prima dell'ultimo).
+
+\subsection{Esempio 1: dataset tabellare con feature categoriche e numeriche}
+Metadati di email (dominio del mittente, numero di link, numero di allegati, lunghezza dell'oggetto, ora di ricezione); task: phishing (1)
+o normale (0). Il \textbf{dominio del mittente} ha cardinalità altissima (migliaia di domini con un mail server) $\Rightarrow$ il one-hot creerebbe
+milioni di colonne, e non c'è un ordine (Gmail prima di Outlook o di Polito?). $\Rightarrow$ \textbf{embedding}.
+
+\begin{enumerate}
+  \setcounter{enumi}{-1}
+  \item \textbf{Split} train/validation/test.
+  \item \textbf{Vocabolario dal solo training}: è ciò che si suppone di conoscere nella realtà. Il test replica il futuro, e anche la validation
+        non va considerata nota. Si aggiunge \code{<UNK>} per i valori mai visti (un dominio nuovo come \code{updatebanking.com} o \code{polito.it} in
+        validation $\Rightarrow$ entrambi \code{<UNK>}, stesso embedding). Gli ID servono solo come indici per la lookup, non come feature.
+  \item \textbf{Mappare} la feature categorica negli ID.
+  \item \textbf{Dataset} con feature categoriche e numeriche \textbf{separate} (vanno trattate diversamente), convertite in tensori.
+  \item \textbf{Modello}: la categorica passa nell'\code{nn.Embedding}, l'embedding si \textbf{concatena} alle numeriche, il risultato entra nella FFNN.
+        Il primo layer lineare ha \textbf{embed\_dim + num\_numeric} neuroni di input: una sola feature categorica diventa 16, 32\ldots numeri.
+\end{enumerate}
+
+\begin{lstlisting}
+def build_vocab(train_values):
+    vocab = {'<PAD>': 0, '<UNK>': 1}
+    for v in train_values:                 # SOLO training set
+        if v not in vocab:
+            vocab[v] = len(vocab)
+    return vocab
+
+def encode(values, vocab):
+    return [vocab.get(v, vocab['<UNK>']) for v in values]   # mai visto -> UNK
+
+class EmbFFNN(nn.Module):
+    def __init__(self, vocab_size, embed_dim, num_numeric, num_classes=2):
+        super().__init__()
+        self.emb = nn.Embedding(vocab_size, embed_dim)
+        self.net = nn.Sequential(
+            nn.Linear(embed_dim + num_numeric, 64), nn.ReLU(),
+            nn.Linear(64, num_classes))
+    def forward(self, cat_ids, num_feats):
+        e = self.emb(cat_ids)                    # (batch, embed_dim)
+        x = torch.cat([e, num_feats], dim=1)     # concatena con le numeriche
+        return self.net(x)
+\end{lstlisting}
+L'embedding layer è un layer come gli altri: in backpropagation il segnale arriva anche a lui e ne migliora la rappresentazione.
+
+\subsection{Esempio 2: sequenze di valori categorici}
+Una \textbf{darknet} è un insieme di indirizzi IP passivi che non ospitano servizi: riceve per definizione solo \textbf{traffico non richiesto}.
+Input: sequenza degli IP che ogni ora contattano dei server (lista di lunghezza variabile); task: il server è stato attaccato da una botnet (e
+quale)? Una sequenza $\Rightarrow$ \textbf{RNN} (cap.~\ref{cap:rnn}), in cui ogni elemento è una categoria (un IP). Lo stesso schema servirà
+nel Lab 2 con le sequenze di API call (cap.~\ref{cap:lab2}).
+\begin{enumerate}
+  \item split; vocabolario degli IP dal training; mappatura in ID (come prima);
+  \item DataLoader per RNN con padding dentro il batch (o padding dinamico con \code{collate\_fn});
+  \item modello: \code{nn.Embedding} sulla sequenza (PyTorch gestisce i singoli elementi), poi LSTM, poi head lineare. L'input della LSTM non è 1
+        (una categoria) ma \textbf{embed\_dim}. Si può indicare l'ID del padding (\code{padding\_idx}): il suo embedding \textbf{non riceve backpropagation}.
+\end{enumerate}
+\begin{lstlisting}
+class IPSeqLSTM(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden, num_classes, pad_idx=0):
+        super().__init__()
+        self.emb = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+        self.lstm = nn.LSTM(embed_dim, hidden, batch_first=True)  # input = embed_dim
+        self.fc = nn.Linear(hidden, num_classes)
+    def forward(self, ids, lengths):
+        e = self.emb(ids)                                  # (batch, seq, embed_dim)
+        packed = pack_padded_sequence(e, lengths.cpu(), batch_first=True,
+                                      enforce_sorted=False)
+        _, (h, _) = self.lstm(packed)
+        return self.fc(h[-1])
+\end{lstlisting}
+
+\subsection{Esempio 3: architetture composte (movimento laterale)}
+La feature extraction si può fare con \textbf{qualsiasi} architettura, anche combinandole. Problema: distinguere i \textbf{movimenti laterali}
+(spostarsi da una macchina all'altra, es.\ verso il computer di un amministratore) in una rete aziendale.
+\begin{itemize}
+  \item I \textbf{nodi} sono i servizi attivi nella rete (identificatori categorici).
+  \item Ogni \textbf{grafo} codifica i movimenti di un utente sui nodi in un periodo (es.\ 1 ora).
+  \item Gli attacchi possono essere \textbf{APT} (\en{Advanced Persistent Threat}): si monitora a snapshot diversi $\Rightarrow$ ogni utente ha una
+        \textbf{serie temporale di grafi}.
+\end{itemize}
+Architettura finale:
+\begin{enumerate}
+  \item \textbf{embedding layer} (lookup): mappa i servizi in embedding;
+  \item \textbf{GNN} (cap.~\ref{cap:cnn-gnn}): rappresenta come l'utente si è mosso tra i servizi in uno snapshot (la stessa GNN per tutti gli snapshot);
+  \item \textbf{RNN}: tiene conto dei diversi snapshot e produce la predizione (movimento laterale o attività normale).
+\end{enumerate}
+Tutto si addestra con \textbf{lo stesso segnale supervisionato}: l'errore della predizione si backpropaga attraverso RNN (nel tempo), GNN (per
+nodo) e fino all'embedding layer, che riceve la somma dei gradienti di tutti i rami (timestamp e nodi). Non è magia: è moltiplicazione di matrici.
+Un utente legittimo può fare SSH da una macchina all'altra per arrivare al server (passando dalla VPN): non tutto il movimento è malevolo.
+
+\begin{esame}[gli embedding supervisionati sono specifici del task]
+\textbf{Si potevano progettare feature a mano?} Molto difficile: servirebbero più feature per ogni IP e servizio (importanza nell'azienda, cosa
+fa\ldots), senza sapere se sono adatte. Gli embedding invece sono per costruzione \textbf{adatti a questo problema}.
+
+\textbf{E se domani voglio usare gli stessi servizi per prevedere quale servizio sarà più usato?} Numericamente posso riusare gli embedding, ma
+sono stati appresi per un task diverso: \textbf{ottimi per questo task, sub-ottimi per altri}. Con le label, la rappresentazione è funzionale al
+problema finale, non generica.
+\end{esame}
+
+\subsection{Il rischio: cosa sta imparando? (husky vs lupo)}
+Come distingui un husky da un lupo nelle foto? La via più ``pigra'': gli husky sono fotografati sull'\textbf{erba}, i lupi sulla \textbf{neve}.
+Il classificatore impara lo \textbf{sfondo}: una \textbf{scorciatoia} (\en{shortcut}) che funziona sui dati di training ma non è generale.
+La rappresentazione è ottima per \emph{quelle} label e \emph{quei} dati. È lo stesso fenomeno visto nel Lab 1 e nel discorso sulle feature che
+creano bias (porta 80, cap.~\ref{cap:ffnn}).
+
+% =====================================================================
+\section{Come imparare gli embedding (2): self-supervised}
+\begin{definizione}[self-supervised learning, SSL --- slide 4, p.~43]
+Un algoritmo self-supervised \textbf{genera un segnale supervisionato da dati non etichettati}: sono i dati stessi a fornire la supervisione.
+È un sottoinsieme dell'apprendimento non supervisionato, ma mentre l'unsupervised \emph{descrive} i dati, il self-supervised usa il segnale
+per imparare a \emph{rappresentarli}.
+\begin{itemize}
+  \item \textbf{Pretext task}: si impara una rappresentazione significativa dai dati non etichettati (es.\ un encoder che comprime l'input
+        in uno spazio a dimensione minore, il \en{bottleneck}: è la fase di feature extraction).
+  \item \textbf{Downstream task}: si usano quelle feature per il compito vero (classificazione, ricostruzione\ldots).
+\end{itemize}
+\end{definizione}
+Il self-supervised learning è la pietra angolare dei successi recenti del deep learning:
+\begin{itemize}
+  \item permette di imparare feature \textbf{generiche} (``cosa rende una banana una banana'');
+  \item oggi è preferito alle feature end-to-end supervisionate;
+  \item \textbf{pretext}: si pre-addestra il modello in self-supervision su grandi corpora;
+        \textbf{downstream}: lo si fa fine-tuning con poche label;
+  \item cruciale in cybersecurity, dove le label sono poche e si vuole generalizzare.
+\end{itemize}
+
+Nel supervisionato il segnale viene dalle label: scoiattolo vs tigre $\to$ feature extractor $\to$ embedding $\to$ classification head
+$\to$ predizione sbagliata $\to$ backprop. Senza label: \textbf{da dove viene il segnale?}
+Idea generale: sfruttare le \textbf{proprietà interne degli oggetti} per capire cosa è simile e cosa no.
+
+\subsection{Opzione 1: imparare a ricostruire (autoencoder)}
+\begin{itemize}
+  \item L'\textbf{encoder} estrae le feature rilevanti: codifica l'oggetto nello spazio degli embedding.
+  \item Il \textbf{decoder} usa gli embedding per risolvere un compito, es.\ ricostruire (o togliere la sfocatura da) l'immagine originale.
+  \item Durante il training è un problema di \textbf{regressione} (predire le componenti RGB dei pixel): \textbf{nessuna label}.
+  \item Al test: \textbf{encoder congelato} + una piccola head addestrata con poche label. Ci si aspetta che una specie mai vista (uno scoiattolo
+        di un altro colore) finisca vicina agli scoiattoli nello spazio degli embedding, così la head lo classifica bene.
+\end{itemize}
+L'autoencoder è ripreso in dettaglio per l'anomaly detection nel cap.~\ref{cap:anomaly}.
+
+\subsection{Opzione 2: confronto tra viste (contrastive learning)}
+\begin{itemize}
+  \item Il soggetto di una foto ruotata, sfocata o decolorata resta lo stesso: è la \textbf{data augmentation}.
+  \item Dall'immagine originale (\textbf{anchor}) si creano varianti (\textbf{positivi}): i loro embedding \textbf{devono essere vicini}.
+        Un'immagine diversa (\textbf{negativo}) deve avere un embedding \textbf{lontano}.
+  \item La loss che premia vicinanza dei positivi e lontananza dei negativi è la \textbf{contrastive loss}: un'altra loss da aggiungere a MSE,
+        BCE e cross-entropy. Si chiama ``contrastiva'' perché contrappone il negativo all'anchor e alle sue perturbazioni.
+  \item Il feature extractor, poiché codifica l'oggetto nello spazio degli embedding, si chiama anche \textbf{encoder} (slide 4, p.~50).
+  \item Utile anche quando i campioni sono pochi (es.\ anomaly detection).
+\end{itemize}
+\begin{attenzione}[le augmentation introducono bias]
+Scegliere le trasformazioni significa iniettare conoscenza: se dico al modello che una foto decolorata è ``la stessa'' immagine, gli insegno
+che il colore non conta. Allora riconoscerebbe come falsa la foto di uno \textbf{scoiattolo verde}? Probabilmente no. (Domanda aperta della
+slide 4, p.~51; la risposta è un ragionamento, non una regola.)
+\end{attenzione}
+
+\begin{sintesi}
+\begin{itemize}
+  \item Feature categoriche \textbf{ordinali}: ordina con la conoscenza del dominio e mappa su ID sequenziali.
+  \item Feature \textbf{nominali}: ID sequenziale (introduce un ordine falso, bias), feature engineering (chiave di lettura che può essere
+        sbagliata o invecchiare), one-hot (nessun bias ma alta dimensionalità e vocabolario rigido), \textbf{embedding} appresi (densi,
+        $H \ll V$, semantici; solo reti neurali, serve un task).
+  \item Vocabolario costruito \textbf{solo sul training}; \code{<UNK>} per i valori mai visti; \code{padding\_idx} per il padding.
+  \item \code{nn.Embedding(V, H)} = one-hot + layer lineare: tabella addestrabile in backpropagation, combinabile con FFNN, RNN, GNN.
+  \item Embedding \textbf{supervisionati}: ottimi per il task, sub-ottimi per altri, a rischio di scorciatoie (husky vs lupo).
+  \item Embedding \textbf{self-supervised} (pretext + downstream): ricostruzione (autoencoder) o contrastive learning (anchor, positivi,
+        negativi); le augmentation scelte iniettano bias.
+\end{itemize}
+\end{sintesi}

@@ -1,0 +1,244 @@
+\chapter{Dal perceptron alla rete neurale}
+\label{cap:reti-neurali}
+\fonti{\rif{2026-09-28}{28/09}}{2-foundament-deep-learning, pp.\ 1--18}
+
+\section{Il quadro generale}
+\begin{itemize}
+  \item \textbf{Input layer}: riceve i dati. Con dati tabellari, ogni riga è un punto e ogni colonna una feature
+        ($x_1, x_2, \ldots$): un neurone di input per feature.
+  \item \textbf{Hidden layer}: la parte che ``ragiona'' e modella il problema. Con 3 o più hidden layer si parla di
+        \textbf{deep learning}.
+  \item \textbf{Output layer}: prende la decisione finale (es.\ cane, gatto o delfino).
+\end{itemize}
+
+\begin{attenzione}[le reti mangiano solo numeri]
+Testo, grafi e immagini vanno convertiti in rappresentazioni numeriche. Un'immagine è una griglia di pixel e
+ogni pixel è descritto da 3 numeri (RGB). Questa conversione è di solito standard; le parti difficili sono:
+\begin{itemize}
+  \item il \textbf{preprocessing} che rende i dati puliti e utili;
+  \item l'\textbf{architettura}: lo stesso problema può essere visto come tabella (FFNN), serie temporale (RNN) o grafo (GNN),
+        e va scoperto sperimentalmente quale funziona meglio, quanti layer e quanti neuroni usare
+        (\textbf{model engineering}).
+\end{itemize}
+\end{attenzione}
+
+\section{Il perceptron}
+\begin{definizione}[perceptron]
+L'unità più semplice di una rete neurale. Prende un input con più feature e:
+\begin{enumerate}
+  \item pesa ogni feature con un \textbf{peso} $w_i$;
+  \item calcola la \textbf{somma pesata};
+  \item applica una \textbf{funzione di attivazione} $f(\cdot)$ e produce l'output:
+\end{enumerate}
+\[
+y = f\Big(\sum_{i=0}^{n} w_i x_i\Big) = f(\mathbf{w}^T \mathbf{x}), \qquad x_0 = 1 \text{ per definizione}.
+\]
+\end{definizione}
+
+\begin{itemize}
+  \item I \textbf{pesi} sono i \textbf{parametri} della rete (i ``trilioni di parametri'' degli LLM): indicano
+        l'\textbf{importanza} di ogni feature per il compito. All'inizio sono \textbf{casuali} e vengono
+        \textbf{appresi dai dati}.
+  \item Le $x_i$ non si toccano: sono i valori delle feature, dati dal mondo esterno. Si impara solo $\mathbf{w}$.
+  \item Il \textbf{bias} $w_0$ è un peso come gli altri ma \textbf{non dipende da una feature} (moltiplica $x_0=1$):
+        serve a \textbf{traslare} la funzione.
+  \item Nei layer successivi l'input non sono le feature ma gli \textbf{output del layer precedente}; la struttura del neurone
+        è identica.
+\end{itemize}
+
+\begin{esempio}[perché serve il bias]
+Con attivazione lineare ($f(x)=x$) e un solo input, $y = w_1 x_1$: posso cambiare solo la \textbf{pendenza}, e tutte le
+rette passano per l'origine. Se il confine tra croci e punti non passa per l'origine, non posso modellarlo. Aggiungendo
+$w_0$ ottengo $y = w_1x_1 + w_0$ e posso spostare la retta.
+\end{esempio}
+
+\begin{integrazione}[legame con modelli classici]
+Senza $f(\cdot)$ il perceptron è una \textbf{regressione lineare}; con $f = \sigma$ (sigmoid) è una
+\textbf{regressione logistica}.
+\end{integrazione}
+
+\subsection{Caso 2D con attivazione lineare}
+$y = w_1x_1 + w_2x_2 + w_0$ descrive una famiglia di funzioni (un piano/una retta di separazione).
+\begin{itemize}
+  \item Se tutti i pesi sono 0, l'output è sempre 0: la rete non predice nulla.
+  \item Tarando $w_1$ separo lo spazio lungo $x_1$; con $w_2$ inclino il confine; con $w_0$ lo sposto.
+  \item L'output grezzo non è limitato: con $x_2=10$ può valere molto più di 10. Per avere una
+        \textbf{probabilità} serve una funzione limitata in $[0,1]$.
+\end{itemize}
+
+\section{Funzioni di attivazione}
+Servono a:
+\begin{enumerate}
+  \item \textbf{imporre proprietà} all'output (es.\ sigmoid $\Rightarrow$ output in $[0,1]$);
+  \item introdurre \textbf{non linearità} nel modello;
+  \item decidere \textbf{quando il neurone è attivo} (ReLU: se l'input è $\leq 0$ il neurone è spento);
+  \item altri motivi di ottimizzazione: convergenza più rapida, \en{sparsity}.
+\end{enumerate}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+\textbf{Funzione} & \textbf{Formula} & \textbf{Codominio} & \textbf{Uso tipico e note}\\
+\midrule
+Sigmoid & $\sigma(y)=\dfrac{1}{1+e^{-y}}$ & $(0,1)$ & output di classificazione \textbf{binaria}; limitata $\Rightarrow$ \en{vanishing gradient} se usata negli hidden layer\\
+Tanh & $\tanh(y)$ & $(-1,1)$ & limitata; usata nelle \textbf{RNN}\\
+ReLU & $\max(0,y)$ & $[0,\infty)$ & la più usata negli \textbf{hidden layer}; non limitata superiormente; neuroni inattivi $\Rightarrow$ sparsità\\
+Leaky ReLU & $y$ se $y>0$, $\alpha y$ altrimenti & $\R$ & piccola pendenza per $y<0$: anche i neuroni ``negativi'' portano informazione\\
+Softmax & $\dfrac{e^{z_i}}{\sum_j e^{z_j}}$ & $(0,1)$, somma 1 & output \textbf{multi-classe}\\
+Lineare & $f(y)=y$ & $\R$ & output di \textbf{regressione}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Sigmoid}
+Mappa qualsiasi valore reale in $[0,1]$: anche se la somma pesata vale $-10.000$, l'output è limitato.
+$P(\text{pos}\mid x) = \sigma(y)$ e $P(\text{neg}\mid x) = 1 - P(\text{pos}\mid x)$, quindi la somma è 1 per costruzione.
+Soglia tipica: $0{,}5$. Con tutti i pesi a 0 l'output è $\sigma(0)=0{,}5$: il modello non sa decidere.
+
+\textbf{Limiti della sigmoid}
+\begin{enumerate}
+  \item \textbf{Solo binaria}: per cane/gatto/delfino non basta.
+  \item \textbf{Vanishing gradient}: in addestramento si manda indietro (\en{backpropagation}) un segnale che dipende dalle
+        derivate delle attivazioni. Moltiplicando valori $<1$ per molti layer, il segnale \textbf{svanisce} e i primi layer non
+        imparano (dettagli nel cap.~\ref{cap:addestramento}).
+\end{enumerate}
+
+\subsection{ReLU}
+Se l'input è $\leq 0$ l'output è 0 (neurone \textbf{inattivo} per quella combinazione di feature); altrimenti l'output è
+proporzionale all'input. Non essendo limitata, il segnale backpropagato resta abbastanza forte anche dopo molti layer.
+Benefici: mitiga il vanishing gradient $\Rightarrow$ \textbf{convergenza più rapida}; \textbf{sparsità}: non tutti i neuroni
+servono per tutti gli input.
+
+\begin{esempio}[sparsità e LLM]
+Un LLM da trilioni di parametri non li usa tutti a ogni richiesta: alcuni neuroni sono specializzati (es.\ ``inglese'' più
+che ``francese''). È collegato all'idea di \en{mixture of experts} e di \en{routing} dell'informazione nella rete.
+\end{esempio}
+
+\begin{attenzione}[ReLU non risolve tutto]
+Moltiplicando molti valori $>1$ il gradiente può \textbf{esplodere} (\en{exploding gradient}): il problema opposto.
+Succede anche con reti non troppo profonde. Reti diverse usano attivazioni diverse o combinazioni di attivazioni.
+\end{attenzione}
+
+\section{Attivazioni in uscita e logit}
+\begin{definizione}[logit]
+L'output della rete \textbf{prima} dell'attivazione finale: valori non normalizzati in $(-\infty, +\infty)$.
+Vanno trasformati in probabilità valide (in $[0,1]$ e con somma 1).
+\end{definizione}
+
+\subsection{Classificazione binaria}
+La rete produce \textbf{un logit} $z$ (per convenzione della classe positiva). Si applica la sigmoid:
+$P(\text{pos}\mid x) = \sigma(z) = \frac{1}{1+e^{-z}}$ e $P(\text{neg}\mid x) = 1 - P(\text{pos}\mid x)$.
+Con logit $-10.000$ la probabilità di positivo è $\approx 0$; con $+10.000$ è $\approx 1$.
+
+\subsection{Classificazione multi-classe}
+Servono almeno $C-1$ output, ma in pratica si usa \textbf{un neurone per classe} ($C$ logit). Si applica la
+\textbf{softmax}:
+\[
+P(c_i \mid x) = \frac{e^{z_i}}{\sum_{j} e^{z_j}}, \qquad P(c_i\mid x) \in [0,1], \qquad \sum_i P(c_i \mid x) = 1.
+\]
+\begin{itemize}
+  \item È una generalizzazione della sigmoid e usa \textbf{tutti gli output insieme}.
+  \item Converte i logit in probabilità e \textbf{amplifica} le piccole differenze tra logit.
+  \item Esempio: immagine $\to$ CNN (rappresentazione) $\to$ FFNN (classificazione) $\to$ 4 logit $\to$ softmax $\to$
+        \{cane, gatto, uccello, tartaruga\}; si sceglie la probabilità più alta.
+\end{itemize}
+
+\subsection{Regressione}
+Si predicono numeri reali: di solito non serve imporre proprietà e l'attivazione di uscita è l'\textbf{identità}
+$f(x)=x$. È praticamente l'unico caso in cui ha senso un'attivazione lineare.
+
+\begin{attenzione}[teoria vs software]
+In teoria in classificazione l'ultima attivazione c'è sempre. In \textbf{PyTorch} però, con \code{CrossEntropyLoss},
+\textbf{non} si mette la softmax nel modello perché è già dentro la loss (cap.~\ref{cap:ffnn}). È una scelta della libreria:
+leggi sempre la documentazione.
+\end{attenzione}
+\section{Il margine: quale confine è migliore?}
+Tra due classificatori lineari che separano correttamente i punti di training, è preferibile quello con
+\textbf{margine maggiore} dai punti: un nuovo punto vicino al confine viene classificato correttamente con più probabilità.
+Un confine troppo ``attaccato'' a una classe sbaglierà facilmente nei dintorni. È l'idea delle \textbf{SVM}
+(cap.~\ref{cap:anomaly}).
+
+\section{Verso reti più grandi}
+\subsection{Impilare perceptron: il layer fully connected}
+Due perceptron con lo stesso input $(x_1,x_2)$ e pesi diversi ($\mathbf{w}$ e $\mathbf{q}$) danno due output indipendenti:
+\[
+\mathbf{y} = \begin{pmatrix} y_1\\ y_2\end{pmatrix}
+= f\left(\begin{pmatrix} w_0 & w_1 & w_2\\ q_0 & q_1 & q_2\end{pmatrix}
+\begin{pmatrix} 1\\ x_1\\ x_2\end{pmatrix}\right) = f(W\mathbf{x})
+\]
+Questo è un \textbf{layer lineare (fully connected)} con \textbf{6 parametri}. Per confronto, i modelli ``piccoli''
+di oggi ne hanno 7 miliardi (es.\ Mistral 7B).
+
+\begin{definizione}[numero di parametri]
+È il numero totale di \textbf{pesi} (bias inclusi). Un layer lineare da $n_{in}$ a $n_{out}$ neuroni ha
+$n_{in} \cdot n_{out} + n_{out}$ parametri.
+\end{definizione}
+
+\subsection{Aggiungere layer}
+Un secondo layer combina $y_1, y_2$ con pesi $\mathbf{s}$ e produce $z$:
+\[
+z = f\big(\mathbf{s}^T f(W^T\mathbf{x})\big)
+\]
+\textbf{Una rete neurale è moltiplicazione di matrici} alternata a funzioni di attivazione: nessuna magia, ma con
+trilioni di pesi.
+
+\textbf{Perché tanti layer?} Ogni layer crea una rappresentazione \textbf{più astratta} dei dati: i primi layer
+lavorano sul dato grezzo, i successivi catturano i concetti principali (sarà evidentissimo con le CNN).
+
+\textbf{L'attivazione è la stessa in tutti i layer?} No. Negli hidden layer serve evitare il vanishing gradient
+$\Rightarrow$ ReLU (non limitata); nell'ultimo layer serve una probabilità $\Rightarrow$ sigmoid o softmax.
+
+\section{Perché la non linearità è indispensabile}
+Se $f(x)=x$, allora $z = \mathbf{s}^T W^T \mathbf{x} = W'\mathbf{x}$:
+\begin{enumerate}
+  \item potevo usare direttamente $W' = W\mathbf{s}$ e ottenere lo stesso output;
+  \item il secondo layer non serviva;
+  \item il modello resta \textbf{lineare}.
+\end{enumerate}
+Mille layer lineari equivalgono a \textbf{un solo layer lineare} (\en{collapse}). Il mondo non è lineare (pensa alla
+distribuzione dei voti di un esame), quindi servono le attivazioni non lineari tra un layer e l'altro.
+
+Con ReLU nella rete del docente (hidden ReLU + output sigmoid) il confine di decisione non è più una retta: si formano
+\textbf{più regioni}. Il numero di regioni dipende da quanti neuroni ci sono e dalla presenza della non linearità.
+
+\section{Teorema di approssimazione universale}
+\begin{definizione}[Cybenko 1989; Hornik et al.\ 1989]
+Per ogni funzione continua $g$ definita su un sottoinsieme compatto di $\R^n$ e per ogni $\epsilon > 0$, esiste una
+rete feed-forward con \textbf{un solo hidden layer} e un numero finito di neuroni che approssima $g$ con errore inferiore a $\epsilon$.
+\end{definizione}
+\begin{itemize}
+  \item Ogni neurone ReLU introduce un \textbf{punto di rottura} (\en{breakpoint}): la funzione approssimata è lineare a tratti.
+        Con un input e $D$ neuroni si ottengono fino a $D+1$ \textbf{regioni lineari}. Nell'esempio delle slide, la curva viene
+        approssimata sempre meglio con 4, 9 e infine \textbf{19 neuroni} ($\Rightarrow$ 20 regioni lineari): una rete
+        \en{shallow} basta.
+  \item Il numero di neuroni di una rete shallow misura la sua \textbf{capacità}.
+  \item Il problema: il teorema \textbf{non dice quanti neuroni servono} (4? 19? 20.000?) né quali pesi usare.
+\end{itemize}
+
+\begin{esame}[meglio profonde che larghe]
+Si usano reti \textbf{più profonde e più strette} invece di un solo layer larghissimo: i layer, separati da non linearità,
+\textbf{combinano la loro complessità} e creano rappresentazioni sempre più astratte $\Rightarrow$ migliore
+\textbf{generalizzazione}. ``Il deep learning è rappresentazione dei dati.''\\
+Attenzione però: una rete troppo complessa può andare in \textbf{overfitting} (cap.~\ref{cap:addestramento}).
+\end{esame}
+
+\subsection{Complessità di una rete}
+Il numero di regioni lineari cresce rapidamente con il numero di neuroni e di \textbf{feature di input}.
+Con 500 neuroni e 100 feature si superano le $10^{107}$ regioni, con \textbf{51.001 parametri}: tantissime regioni, eppure
+la rete è minuscola per gli standard attuali (Mistral 7B ha 7 miliardi di parametri).
+
+
+\begin{sintesi}
+\begin{itemize}
+  \item Il perceptron calcola $y=f(\mathbf{w}^T\mathbf{x})$: pesi appresi dai dati, bias $w_0$ per traslare il confine,
+        attivazione $f$ per imporre proprietà e non linearità.
+  \item Attivazioni: ReLU negli hidden layer (mitiga il vanishing gradient, sparsità); sigmoid (binaria), softmax
+        (multi-classe) o identità (regressione) in uscita. I \textbf{logit} sono gli output prima dell'attivazione finale.
+  \item Un layer fully connected è $f(W\mathbf{x})$, con $n_{in}n_{out}+n_{out}$ parametri; una rete è moltiplicazione di
+        matrici alternata a non linearità. Senza non linearità, mille layer collassano in uno solo.
+  \item Teorema di approssimazione universale: basta un hidden layer, ma non dice quanti neuroni né quali pesi.
+        In pratica si preferiscono reti \textbf{profonde e strette}, che generalizzano meglio.
+\end{itemize}
+\end{sintesi}

@@ -1,0 +1,104 @@
+% =====================================================================
+\lezione{02/11/2026}{Anomaly detection: concetti, one-class SVM e k-means}
+  {Prof.~Danilo Giordano}
+  {anomaly, outlier e novelty detection; perché in cybersecurity; complessità e tipi di anomalie (point,
+   contextual, collective); sfide per AI/ML; supervised vs unsupervised; score e label; shallow learning;
+   SVM e kernel trick; one-class SVM e parametro $\nu$; clustering e k-means; SSE e metodo del gomito}
+\label{lez:2026-11-02}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con le slide
+\emph{5-Supervised-vs-Unsupervised-shallow} (pp.~1--33).
+\end{nota}
+
+\begin{verifica}
+Tra la lezione del 20/10 e questa ci sono state attività non registrate (le due sessioni del Lab~2 e
+le eventuali lezioni di quei giorni). Il diario non ne riporta il contenuto.
+\end{verifica}
+
+\section{Sintesi}
+Prima lezione dell'ultimo blocco del Prof.~Giordano, dedicato all'\textbf{anomaly detection}; dopo
+inizierà l'NLP con il Prof.~Boffa. Il punto di partenza: i classificatori falliscono quando le label
+mancano, sono molto sbilanciate o inaffidabili, o quando si vogliono scoprire \textbf{novità}. La lezione
+definisce il problema, le sue complessità e le sfide per il ML, confronta l'approccio supervisionato e
+quello non supervisionato e inizia gli algoritmi \emph{shallow}: SVM, \textbf{one-class SVM} e
+\textbf{k-means}. Si ferma alla scelta di $K$; l'uso di k-means per l'anomaly detection è rimandato alla
+lezione successiva. Approfondimento nel capitolo~\ref{cap:anomaly}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il docente chiede un riscontro sul Lab~2 (``difficile?'') e lo difende come utile, anche se
+    impegnativo.
+  \item La parte su k-means per l'anomaly detection riprende ``domani o mercoledì'': quella lezione non è
+    nelle registrazioni (vedi \rif{2026-11-09}{09/11}).
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Che cos'è e perché serve}
+L'anomaly detection cerca \textbf{pattern che deviano dal comportamento atteso}. Va distinta la
+\textbf{novelty detection}: un pattern nuovo può essere la \textbf{nuova normalità} (l'uso della VPN
+durante il COVID). In cybersecurity le anomalie segnalano attività malevole (zero-day, intrusioni,
+esfiltrazione dopo un movimento laterale), guasti e configurazioni errate, frodi bancarie. Serve perché
+per uno \textbf{zero-day} non può esistere un classificatore, perché gli attaccanti si adattano alle
+regole (gatto e topo) e per avere un \textbf{early warning} prima del danno.
+
+\subsection{Complessità, tipi di anomalie e sfide}
+Le complessità sono quattro: \textbf{unknowingness} (le anomalie sono ignote finché non accadono),
+\textbf{rarità e sbilanciamento} (e sbagliare su un'anomalia costa di più), \textbf{classi eterogenee}
+(lo stesso tipo di attacco si presenta in forme diverse, es.\ DNS tunnelling e HTTP/2 push) e
+\textbf{pattern che evolvono}. I tipi di anomalia sono tre:
+\begin{itemize}
+  \item \textbf{point}: un'istanza anomala da sola (login da un paese mai visto);
+  \item \textbf{contextual}: anomala solo dato il contesto (un backup di due ore alle 3 di domenica);
+  \item \textbf{collective}: un insieme di istanze normali che insieme formano l'anomalia (tentativi di
+    login ognuno sotto la soglia, ma in sequenza).
+\end{itemize}
+Le sfide per AI/ML: recall bassa e molti falsi positivi (se la maggior parte degli allarmi è falsa,
+nessuno si fida più del modello), dati ad alta dimensionalità e dipendenti, poche label, rumore, anomalie
+complesse e bisogno di \textbf{spiegazioni}. Approccio \textbf{supervisionato}: accurato con buone label
+ma non generalizza a nuove anomalie; \textbf{non supervisionato}: assume che il normale domini, trova
+minacce nuove ma ha più falsi positivi ed è meno interpretabile. L'output di un algoritmo può essere uno
+\textbf{score}, che permette di ordinare le istanze e di lavorare a budget (esempio Intesa Sanpaolo:
+le prime 10.000 del mese), oppure una \textbf{label}, il cui numero si controlla con gli iperparametri.
+
+\begin{esame}[un'anomalia non è per forza un attacco]
+Il docente torna più volte sul contesto: un rilevatore che blocca subito tutte le VPN perché il loro uso
+è ``anomalo'' fermerebbe tutti i lavoratori da remoto. Saper distinguere anomalia, novità e attacco, e
+riconoscere point, contextual e collective anomaly negli esempi.
+\end{esame}
+
+\subsection{Shallow learning: SVM e one-class SVM}
+Gli algoritmi shallow sono interpretabili, vanno bene sui dati tabellari e sulle anomalie puntuali e
+danno una \textbf{baseline}; sono deboli sulle anomalie contestuali e collettive, che richiedono feature
+costruite a mano (es.\ tentativi falliti aggregati su mezz'ora). La \textbf{SVM} (1995) cerca l'iperpiano
+che separa le classi \textbf{massimizzando il margine}; il \textbf{kernel trick} porta i dati in uno spazio
+in cui diventano separabili (lineare, polinomiale, \textbf{RBF}, il più usato). La \textbf{one-class SVM}
+non riceve label: costruisce un confine attorno ai dati normali, e ciò che sta fuori è anomalo. Il
+parametro $\bm{\nu}$ è la \textbf{frazione attesa di outlier}. Si può usare in due modi: addestrata
+\textbf{solo su dati normali} (``supervisionata'' tra virgolette: le label servono solo a scegliere i
+dati, $\nu$ piccolo) o su \textbf{tutti i dati} senza label (serve una stima della frazione di anomalie).
+
+\subsection{Clustering e k-means}
+Nel clustering le anomalie sono i \textbf{cluster piccoli e lontani}, i punti \textbf{lontani dal
+centroide} del proprio cluster o i punti \textbf{senza cluster}. K-means è partizionale e basato su
+centroidi: ogni punto appartiene a un cluster, funziona con cluster sferici di dimensioni simili.
+Dipende dall'\textbf{inizializzazione} casuale, quindi si esegue più volte con lo stesso $K$ e si tiene il
+risultato migliore. $K$ si sceglie con l'\textbf{SSE} e il \textbf{metodo del gomito}, restando nella
+zona del gomito: più cluster abbassano l'SSE ma vanno studiati uno per uno, senza label.
+
+\begin{esame}[SSE che risale]
+Il docente chiede di ricordarlo: se nel grafico SSE contro $K$ compare un picco verso l'alto,
+probabilmente un'inizializzazione sfortunata ha lasciato un \textbf{cluster vuoto}. Si riesegue k-means.
+\end{esame}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item La slide sulla one-class SVM dice che con $\nu$ più piccolo si hanno meno outlier e confini
+    ``più stretti'': ``meno outlier'' è corretto, ma lasciando fuori meno punti la regione normale si
+    allarga. Da chiarire con il docente.
+  \item Contenuto delle lezioni e dei lab non registrati tra il 20/10 e il 02/11: non ricostruito.
+\end{itemize}
+\end{verifica}

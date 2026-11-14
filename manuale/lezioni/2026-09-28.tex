@@ -1,0 +1,106 @@
+% =====================================================================
+\lezione{28/09/2026}{Il perceptron e la struttura di una rete neurale}
+  {Prof.~Danilo Giordano}
+  {input, hidden e output layer; perceptron, pesi e bias; funzioni di attivazione;
+   layer fully connected; necessità della non linearità; teorema di approssimazione universale;
+   profondità contro larghezza; logit, sigmoid e softmax}
+\label{lez:2026-09-28}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. I contenuti seguono le slide
+\emph{2-foundament-deep-learning} (pp.~1--18); numeri e formule sono ripresi dalle slide.
+\end{nota}
+
+\section{Sintesi}
+Inizia il secondo deck: che cosa c'è ``sotto il cofano'' di una rete neurale e che cosa sono
+davvero i trilioni di parametri. Il docente parte dal singolo neurone (il perceptron: somma pesata più
+funzione di attivazione), mostra perché servono il bias e le attivazioni non lineari, impila i
+neuroni in layer e layer in reti, e arriva al teorema di approssimazione universale e alla scelta di
+reti profonde invece che larghe. Chiude con le attivazioni dell'ultimo layer (sigmoid, softmax,
+identità). Approfondimento nel capitolo~\ref{cap:reti-neurali}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item La settimana successiva sono previste lezioni anche il \textbf{martedì} (oltre a lunedì),
+    dedicate alle reti feed-forward anche dal lato del codice; il \textbf{mercoledì} il primo
+    laboratorio. Annuncio ufficiale sul portale.
+  \item Su Moodle verrà aperta la sezione per la creazione dei gruppi: dalla settimana successiva si
+    lavora in gruppo.
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{La struttura di una rete}
+Input layer (un neurone per feature, nel caso tabellare), hidden layer (dove la rete ``ragiona''; con
+tre o più si parla di deep learning) e output layer (la decisione finale). Le reti accettano solo
+numeri: testo, grafi e immagini vanno convertiti (un pixel sono tre valori RGB). La conversione è
+in genere standard; le parti difficili sono il preprocessing e la scelta dell'architettura, da trovare
+sperimentalmente (\emph{model engineering}).
+
+\subsection{Il perceptron}
+Il neurone pesa le feature, ne fa la somma e applica un'attivazione: $y = f(\mathbf{w}^T\mathbf{x})$, con
+$x_0 = 1$. I \textbf{pesi} sono i parametri della rete: indicano l'importanza di ogni feature,
+partono casuali e si imparano dai dati; le $x_i$ invece non si toccano. Il \textbf{bias} $w_0$ non
+dipende da alcuna feature e serve a traslare la funzione: senza bias, con attivazione lineare, tutte
+le rette di separazione passano per l'origine. Nel caso 2D i pesi inclinano e spostano il confine,
+ma l'output grezzo non è limitato: per ottenere una probabilità serve un'attivazione limitata.
+
+\subsection{Funzioni di attivazione}
+Servono a imporre proprietà all'output, introdurre non linearità, decidere quando un neurone è
+attivo e migliorare l'ottimizzazione. \textbf{Sigmoid}: output in $[0,1]$, adatta alla classificazione
+binaria, ma negli hidden layer causa \en{vanishing gradient}. \textbf{Tanh}: limitata in $[-1,1]$, la
+si ritrova nelle RNN. \textbf{ReLU}: zero per input negativi (neurone inattivo, quindi sparsità),
+illimitata sopra; è la più importante negli hidden layer perché mitiga il vanishing gradient, ma
+moltiplicando molti valori grandi il gradiente può \textbf{esplodere}. \textbf{Leaky ReLU}: piccola
+pendenza anche per input negativi. Il docente collega la sparsità agli LLM, che non usano tutti i
+parametri per ogni richiesta. Tabella completa nel capitolo~\ref{cap:reti-neurali}.
+
+\begin{esame}
+Il docente avverte che le formule di questo deck \textbf{non verranno chieste} all'esame: non
+importa ricordare la forma esatta della sigmoid, importa capire \textbf{il concetto} che c'è dietro
+(a cosa serve ogni attivazione, perché la non linearità, perché profondità).
+\end{esame}
+
+\subsection{Margine, layer e non linearità}
+Tra due confini lineari che separano bene il training è preferibile quello con \textbf{margine}
+maggiore, idea che ritorna nelle SVM. Due perceptron sullo stesso input formano un \textbf{layer
+fully connected} ($\mathbf{y} = f(W\mathbf{x})$, 6 parametri nell'esempio a due input e due neuroni);
+un secondo layer combina gli output del primo. Una rete è quindi una sequenza di prodotti tra matrici
+alternati ad attivazioni. Ogni layer produce una rappresentazione più astratta del dato. Senza
+attivazioni non lineari, però, mille layer collassano in \textbf{un solo layer lineare}, e il mondo non è
+lineare (basta guardare la distribuzione dei voti di un esame). L'attivazione non è la stessa ovunque:
+ReLU negli hidden layer, sigmoid o softmax in uscita, perché i due punti della rete risolvono problemi
+diversi.
+
+\subsection{Approssimazione universale: profonde, non larghe}
+Il teorema di approssimazione universale (Cybenko e Hornik, 1989) garantisce che una rete con un solo
+hidden layer e un numero finito di neuroni approssima qualunque funzione continua su un compatto. Con
+la ReLU ogni neurone aggiunge un punto di rottura: nell'esempio delle slide la curva è approssimata
+sempre meglio con 4, 9 e 19 neuroni. Il teorema però non dice \emph{quanti} neuroni servono. Il numero
+di regioni lineari cresce in fretta con neuroni e feature: con 500 neuroni e 100 feature si superano
+le $10^{107}$ regioni con appena 51.001 parametri.
+
+\begin{esame}
+Messaggio su cui il docente insiste: preferire reti \textbf{più profonde e meno larghe}. I layer,
+separati da non linearità, combinano la loro complessità e costruiscono rappresentazioni sempre più
+astratte, il che migliora la generalizzazione. Attenzione però: una rete troppo complessa va in
+overfitting (capitolo~\ref{cap:regolarizzazione}).
+\end{esame}
+
+\subsection{Logit e attivazioni in uscita}
+L'output prima dell'ultima attivazione è il \textbf{logit}, non normalizzato. In classificazione
+binaria basta un logit e la \textbf{sigmoid}; nel multi-classe si usa un neurone per classe (ne
+basterebbero $C-1$) e la \textbf{softmax}, che produce probabilità con somma 1 e amplifica le piccole
+differenze tra logit (esempio: CNN per la rappresentazione dell'immagine, FFNN per classificare
+cane, gatto, uccello o tartaruga). In regressione l'uscita è l'identità. In teoria in classificazione
+l'attivazione finale c'è sempre; nel software può mancare perché è inclusa altrove, come si vedrà con
+la loss di PyTorch (capitolo~\ref{cap:ffnn}).
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Soglia del deep learning: la slide parla di ``3 o più'' hidden layer, mentre in aula la frase
+    (``more [than] three'', con un esempio a quattro layer) è ambigua. Vale la definizione della slide.
+\end{itemize}
+\end{verifica}

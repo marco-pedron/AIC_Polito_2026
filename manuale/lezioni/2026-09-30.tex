@@ -1,0 +1,126 @@
+% =====================================================================
+\lezione{30/09/2026}{Addestrare una rete: ottimizzazione, loss e valutazione}
+  {Prof.~Danilo Giordano}
+  {forward pass, loss ed epoch; mini-batch; gradient descent e SGD; learning rate e scheduler;
+   momentum, normalizzazione e Adam; backpropagation e regola della catena; BCE e cross-entropy;
+   vanishing gradient; procedura di training; metriche; underfitting, overfitting e regolarizzazione}
+\label{lez:2026-09-30}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. I contenuti seguono le slide
+\emph{2-foundament-deep-learning} (pp.~19--51); formule e numeri sono ripresi dalle slide.
+\end{nota}
+
+\section{Sintesi}
+Lezione densa che completa il deck sui fondamenti: come si passa da pesi casuali a pesi utili. Il
+docente costruisce il ciclo di addestramento (forward pass, loss, backpropagation, aggiornamento),
+confronta gli ottimizzatori dal gradient descent ad Adam, spiega la backpropagation come regola della
+catena e mostra con numeri il vanishing gradient. Poi passa alla pratica: procedura di training,
+dimensione del batch, scelta della loss, metriche di valutazione con dati sbilanciati e diagnosi di
+underfitting e overfitting, con una prima panoramica della regolarizzazione. Approfondimenti nei
+capitoli~\ref{cap:addestramento} e~\ref{cap:regolarizzazione}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Entro un giorno viene pubblicato su Moodle il modulo per la creazione dei gruppi. Il primo
+    laboratorio è il mercoledì successivo: conviene accordarsi almeno informalmente prima. Termine per
+    registrare ufficialmente i gruppi: \textbf{fine ottobre}.
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Il ciclo di addestramento}
+Si indica con $\phi$ l'insieme di pesi e bias. A ogni passo: forward pass, calcolo della
+\textbf{loss} tra predizione e label, backpropagation dell'errore, aggiornamento dei pesi secondo un
+\textbf{ottimizzatore}. Un'\textbf{epoch} è un passaggio dell'intero training set. Si aggiorna dopo ogni
+\textbf{mini-batch}, campionato a caso \textbf{senza reinserimento} (ogni punto conta una volta per
+epoch): aggiornamenti più frequenti, meno memoria, migliore generalizzazione. La loss (per esempio
+MSE) dipende solo da $\phi$, perché dati e label sono fissi; una loss pari a zero deve insospettire.
+Con un trilione di parametri non c'è soluzione in forma chiusa: si parte a caso e ci si muove secondo
+una policy.
+
+\subsection{Ottimizzatori}
+\begin{itemize}
+  \item \textbf{Gradient descent}: passo nella direzione opposta al gradiente, con visione solo
+    locale. Funziona con loss convesse, ma si blocca nei minimi locali, è sensibile
+    all'inizializzazione e usa tutti i dati. Il docente racconta un suo progetto in cui una piccola
+    rete cambiava drasticamente prestazioni al solo variare dell'inizializzazione: si scelse una SVM,
+    un po' peggiore ma stabile.
+  \item \textbf{SGD}: gradiente su un mini-batch. Traiettoria rumorosa (``cammina come un
+    ubriaco''), che può anche risalire e proprio per questo uscire dai minimi locali; più veloce ed
+    economica, generalizza bene, ma non converge in senso classico.
+  \item \textbf{Learning rate} $\alpha$: il gradiente dà la direzione, $\alpha$ la lunghezza del passo
+    (non la dimensione del batch). Con uno \emph{scheduler} si parte alto per esplorare e si riduce per
+    rifinire.
+  \item \textbf{Momentum}: media pesata con i passi precedenti ($\beta$), traiettoria più liscia;
+    $\beta$ troppo basso o troppo alto rallenta comunque la convergenza.
+  \item \textbf{Normalizzazione del gradiente}: stesso passo in tutte le direzioni, al prezzo di
+    oscillazioni vicino al minimo.
+  \item \textbf{Adam}: momentum sul gradiente e sul suo quadrato, con \emph{bias correction} nei primi
+    passi. È l'ottimizzatore che si userà di più; $\alpha$, $\beta$, $\gamma$ restano iperparametri.
+\end{itemize}
+Ottimizzatore, batch size, learning rate e momentum sono \textbf{iperparametri}: si scelgono
+addestrando molti modelli (\en{grid search}), ``più arte che scienza''. In aula si sono viste due demo
+interattive sull'effetto degli iperparametri.
+
+\subsection{Backpropagation e vanishing gradient}
+La backpropagation è la \textbf{regola della catena} applicata all'indietro sul grafo
+computazionale: il gradiente di un layer riusa quello del layer successivo moltiplicato per il
+gradiente locale. Il docente la svolge passo per passo sull'esempio $\hat y = \phi_1\phi_2 x$ con loss
+quadratica. Per la classificazione binaria la loss è la \textbf{binary cross-entropy}, in cui la label
+fa da selettore tra $-\log\hat y$ e $-\log(1-\hat y)$; nel multi-classe si usa la cross-entropy.
+Poiché i gradienti si moltiplicano layer dopo layer, attivazioni limitate come la sigmoid li fanno
+\textbf{svanire}: nell'esempio a quattro layer il gradiente cala di circa tre ordini di grandezza fino
+al primo hidden layer, mentre con la ReLU resta stabile. I primi layer restano così quasi uguali
+all'inizializzazione.
+
+\begin{esame}
+Anche qui il docente precisa che all'esame \textbf{non si chiede di calcolare gradienti} né di
+svolgere la matematica della backpropagation: si chiede di capire il concetto (che cosa fa, perché
+serve, che cosa causa il vanishing gradient).
+\end{esame}
+
+\subsection{L'addestramento in pratica}
+I passi sono: definire problema e dati (obiettivo e quindi loss, preprocessing, split, batch size),
+scegliere l'architettura, scegliere ottimizzatore e loss, addestrare e validare. Batch di dimensione
+potenza di 2: 1 è \emph{streaming} e molto rumoroso, 16--64 va bene per dataset piccoli, 128--512 è il
+compromesso più comune, da 1024 in su solo con dataset molto grandi. Loss tipiche: MSE e MAE (meno
+sensibile agli outlier) per la regressione, BCE per il binario, cross-entropy per il multi-classe.
+Dati di qualità restano fondamentali: ``garbage in, garbage out''.
+
+\subsection{Metriche}
+La loss guida l'addestramento, ma il modello migliore si sceglie con le \textbf{metriche}: accuracy,
+e per classe precision, recall e F1. Esempio del classificatore che risponde sempre ``goodware'' su
+9.900 goodware e 100 malware: accuracy del 99\% e recall sui malware pari a zero. Se invece risponde
+sempre ``malware'', la recall sale a 1 ma la precision crolla all'1\% e nessuno si fida più degli
+allarmi. Dettagli nel capitolo~\ref{cap:addestramento}.
+
+\begin{esame}
+Con dati sbilanciati, il caso tipico in cybersecurity, l'accuracy inganna. Si sceglie il compromesso
+tra precision e recall in base al costo degli errori: per la classe malware recall alta con una
+precision almeno decente; in caso di dubbio, la F1.
+\end{esame}
+
+\subsection{Underfitting, overfitting e regolarizzazione}
+Si leggono le \textbf{learning curve} di training e validation; sul validation set la loss si calcola
+senza mai aggiornare i pesi. \textbf{Underfitting}: loss alta anche in training (attenzione alla
+scala); si rimedia con preprocessing migliore o modello più capace. \textbf{Overfitting}: la loss di
+training continua a scendere mentre quella di validation risale. Rimedi, con un termine di penalità
+nella loss o agendo sul processo: \textbf{L1} (pesi a zero, sparsità) e \textbf{L2} (pesi piccoli,
+\code{weight\_decay}) sui pesi; \textbf{dropout} sull'architettura; \textbf{early stopping} sul
+processo, tenendo il modello all'epoch $t$ prima che la validation peggiori; \textbf{batch
+normalization} sui dati (lo stesso esempio appare diverso in batch diversi, di solito prima
+dell'attivazione); \emph{noise injection}, che nel corso non si userà. Approfondimento nel
+capitolo~\ref{cap:regolarizzazione}.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Scadenza dei gruppi: il 21/09 erano da formare prima del primo lab, oggi il termine indicato
+    è la fine di ottobre (``circa un mese''). Controllare la data esatta sul modulo Moodle.
+  \item In aula L1 e L2 sono descritte come ``aggiungere un po' di rumore'' all'aggiornamento dei
+    pesi: tecnicamente sono penalità deterministiche nella loss; la vera aggiunta di rumore è la
+    \emph{noise injection}.
+\end{itemize}
+\end{verifica}

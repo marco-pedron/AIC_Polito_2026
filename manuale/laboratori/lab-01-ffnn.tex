@@ -1,0 +1,149 @@
+\chapter{Lab 1 -- Introduzione a PyTorch con una FFNN}
+\label{cap:lab1}
+
+\begin{nota}[Fonti e limiti di questo capitolo]
+Testo del laboratorio ``\emph{1 -- Introduction to Deep Learning: building, training, and judging a
+Feed-Forward Neural Network}'' pubblicato sul portale. La consegna è \textbf{parafrasata}; per i
+dettagli fa fede il testo originale. Il Lab~1 non dà voto ma è obbligatorio e vale il bonus: come
+per gli altri lab qui \textbf{non} ci sono soluzioni, codice, numeri o scelte di un gruppo.
+\end{nota}
+
+\section{Contesto e obiettivi}
+Il lab ha due scopi: introdurre PyTorch e il comportamento delle reti neurali su un vero problema
+di classificazione, e dare una prima esperienza (non valutata) di lab e report come allenamento per
+quelli valutati. Il testo insiste che è un lab di \textbf{giudizio, non di ricette}: si riceve un
+obiettivo, dei vincoli e un punto di partenza consigliato, e si devono decidere, giustificare e
+difendere le scelte sulla base di ciò che si osserva. In concreto si vuole:
+\begin{itemize}
+  \item costruire e addestrare FFNN per \en{intrusion detection} con PyTorch;
+  \item vedere come il training si rompe quando un fondamentale (scaling, learning rate) è sbagliato
+        e imparare a leggerne i sintomi;
+  \item gestire lo sbilanciamento e ragionare su quale metrica conta per un IDS;
+  \item vedere come una singola feature può guidare di nascosto il modello e come una scelta di
+        pulizia può rimodellare le classi;
+  \item costruire una baseline semplice e verificare se la complessità aggiuntiva ne vale la pena.
+\end{itemize}
+
+\section{Dataset}
+Un sottoinsieme di \textbf{CICIDS2017} (Canadian Institute for Cybersecurity, University of New
+Brunswick), benchmark di intrusion detection con traffico benigno realistico e attacchi comuni. Un
+unico CSV di flussi etichettati; ogni riga è un flusso descritto da poche feature a livello di flusso
+(durate e tempi di interarrivo, statistiche sulle lunghezze dei pacchetti, rate di byte e pacchetti,
+alcuni contatori di flag TCP, numero di pacchetti in avanti, porta di destinazione, \ldots). La colonna
+\code{Label} ha quattro valori: \code{Benign}, \code{PortScan}, \code{DoS Hulk}, \code{Brute Force}.
+Il testo \textbf{non} dice di proposito quanto sono bilanciate le classi né quali problemi abbiano i
+dati: scoprirlo è il primo task.
+
+\section{Consegna (parafrasi)}
+Regole di lavoro comuni a tutto il lab: logbook con una riga per run, budget di circa 25 run,
+ipotesi prima di ogni run, una modifica alla volta (cap.~\ref{cap:lab-report}).
+
+\begin{description}[style=nextline,leftmargin=1.2em]
+\item[Task 1 -- Preprocessing (nessun run)]
+  Ispezionare i dati (numero di campioni, classi e bilanciamento, problemi di qualità come valori
+  mancanti, duplicati, valori implausibili); decidere cosa fare di mancanti e duplicati e dire quanti
+  campioni restano; scegliere le proporzioni dello split train/validation/test e se stratificare;
+  scegliere e motivare lo scaling dalle distribuzioni osservate (la porta di destinazione, per ora,
+  va trattata come numerica). Domande: perché stratificare o no, su quale partizione si fitta lo
+  scaler e cosa va storto se lo si fitta su tutto, come gli outlier guidano la scelta.
+\item[Task 2A -- Un primo classificatore]
+  Una FFNN a \textbf{un solo hidden layer} per le 4 classi, con un training loop pulito (loss,
+  ottimizzatore, early stopping sulla validation). Il testo suggerisce un punto di partenza semplice
+  (un hidden layer piccolo con ReLU, cross-entropy, AdamW, learning rate e batch size moderati, early
+  stopping) e chiede di dichiarare ogni scelta. Prima di addestrare: prevedere quali classi saranno
+  più difficili e perché. Poi curve di loss e classification report di validation; come si sceglie il
+  modello ``migliore'' tra le epoch, se le curve convergono, se le previsioni reggono.
+\item[Task 2B -- Perché i fondamentali contano]
+  Tre varianti della configurazione 2A, una sola cosa sbagliata alla volta: S1 senza scaling, S2 con
+  learning rate troppo alto (fino a rompere il training), S3 con learning rate molto più basso. Per
+  ognuna: prevedere la curva, plottare train/validation loss, dare un nome al \en{failure mode} e
+  spiegarne il meccanismo. Poi ordinarle per gravità, dire quale fondamentale sistemare per primo su
+  un problema nuovo e cosa, nella sola forma di una curva, indicherebbe la causa.
+\item[Task 2C -- Fissare la baseline]
+  Scegliere un modello a un hidden layer ben tarato e compreso: è la ``baseline da battere''.
+  Classification report di validation e test, commento sul gap. Come esperimento controllato, cambiare
+  l'attivazione (es.\ lineare $\leftrightarrow$ ReLU) e discutere se sia lecito confrontare le due
+  varianti sul test set.
+\item[Task 3 -- Una feature che distorce il modello]
+  Nei dati, tutti i flussi \code{Brute Force} hanno porta di destinazione 80. Domanda: è una proprietà
+  degli attacchi brute force o un artefatto del dataset? Esperimento controfattuale \textbf{solo sul
+  test}: cambiare la porta di quei flussi, prevedere l'effetto sulla recall e verificarlo con la
+  baseline senza riaddestrare. Poi rimuovere la porta dai dati originali, rifare il preprocessing e
+  usare il dataset senza porta per il resto del lab. Domande sul conteggio delle classi dopo la
+  pulizia, su quale classe si riduce e perché, su quale diventa la più rara e sul dilemma: de-duplicare
+  ancora o no?
+\item[Task 4 -- La classe rara: loss e sbilanciamento]
+  Riaddestrare la baseline sui dati senza porta, prevedere quale classe soffre di più, poi usare una
+  cross-entropy \textbf{pesata per classe}. Domande: da quale partizione si calcolano i pesi e perché
+  ogni altra scelta è sbagliata; accuracy e macro-F1 si muovono nella stessa direzione? Quale metrica
+  ottimizzare per un IDS che deve trovare attacchi rari?
+\item[Task 5 -- Iperparametri (circa 10 run in tutto)]
+  5A profondità (2--3 candidati più profondi scelti e motivati, niente grid); 5B batch size (tre
+  valori che ``circondano'' un'ipotesi, effetto su generalizzazione e tempo); 5C ottimizzatore contro
+  learning rate (SGD, SGD+momentum, AdamW variando il learning rate: chi domina?); 5D verdetto sul test
+  del miglior modello affiancato alla baseline: la complessità ne valeva i run?
+\item[Task 6 -- Ottimizzazioni]
+  Una rete grande e profonda imposta dal testo, addestrata a lungo senza regolarizzazione né early
+  stopping: prevedere le curve e mostrare dove si vede l'overfitting. Poi, una modifica per run e dalla
+  più semplice: rete più piccola o stop anticipato, poi un regolarizzatore alla volta (weight decay,
+  dropout, batch normalization), controllando la validation prima di aggiungere il successivo.
+  Domande: cosa ha aiutato di più con meno sforzo; la rete grande regolarizzata batte la baseline
+  semplice sul test?
+\item[Riflessione finale]
+  Guardando tutto il logbook: quali decisioni hanno dato più prestazioni per unità di sforzo?
+\end{description}
+
+\section{Teoria coinvolta}
+\begin{itemize}
+  \item Pulizia, duplicati, valori mancanti, split stratificato, scaling e leakage; struttura di una
+        FFNN e training loop in PyTorch: cap.~\ref{cap:ffnn}.
+  \item Loss, cross-entropy, ottimizzatori (SGD, momentum, Adam/AdamW), learning rate, batch size,
+        metriche per classe, learning curve, under/overfitting: cap.~\ref{cap:addestramento}.
+  \item Attivazioni e collasso lineare di una rete senza non linearità: cap.~\ref{cap:reti-neurali}.
+  \item Early stopping, weight decay, dropout, batch normalization: cap.~\ref{cap:regolarizzazione}.
+  \item Feature-scorciatoia (\en{shortcut}) e porte come feature categoriche: cap.~\ref{cap:ffnn}
+        e~\ref{cap:embedding}.
+\end{itemize}
+
+\section{Metodo generale}
+\begin{enumerate}
+  \item \textbf{Prima i dati}: contare, guardare distribuzioni e code, trovare duplicati e anomalie di
+        qualità; ogni passo di pulizia va motivato e il numero di righe prima/dopo va riportato.
+  \item \textbf{Split prima di tutto il resto}; fit di scaler e pesi di classe sul solo training.
+  \item \textbf{Baseline semplice} che si capisce fino in fondo, con curve e report per classe.
+  \item \textbf{Una variabile alla volta}, con ipotesi scritta prima: ogni esperimento risponde a una
+        domanda precisa del testo.
+  \item \textbf{Validation per scegliere, test per verificare}: il test non entra mai nelle scelte.
+  \item \textbf{Confronto onesto} con la baseline: la complessità si giustifica solo con un
+        miglioramento che regge e che vale il costo.
+\end{enumerate}
+
+\section{Insidie tipiche}
+\begin{attenzione}[errori da evitare]
+\begin{itemize}
+  \item Fittare lo scaler (o calcolare i pesi di classe) su tutto il dataset o sul validation/test.
+  \item Giudicare dalla sola accuracy un problema sbilanciato: guardare report per classe e macro-F1.
+  \item Scegliere tra varianti (attivazione, architettura) guardando il test set.
+  \item Riportare il modello dell'ultima epoch invece di quello scelto dall'early stopping.
+  \item Cambiare due cose nello stesso run, o fare grid search ``a tappeto'' bruciando il budget.
+  \item Spiegare i risultati con frasi da manuale invece che con le proprie curve e i propri numeri.
+  \item Dimenticare che rimuovere una feature e de-duplicare possono cambiare la composizione delle
+        classi: ricontare dopo ogni modifica.
+  \item Curve illeggibili o senza legenda; affermazioni ``è meglio'' senza metrica di riferimento.
+\end{itemize}
+\end{attenzione}
+
+\section{Checklist}
+\begin{itemize}
+  \item[$\square$] Numero di campioni prima e dopo la pulizia, con motivazione di ogni scelta.
+  \item[$\square$] Split e scaling motivati; dove è stato fittato lo scaler.
+  \item[$\square$] Previsioni scritte prima di ogni run e confrontate dopo.
+  \item[$\square$] Le tre curve di 2B con nome del failure mode e meccanismo.
+  \item[$\square$] Discussione validation vs test della baseline; perché il test non serve a scegliere.
+  \item[$\square$] Esperimento controfattuale sulla porta e ricalcolo delle classi senza porta.
+  \item[$\square$] Partizione da cui si calcolano i pesi di classe; scelta motivata della metrica.
+  \item[$\square$] Verdetto onesto su profondità, batch size, ottimizzatori e regolarizzazione rispetto
+        alla baseline.
+  \item[$\square$] Logbook entro il budget; riflessione finale argomentata dai propri run.
+  \item[$\square$] Checklist generale del cap.~\ref{cap:lab-report}.
+\end{itemize}

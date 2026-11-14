@@ -1,0 +1,140 @@
+% =====================================================================
+\lezione{05/10/2026}{Data handling: preprocessing, trasformazione e split}
+  {Prof.~Danilo Giordano}
+  {data handling nella pipeline deep; rumore, outlier, ridondanza, valori mancanti; one-hot, label
+   encoding, embedding; normalizzazione e standardizzazione; hold-out, k-fold, leave-one-out;
+   sbilanciamento, costo degli errori, data leakage; progettazione di una FFNN; tensori e DataLoader}
+\label{lez:2026-10-05}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. Numeri, tabelle e best practice sono
+ripresi dalle slide \emph{3-deep-learning-methodologies} (pp.~1--22), confrontate con quanto detto
+in aula.
+\end{nota}
+
+\section{Sintesi}
+Si apre il blocco sulle metodologie di deep learning. Il messaggio di fondo è che il deep learning
+\textbf{non fa magie sui dati}: anche in una pipeline deep il \en{data handling} (split,
+preprocessing, trasformazione) prende il 50--60\% del tempo. La lezione passa in rassegna la pulizia
+dei dati, la codifica delle feature categoriche e numeriche, i protocolli di split e i quattro
+problemi da gestire nello split (distribuzione delle classi, costo degli errori, dimensione del
+dataset, data leakage). Chiude con una panoramica delle architetture, la checklist per progettare
+una FFNN e i primi strumenti PyTorch per caricare i dati. Approfondimento nel
+capitolo~\ref{cap:ffnn}; per gli embedding il capitolo~\ref{cap:embedding}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item La lezione di \textbf{martedì 6 ottobre} (slot di recupero) è confermata, come annunciato
+    sul portale.
+  \item Il \textbf{Lab~1} (PyTorch e FFNN) ha 3~ore in aula; serve a prendere confidenza con
+    ottimizzatori, scheduler, momentum ecc. Il report consegnato entro il \textbf{1° dicembre}, se
+    ragionevole, vale \textbf{+1 punto}; un report di due pagine vuote va riconsegnato
+    (capitolo~\ref{cap:lab1}).
+  \item Per mercoledì: dare un'occhiata alla documentazione di \textbf{Pandas} e PyTorch.
+  \item Da questa parte in poi le lezioni alternano circa un'ora e mezza di teoria a esempi di codice.
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Il deep learning non basta: data handling}
+La sequenza corretta è \textbf{split} $\to$ \textbf{preprocessing} $\to$ \textbf{trasformazione}
+$\to$ \en{model engineering}. Il docente avverte che in azienda spesso non si potranno caricare i
+dati su ChatGPT o strumenti simili (dati sensibili): bisogna saperli trattare da soli.
+
+\subsection{Preprocessing}
+\begin{itemize}
+  \item \textbf{Rumore}: alcune architetture lo assorbono; troppo rumore porta a underfitting.
+  \item \textbf{Outlier}: esempio del reddito normalizzato tra 0 e 1 con Elon Musk come massimo: tutti
+    gli altri finiscono schiacciati vicino a 0, indistinguibili da un bambino senza reddito.
+  \item \textbf{Ridondanza}: feature \en{proxy} l'una dell'altra e duplicati (questi ultimi danno
+    peso artificiale a certi punti).
+  \item \textbf{Valori mancanti}: una rete non accetta un input incompleto. Quattro opzioni: eliminare
+    i punti (attenzione a \emph{quali}: potrebbero essere proprio la classe malevola), stimare il
+    valore, eliminare la feature, sostituire con tutti i valori possibili pesati per probabilità.
+\end{itemize}
+
+\subsection{Trasformazione delle feature}
+\begin{itemize}
+  \item \textbf{One-hot}: un neurone per valore; niente ordini artificiali, ma esplode ad alta
+    cardinalità (oltre 171.000 parole inglesi).
+  \item \textbf{Label encoding}: un neurone, un intero per categoria; adatto alle feature ordinali e
+    alla \textbf{label} (la cross-entropy non calcola distanze tra classi). Esempio delle
+    \textbf{porte}: 80, 81, 8080 sono numeri ma vanno trattate come \textbf{categoriche}.
+  \item \textbf{Embedding}: vettore denso in uno spazio latente di dimensione fissa (es.\ 32, 64,
+    128); concetti simili finiscono vicini (\en{man}/\en{woman} come \en{king}/\en{queen}); richiede
+    abbastanza dati.
+  \item \textbf{Numeriche}: normalizzazione min-max $z=(x-x_{min})/(x_{max}-x_{min})$, con intervallo
+    fisso ma sensibile agli outlier; standardizzazione $z=(x-\mu)/\sigma$, robusta agli outlier ma
+    senza limiti precisi.
+\end{itemize}
+
+\subsection{Split e protocolli di valutazione}
+Training per i pesi, validation per gli iperparametri, test per verificare la generalità (se il
+test va male si riparte da capo, non si ritoccano gli iperparametri). Campionamento
+\textbf{stratificato} (stesse proporzioni di classe in ogni partizione) o \textbf{bootstrap} (con
+reinserimento, per dataset piccoli). Protocolli:
+\begin{itemize}
+  \item \textbf{hold-out} (es.\ 70/20/10), per dataset grandi;
+  \item \textbf{k-fold cross-validation}: $k$ addestramenti con gli stessi iperparametri; se le $k$
+    prestazioni sono simili, gli iperparametri vanno bene. Il modello finale si \textbf{ri-addestra su
+    tutti i fold}, non si sceglie il fold ``migliore'' (sarebbe fortuna);
+  \item \textbf{leave-one-out} ($k=n$), solo per dataset molto piccoli.
+\end{itemize}
+
+\subsection{I quattro problemi dello split}
+\begin{enumerate}
+  \item \textbf{Classi sbilanciate}: oversampling (SMOTE, ADASYN), undersampling (anche
+    \en{cluster-based}), class weights, focal loss e soprattutto la metrica giusta: media
+    \textbf{macro} invece di \en{micro}.
+  \item \textbf{Costo degli errori}: un falso negativo su un malware costa più di un falso positivo;
+    loss pesata e metriche sulla classe rilevante.
+  \item \textbf{Dataset piccolo}: cross-validation, data augmentation, modelli pre-addestrati con
+    fine-tuning, approccio semi-supervised.
+  \item \textbf{Data leakage}: correlazione temporale (interpolare $t$ conoscendo $t-1$ e $t+1$ non è
+    prevedere), feature che fanno da scorciatoia (tutti i DoS sulla porta 80), identificatori (la
+    matricola per predire il voto). Con un andamento temporale si usa uno split basato sul tempo
+    (\en{sliding} o \en{expanding window}).
+\end{enumerate}
+
+\begin{esame}
+Domanda classica: \textbf{si può normalizzare (o codificare) usando tutto il dataset? No}, sarebbe
+data leakage. Prima si divide, poi si fa \code{fit} delle trasformazioni \textbf{solo sul training}
+e solo \code{transform} su validation e test (un 150 in validation con massimo di training 100
+diventa 1,5, ed è giusto così). Il docente insiste anche su: usare la metrica giusta con classi
+sbilanciate e non usare uno split casuale quando l'ordine temporale conta.
+\end{esame}
+
+\subsection{Architetture e progettazione di una FFNN}
+Panoramica: FFNN per dati tabellari (e come classificatore finale di altre reti), RNN per sequenze,
+CNN per immagini, GNN per grafi. Checklist per una FFNN: tutto in forma numerica (attenzione alle
+feature numeriche ma categoriche); input layer dimensionato dal preprocessing (2 numeriche + una
+categorica con 10 valori in one-hot = 12 neuroni); pochi hidden layer, prima in profondità che in
+larghezza, neuroni in potenze di 2; output in base al compito (in PyTorch con
+\code{CrossEntropyLoss} niente softmax nel modello); inizializzazione automatica con seed fissati;
+poi mini-batch, loss, ottimizzatore, learning rate (partire da 0,001 con scheduler) e
+regolarizzazione (dropout 0,2--0,5, L2 0,01) in caso di overfitting. Tabella completa delle best
+practice nel capitolo~\ref{cap:ffnn}.
+
+\subsection{Caricare i dati in PyTorch}
+Il \textbf{tensore} è una matrice multidimensionale di un solo tipo (\code{dtype}); gli zeri
+torneranno utili per le maschere in NLP. \code{TensorDataset(X, y)} unisce feature e label;
+\code{DataLoader(..., batch\_size, shuffle)} crea i mini-batch. Con \code{shuffle=True} l'ordine
+cambia a ogni epoch (migliore generalizzazione), ma ogni punto resta visto una sola volta per epoch.
+Con dati sequenziali non si mescolano i punti della stessa serie.
+
+\begin{nota}[Domanda lasciata in sospeso]
+Serve mescolare anche validation e test? Il docente rimanda la risposta alla lezione successiva
+(\rif{2026-10-06}{06/10}): no, perché lì i pesi non si aggiornano.
+\end{nota}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Nella slide (e a voce) $\sigma$ della standardizzazione è chiamata ``varianza'': è la
+    \textbf{deviazione standard}.
+  \item Una versione della slide sullo sbilanciamento dice ``\en{micro avg instead of macro}'': la
+    versione completa corregge in ``\en{macro avg instead of micro}'', coerente con quanto detto in
+    aula.
+\end{itemize}
+\end{verifica}

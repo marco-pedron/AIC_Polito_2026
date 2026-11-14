@@ -1,0 +1,99 @@
+% =====================================================================
+\lezione{21/09/2026}{Presentazione del corso e perché l'AI nella cybersecurity}
+  {Prof.~Danilo Giordano}
+  {organizzazione del corso, esame e laboratori; minacce e threat intelligence; perché AI/ML;
+   AI, ML, reti neurali e deep learning; breve storia; shallow vs deep learning}
+\label{lez:2026-09-21}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata. Numeri e dati dell'esame sono ripresi dalle
+slide \emph{0-Intro-Course} e \emph{1-intro-ai-for-cybersecurity} (pp.~1--25), confrontati con quanto
+detto in aula.
+\end{nota}
+
+\section{Sintesi}
+Prima lezione: il docente presenta obiettivi, organizzazione, laboratori ed esame, poi apre la parte
+tecnica. L'obiettivo dichiarato non è imparare dettagli fini, ma capire \textbf{come usare AI e ML per
+la cybersecurity} e \textbf{cosa c'è sotto il cofano} dei modelli. La parte tecnica motiva l'uso
+dell'AI (attacchi più veloci, complessi e costosi), distingue AI, machine learning, reti neurali e deep
+learning e confronta la pipeline \emph{shallow} (con feature engineering manuale) con quella
+\emph{deep} (con feature extraction automatica). Approfondimento nel capitolo~\ref{cap:ai-cyber}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Docenti: Prof.~Danilo Giordano (gran parte del corso) e Prof.~Matteo Boffa (NLP e ultima
+    parte). 6 CFU, circa 60 ore tra lezioni e laboratori.
+  \item Orari: lunedì 13:00--14:30 (aula 2C) e mercoledì 11:30--14:30 (aula 2S, usato anche per i
+    lab). Il martedì è uno slot di recupero, usato \textbf{solo se annunciato} sul portale.
+  \item Slide, notebook e testi dei lab escono sul portale man mano. Le slide sono volutamente
+    verbose e, secondo il docente, \textbf{bastano anche per il voto massimo}; i libri sono facoltativi.
+  \item Ambiente consigliato: \textbf{Google Colab}, per avere una GPU senza averla sul portatile.
+  \item Gruppi di lab \textbf{auto-organizzati} da formare prima del primo lab (iscrizione su Moodle).
+  \item L'uso di strumenti come ChatGPT è ammesso come aiuto, ma non deve sostituire il lavoro:
+    allo scritto non ci sono.
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Esame e laboratori}
+L'esame ha due parti indipendenti, che si possono superare in appelli diversi; si registra quando
+entrambe sono sufficienti. Il voto finale è $0{,}6 \times$ scritto $+\ 0{,}4 \times$ media dei report,
+arrotondato solo alla fine. Dettagli nel capitolo~\ref{cap:formato}.
+\begin{itemize}
+  \item \textbf{Scritto} su Moodle con Lockdown Browser e portatile personale, 100 minuti: due
+    domande a scelta multipla senza penalità, quattro gruppi di vero/falso con penalità, due domande
+    aperte di teoria, tre esercizi di difficoltà crescente su pipeline di ML e codice (capire se un
+    codice funziona e perché, non scriverlo da zero).
+  \item \textbf{Laboratori}: quattro (introduzione ai framework, 3~h; supervised, anomaly detection,
+    NLP, 6~h ciascuno). Per ognuno un report di \textbf{massimo 10 pagine} più il codice; si valuta il
+    report, il codice si guarda solo in caso di dubbi. Ogni report vale da 0 a 32 e deve essere
+    almeno 18; sopra il 18 non si può riconsegnare per migliorare. I voti valgono due anni
+    accademici.
+  \item \textbf{Lab 1} solo formativo ma obbligatorio: se consegnato entro il \textbf{1° dicembre}
+    con una soluzione ragionevole vale \textbf{+1 punto} sul voto finale. Gli altri report vanno
+    consegnati \textbf{10 giorni prima} dell'appello.
+\end{itemize}
+
+\begin{esame}
+Allo scritto c'è anche del codice: bisogna saper leggere una pipeline in Python/PyTorch e trovarne
+gli errori. Nei report conta la \textbf{metodologia} (cosa, come, perché, e se il risultato è buono),
+non il codice in sé.
+\end{esame}
+
+\subsection{Perché l'AI nella cybersecurity}
+Più dispositivi connessi, spesso economici e poco protetti, e attacchi più frequenti: servono difese
+più veloci e automatiche. Il docente distingue \textbf{threat} (pericolo potenziale) e
+\textbf{attack} (minaccia sfruttata) e tre livelli di conoscenza: ciò che sappiamo (patch, approccio
+reattivo), ciò che sappiamo di non sapere (threat intelligence, approccio proattivo) e ciò che non
+sappiamo di non sapere (zero-day). I numeri delle slide mostrano attacchi più rapidi (esfiltrazione
+mediana da 9 a 2 giorni tra 2022 e 2024), più complessi e più costosi. L'AI aiuta con
+\textbf{automazione}, \textbf{intelligenza} (correlazioni tra molte variabili) e \textbf{robustezza},
+ma aiuta anche gli attaccanti: è un gioco del gatto e del topo.
+
+\subsection{AI, machine learning, reti neurali, deep learning}
+Insiemi annidati: l'AI emula il ragionamento umano anche con regole scritte a mano; il ML
+\textbf{impara dai dati} e quindi conosce solo ciò che ha visto; le reti neurali sono un algoritmo di
+ML a layer; il deep learning usa reti con più hidden layer e architetture diverse per tipo di dato
+(FFNN per tabelle, RNN per sequenze, CNN per immagini, GNN per grafi). Segue una breve storia, dal
+perceptron agli LLM, e le ragioni del successo recente: tanti dati, GPU, modelli pre-addestrati.
+
+\subsection{Shallow learning e deep learning}
+Nella pipeline KDD classica l'analista costruisce le feature a mano (esempio delle frodi bancarie);
+nel deep learning la rete estrae le feature da sola e lo sforzo si sposta sul \emph{model
+engineering}. Il preprocessing resta necessario in entrambi i casi. Contro del deep learning:
+scarsa trasparenza e interpretabilità.
+
+\begin{esame}
+Non usare il deep learning quando basta una soglia: ``non sparare a una mosca con un cannone''.
+Saper dire \textbf{quando} ha senso il deep learning e quando no.
+\end{esame}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Punteggio massimo dello scritto: in aula il docente dice \textbf{33 punti}, la slide
+    \emph{0-Intro-Course} riporta 32. Da confermare sul portale.
+  \item Dimensione dei gruppi: in aula \textbf{4 persone} (``novità di quest'anno''); una slide dice 3.
+\end{itemize}
+\end{verifica}

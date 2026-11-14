@@ -1,0 +1,484 @@
+\chapter{Domande aperte ed esercizi}
+\label{cap:esercizi}
+
+\begin{nota}[Esercizi dei redattori, non domande ufficiali]
+Domande ed esercizi di questo capitolo sono stati scritti da noi per il ripasso, a partire da lezioni
+e slide: \textbf{non} sono domande ufficiali d'esame. Riproducono le tipologie della seconda parte
+dello scritto (cap.~\ref{cap:formato}): due domande aperte di teoria e tre esercizi di difficoltà
+crescente su pipeline e codice. Le domande a scelta multipla e vero/falso sono nel cap.~\ref{cap:quiz}.
+Per una simulazione realistica: 100 minuti, senza appunti, insieme ai quiz.
+\end{nota}
+
+Le soluzioni sono in fondo al capitolo (sez.~\ref{sec:esercizi-soluzioni}), ognuna con il rimando
+alla lezione in cui l'argomento è trattato: prova prima da solo.
+
+\section{Domande aperte di teoria}
+Rispondi in 10--15 righe, con esempi di cybersecurity dove possibile.
+\begin{enumerate}[label=\textbf{A\arabic*.},ref=A\arabic*,leftmargin=2.6em,itemsep=6pt]
+
+  \item\label{es:a1} Spiega la differenza tra shallow e deep learning. In quali casi di cybersecurity preferiresti lo shallow?
+  \item\label{es:a2} Descrivi il ruolo di training, validation e test set. Cosa succede se usi il test set per scegliere gli iperparametri?
+  \item\label{es:a3} Perché le funzioni di attivazione non lineari sono indispensabili? Quali useresti negli hidden layer e in output per regressione, classificazione binaria e multi-classe?
+  \item\label{es:a4} Confronta gradient descent, SGD, momentum e Adam: quale problema risolve ciascuno, e cosa introduce?
+  \item\label{es:a5} Spiega il vanishing gradient: cause, effetti e rimedi, sia nelle FFNN sia nelle RNN.
+  \item\label{es:a6} Come riconosci underfitting e overfitting dalle learning curve? Elenca i rimedi per ciascuno.
+  \item\label{es:a7} Cos'è il data leakage? Fai tre esempi diversi e spiega come evitarli.
+  \item\label{es:a8} Devi classificare flussi di rete in cui gli attacchi sono l'1\%. Come gestisci lo sbilanciamento (dati, algoritmo, metriche)?
+  \item\label{es:a9} Perché le RNN faticano con le dipendenze a lungo termine e come le mitiga l'LSTM?
+  \item\label{es:a10} Perché servono le GNN? Spiega permutation invariance ed equivariance e come il message passing le garantisce.
+  \item\label{es:a11} Confronta ID sequenziali, feature engineering, one-hot ed embedding per codificare una feature nominale.
+  \item\label{es:a12} Differenze tra embedding supervisionati e self-supervised. Perché il self-supervised è interessante per la cybersecurity?
+  \item\label{es:a13} Quali tipi di anomalia esistono? Perché l'anomaly detection è difficile in cybersecurity?
+  \item\label{es:a14} One-class SVM: differenze tra uso ``supervisionato'' e non supervisionato; ruolo di $\nu$ e del kernel.
+  \item\label{es:a15} Confronta k-means, DBSCAN, LOF e Isolation Forest per l'anomaly detection: come producono uno score, punti deboli, quando li useresti.
+  \item\label{es:a16} Come usi un autoencoder per l'anomaly detection su dati con feature numeriche e categoriche? Loss, dati di training, soglia; perché una one-class SVM nello spazio latente può andare peggio dell'errore di ricostruzione?
+\end{enumerate}
+
+\section{Esercizi su pipeline, calcoli e codice}
+
+\subsection*{Esercizio 1 --- Contare i parametri}\label{es:e1}
+Dataset di flussi con 12 feature numeriche e la feature categorica \code{protocol} con 5 valori possibili. Rete: due hidden layer
+da 64 e 32 neuroni (ReLU), output per 3 classi.
+\begin{enumerate}[label=(\alph*)]
+  \item Con \code{protocol} in one-hot: quanti neuroni di input e quanti parametri in totale?
+  \item E con \code{protocol} in label encoding? Perché comunque non è una buona idea?
+  \item E con un \code{nn.Embedding(5, 4)} per \code{protocol}?
+\end{enumerate}
+
+\subsection*{Esercizio 2 --- Metriche}\label{es:e2}
+Test set: 950 benigni e 50 malware. Il modello predice correttamente 35 malware e 910 benigni; 15 malware sono predetti benigni e 40
+benigni sono predetti malware.
+\begin{enumerate}[label=(\alph*)]
+  \item Calcola accuracy, precision, recall e F1 per la classe malware.
+  \item Calcola F1 per la classe benigna e la F1 macro.
+  \item Confronta con un classificatore che dice sempre ``benigno''. Quale metrica ti fa scegliere il modello giusto?
+\end{enumerate}
+
+\subsection*{Esercizio 3 --- Backpropagation a mano}\label{es:e3}
+Modello $\hat y = \phi_1\phi_2 x$, loss $\mathcal{L} = (\phi_1\phi_2x - y)^2$, con $\phi_1 = 2$, $\phi_2 = -1$, $x=3$, $y=1$.
+\begin{enumerate}[label=(\alph*)]
+  \item Calcola forward ($a$, $b$, $c$, $\mathcal{L}$) usando le variabili intermedie del cap.~\ref{cap:addestramento}.
+  \item Calcola $\partial\mathcal{L}/\partial\phi_1$ e $\partial\mathcal{L}/\partial\phi_2$ con la regola della catena.
+  \item Fai un passo di gradient descent con $\alpha = 0{,}01$ e verifica che la loss diminuisce.
+\end{enumerate}
+
+\subsection*{Esercizio 4 --- Trova gli errori (FFNN)}\label{es:e4}
+Il codice seguente ``gira'' ma contiene diversi errori o cattive pratiche. Trovane almeno sei e correggili.
+\begin{lstlisting}
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.fit_transform(X_val)
+
+train_loader = DataLoader(TensorDataset(Xtr, ytr), batch_size=64, shuffle=True)
+val_loader   = DataLoader(TensorDataset(Xva, yva), batch_size=64, shuffle=True)
+
+class Net(nn.Module):
+    def __init__(self, d_in, n_cls):
+        super().__init__()
+        self.fc1 = nn.Linear(d_in, 64)
+        self.fc2 = nn.Linear(64, n_cls)
+    def forward(self, x):
+        x = self.fc1(x)
+        return torch.softmax(self.fc2(x), dim=1)
+
+model = Net(20, 3)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+for epoch in range(50):
+    model.train()
+    optimizer.zero_grad()
+    for xb, yb in train_loader:
+        loss = criterion(model(xb), yb)
+        loss.backward()
+    optimizer.step()
+    with torch.no_grad():
+        val_loss = sum(criterion(model(xb), yb).item() for xb, yb in val_loader)
+\end{lstlisting}
+
+\subsection*{Esercizio 5 --- Forme dei tensori in una RNN}\label{es:e5}
+Un batch contiene 3 serie con 2 feature per istante e lunghezze 4, 6 e 5. Si usa
+\code{nn.LSTM(input\_size=2, hidden\_size=32, num\_layers=2, batch\_first=True, bidirectional=True)}.
+\begin{enumerate}[label=(\alph*)]
+  \item Che forma ha il batch dopo la \code{collate\_fn} con \code{pad\_sequence}? Quanti passi di padding ha ogni serie?
+  \item Che forma ha \code{h\_n}? Che dimensione di input deve avere il layer lineare finale?
+  \item Perché \code{out[:, -1, :]} è sbagliato per classificare la prima serie?
+  \item Hai 16 serie \textbf{univariate} di lunghezza 100 in un tensore \code{(16, 100)}: cosa fai prima di passarle a una RNN?
+\end{enumerate}
+
+\subsection*{Esercizio 6 --- Momentum e bias correction}\label{es:e6}
+$\beta = 0{,}9$, $m_0 = 0$, gradienti $g_1 = 2$, $g_2 = -1$, $g_3 = 2$.
+\begin{enumerate}[label=(\alph*)]
+  \item Calcola $m_1, m_2, m_3$ con $m_{t+1} = \beta m_t + (1-\beta)g_{t+1}$.
+  \item Calcola le versioni corrette $\hat m_t = m_t / (1-\beta^t)$.
+  \item Cosa mostrano i numeri su traiettoria e bias correction?
+\end{enumerate}
+
+\subsection*{Esercizio 7 --- Progetta la pipeline}\label{es:e7}
+Hai 1 milione di flussi di rete raccolti in 30 giorni, con colonne: \code{timestamp}, IP sorgente, IP destinazione, porta di
+destinazione, protocollo (TCP/UDP/ICMP), byte inviati (con alcuni valori enormi), durata, numero di pacchetti, label (99\% benigno,
+1\% suddiviso in 5 tipi di attacco). Descrivi preprocessing, split, architettura, loss, metriche e i controlli che faresti per
+evitare scorciatoie.
+
+\subsection*{Esercizio 8 --- Receptive field e batch di grafi}\label{es:e8}
+Grafo non orientato con archi A--B, B--C, C--D, D--E, B--F.
+\begin{enumerate}[label=(\alph*)]
+  \item Quali nodi influenzano l'embedding di A con 1, 2, 3 e 4 layer GNN? Cosa rischi con 4 layer?
+  \item Quante colonne ha \code{edge\_index} in PyTorch Geometric per questo grafo?
+  \item Un batch contiene due grafi da 126 e 162 nodi con 5 feature per nodo: che forma ha \code{batch.x}? E l'output di
+        \code{global\_mean\_pool} con hidden size 64? Per quanto pesi la loss del batch?
+\end{enumerate}
+
+\subsection*{Esercizio 9 --- Batch norm e dropout a mano}\label{es:e9}
+\begin{enumerate}[label=(\alph*)]
+  \item Una feature vale $[1, 3, 5, 7]$ nel mini-batch; $\gamma = 2$, $\beta = 1$. Calcola l'output della batch norm per il valore 5
+        (usa la varianza del batch, $\epsilon \approx 0$).
+  \item Running mean e running variance partono da 0 e 1, con aggiornamento $\text{running} = 0{,}9\cdot\text{running} + 0{,}1\cdot\text{batch}$.
+        Quanto valgono dopo questo batch? Che output darebbe il valore 5 in \code{eval()} con queste statistiche? Cosa ne deduci?
+  \item Dropout con $p = 0{,}2$: un neurone ha output 4. Quali valori può produrre in training e con quale probabilità? E in validation?
+\end{enumerate}
+
+\subsection*{Esercizio 10 --- Scegliere $K$}\label{es:e10}
+SSE di k-means per $K = 1,\ldots,8$: 1000, 540, 250, 205, 185, 230, 160, 150. Quale $K$ scegli e perché? Come spieghi il valore per
+$K=6$?
+
+\subsection*{Esercizio 11 --- Leakage in un numero}\label{es:e11}
+Una feature nel training va da 10 a 50; nel validation compare il valore 70. Con min-max fittato sul training, quanto vale 70 dopo la
+trasformazione? Cosa cambierebbe fittando su training + validation, e perché è sbagliato?
+
+\subsection*{Esercizio 12 --- Trova gli errori (embedding + RNN)}\label{es:e12}
+Classificazione di sequenze di IP (lunghezza variabile, padding con 0 nella \code{collate\_fn}). Trova almeno cinque problemi.
+\begin{lstlisting}
+vocab = {ip: i for i, ip in enumerate(sorted(set(all_ips)))}   # IP di tutto il dataset
+
+class Model(nn.Module):
+    def __init__(self, V, E, H, C):
+        super().__init__()
+        self.emb = nn.Embedding(V, E)
+        self.rnn = nn.LSTM(1, H, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(H, C)
+    def forward(self, ids, lengths):
+        e = self.emb(ids)
+        out, (h, c) = self.rnn(e)
+        return self.fc(out[:, -1, :])
+\end{lstlisting}
+
+\subsection*{Esercizio 13 --- Trova gli errori (pipeline di anomaly detection)}\label{es:e13}
+Flussi di rete con label (\code{normal} o tipo di attacco, circa 6\% di attacchi). Trova almeno sei problemi.
+\begin{lstlisting}
+X = df.drop(columns=["label"])                      # la label originale non serve piu'
+y = (df["label"] != "normal").astype(int)
+X = StandardScaler().fit_transform(pd.get_dummies(X))
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+ae = Autoencoder(X.shape[1], 8)
+train_autoencoder(ae, X_train)                      # tutto il training set
+scores = reconstruction_scores(ae, X_test)
+threshold = np.percentile(scores, 94)               # 6% di anomalie attese
+print("ROC-AUC:", roc_auc_score(y_test, scores))    # unica metrica riportata
+\end{lstlisting}
+
+\subsection*{Esercizio 14 --- Silhouette e LOF a mano}\label{es:e14}
+\begin{enumerate}[label=(\alph*)]
+  \item Un punto ha distanza media 2 dagli altri punti del suo cluster e 5 dal cluster più vicino. Calcola la silhouette.
+  \item Un altro punto ha $a = 4$ e $b = 3$. Calcola la silhouette e interpretala.
+  \item Un punto $p$ ha $\mathrm{LRD}(p) = 0{,}5$; la LRD media dei suoi $k$ vicini è 2. Calcola il LOF e interpretalo.
+\end{enumerate}
+
+% =====================================================================
+
+
+\section{Soluzioni}
+\label{sec:esercizi-soluzioni}
+
+\subsection*{Domande aperte: tracce di risposta}
+
+\begin{soluzione}[A1 -- Shallow vs deep]
+Shallow: feature engineering manuale (sforzo umano, più tentativi), modelli più semplici e
+        \textbf{interpretabili}; deep: feature extraction automatica, sforzo sul model engineering, più prestazioni e flessibilità
+        (serie, grafi, immagini), ma black box. Preferisco lo shallow con dati tabellari, pochi dati, quando serve spiegare la decisione
+        (forense, regole di firewall) o quando basta una soglia (picco evidente): non sparare a una mosca con un cannone. Lo shallow è
+        anche la baseline per giudicare un modello deep.
+(rif.\ \rif{2026-09-21}{21/09})
+\end{soluzione}
+
+\begin{soluzione}[A2 -- Train/val/test]
+Training: impara i pesi. Validation: sceglie gli iperparametri e rileva l'overfitting, senza mai
+        aggiornare i pesi. Test: verifica una sola volta che le prestazioni siano simili a quelle di validation (generalità). Se uso il test per
+        scegliere, la stima finale diventa ottimistica: ho ``studiato sull'esame'' e non ho più una misura indipendente della generalizzazione.
+(rif.\ \rif{2026-09-23}{23/09})
+\end{soluzione}
+
+\begin{soluzione}[A3 -- Non linearità]
+Senza attivazioni la composizione di layer è un unico layer lineare (collasso), e il mondo non è lineare.
+        Hidden: ReLU (non limitata, evita il vanishing, sparsità); tanh nelle RNN. Output: regressione lineare; binaria sigmoid (1 neurone);
+        multi-classe softmax ($C$ neuroni). In PyTorch con \code{CrossEntropyLoss} la softmax è nella loss.
+(rif.\ \rif{2026-09-28}{28/09})
+\end{soluzione}
+
+\begin{soluzione}[A4 -- Ottimizzatori]
+GD: usa tutti i dati, lento, si blocca nei minimi locali, sensibile all'inizializzazione. SGD: mini-batch,
+        aggiornamenti frequenti, meno memoria, il rumore aiuta a uscire dai minimi; introduce traiettorie rumorose (scheduler del LR).
+        Momentum: media mobile delle direzioni, traiettoria liscia; introduce $\beta$. Normalizzazione del gradiente: pari importanza a tutte
+        le coordinate, ma oscillazioni. Adam: momentum su gradiente e quadrato + bias correction; stabile e veloce; iperparametri
+        $\alpha,\beta,\gamma$.
+(rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[A5 -- Vanishing gradient]
+Con la backprop il gradiente di un layer è il prodotto dei gradienti successivi; attivazioni limitate
+        (sigmoid, tanh) hanno derivate piccole $\Rightarrow$ il prodotto tende a 0 e i primi layer non imparano. Nelle RNN il tempo si comporta come
+        profondità (fattori ripetuti di $W_{hh}$) e il passato lontano viene dimenticato. Rimedi: ReLU (FFNN, CNN), buona inizializzazione,
+        architetture (skip connection in ResNet, LSTM/GRU nelle RNN). L'opposto, l'exploding gradient, si gestisce con il clipping.
+(rif.\ \rif{2026-09-30}{30/09}, \rif{2026-10-12}{12/10})
+\end{soluzione}
+
+\begin{soluzione}[A6 -- Learning curve]
+Underfitting: train e val alte e poco decrescenti (attenzione alla scala), metriche pessime $\Rightarrow$ più
+        capacità, architettura diversa, più epoch, preprocessing migliore. Overfitting: train verso 0 e val che risale $\Rightarrow$ L1/L2
+        (weight decay), dropout, early stopping con salvataggio del modello migliore, batch norm, rete più piccola; se forte, ripartire dai dati.
+(rif.\ \rif{2026-09-30}{30/09}, \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[A7 -- Leakage]
+Informazioni che dal training ``contaminano'' la valutazione. Esempi: (1) scaler o vocabolario fittati su tutto il
+        dataset $\Rightarrow$ fit solo sul training; (2) split casuale di dati temporali (interpolare $t$ tra $t-1$ e $t+1$) $\Rightarrow$ split temporale
+        a finestra scorrevole o crescente; (3) feature-scorciatoia o identificativi (DoS sempre sulla porta 80, matricola) $\Rightarrow$ togliere ID,
+        verificare che il modello regga senza la feature sospetta.
+(rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[A8 -- Sbilanciamento]
+Split stratificato; dati: oversampling della minoritaria (SMOTE, ADASYN) solo sul training,
+        undersampling della maggioritaria (anche cluster-based); algoritmo: class weights nella loss, focal loss; metriche: precision, recall,
+        F1 per classe e macro, non accuracy (99\% predicendo sempre benigno). Recall alta sugli attacchi con precision accettabile.
+        Se gli attacchi sono troppo pochi o nuovi, valutare l'anomaly detection.
+(rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[A9 -- RNN e memoria]
+La BPTT moltiplica molti fattori lungo il tempo: il gradiente dei primi passi svanisce (o esplode), quindi la
+        rete ricorda solo il passato recente (``parlo fluentemente\ldots'' dopo un'ora di racconto). L'LSTM aggiunge un cell state (memoria lunga)
+        regolato da gate sigmoid (forget, input, output) e una memoria candidata tanh: il flusso del gradiente lungo il cell state è in parte
+        ininterrotto. Costo: più pesi e calcoli.
+(rif.\ \rif{2026-10-12}{12/10})
+\end{soluzione}
+
+\begin{soluzione}[A10 -- GNN]
+I grafi non hanno ordine né dimensione fissa: una FFNN sulla matrice di adiacenza cambia input se riordino i nodi e non
+        gestisce nodi nuovi; CNN e RNN assumono griglie o sequenze. Invarianza: la rappresentazione del grafo non cambia con l'ordinamento.
+        Equivarianza: la rappresentazione di un nodo nella stessa posizione non cambia. Il message passing le garantisce perché i pesi del messaggio
+        sono condivisi tra tutti i nodi e l'aggregazione (somma, media, max) non dipende dall'ordine. Bonus: induttività.
+(rif.\ \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[A11 -- Encoding nominale]
+ID sequenziali: un solo neurone ma impongono un ordine falso (bias). Feature engineering: dà una chiave
+        di lettura con vincolo debole, ma può essere sbagliata, cambiare o essere impossibile. One-hot: nessun bias, semplice, va bene anche per lo
+        shallow, ma esplode con molte categorie e non gestisce nuove categorie. Embedding: denso, compatto, semantico, appreso sul task; solo reti
+        neurali, serve un task e abbastanza dati, \code{<UNK>} per i valori nuovi.
+(rif.\ \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[A12 -- Supervised vs self-supervised]
+Supervised: la rappresentazione è guidata dalla label: ottima per quel task, ma sub-ottima per
+        altri e a rischio di scorciatoie (husky/lupo). Self-supervised: il segnale viene dai dati (ricostruzione con autoencoder, contrastive
+        learning con augmentation): rappresentazioni più generiche, poi fine-tuning con poche label. In cybersecurity le label sono poche e costose
+        e le minacce evolvono: rappresentazioni generali aiutano a generalizzare.
+(rif.\ \rif{2026-10-20}{20/10})
+\end{soluzione}
+
+\begin{soluzione}[A13 -- Anomalie]
+Puntuali, contestuali, collettive (con esempi). Difficoltà: ignote fino a quando accadono, rare e sbilanciate (e un
+        errore su un'anomalia costa di più), eterogenee, in evoluzione; un'anomalia può essere una novità benigna. Sfide ML: compromesso recall
+        vs falsi positivi, dati ad alta dimensionalità e dipendenti, poche label, rumore, anomalie complesse, bisogno di spiegazioni.
+(rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[A14 -- One-class SVM]
+Impara un confine attorno ai dati normali; fuori = anomalia. ``Supervisionata'': addestrata solo su
+        campioni normali (scelti grazie alle label, che il modello non vede) $\Rightarrow$ novelty detection; richiede normali affidabili.
+        Non supervisionata: dati mescolati, assume anomalie rare e ben separate $\Rightarrow$ outlier detection; soffre il rumore. $\nu$ = frazione
+        attesa di outlier: più è alto, più il confine si stringe sulla zona densa. Il kernel (RBF il più usato) rende separabili dati non lineari.
+(rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[A15 -- Clustering, densità e alberi]
+K-means: score = distanza dal centroide (più cluster piccoli come segnale), veloce e
+        scalabile, ma $K$ da scegliere, cluster sferici, sensibile all'inizializzazione, ogni punto in un cluster: un attacco con un cluster
+        tutto suo sfugge. DBSCAN: il rumore (né core né border) è l'anomalia, niente $K$, forme arbitrarie, ma $\varepsilon$ critico e densità
+        diverse problematiche; nessuno score graduato. LOF: rapporto tra densità dei vicini e del punto, score continuo, anomalie
+        \textbf{locali}; sensibile a $k$, costoso; gruppi piccoli ma densi hanno LOF $\approx 1$. Isolation Forest: lunghezza media del percorso
+        in alberi casuali, niente distanze, scala ed è robusto in alta dimensionalità; meno interpretabile. I tre metodi a distanza soffrono la
+        maledizione della dimensionalità: ridurre le dimensioni o preferire l'Isolation Forest.
+(rif.\ \rif{2026-11-02}{02/11}, \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[A16 -- Autoencoder]
+Loss = MSE sulle numeriche (scalate) + cross-entropy su ogni blocco one-hot; lo stesso errore per campione
+        è lo score. Addestramento sui \textbf{soli normali} (le label servono solo a sceglierli): l'errore dei normali scende, quello delle
+        anomalie resta alto. Soglia da training o validation (es.\ percentile pari alla contaminazione), mai dal test. Con anomalie in
+        training il modello impara a ricostruirle e la separazione si riduce. Nello spazio latente l'encoder, addestrato a ricostruire il
+        normale, avvicina le anomalie ai normali simili: l'informazione anomala è quella persa nel bottleneck e finisce nell'errore di
+        ricostruzione, quindi un OC-SVM su $Z$ può perdere recall.
+(rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\subsection*{Esercizi}
+
+\begin{soluzione}[Esercizio 1 -- Contare i parametri]
+(a) Input $12 + 5 = 17$. Parametri: $17\cdot64+64 = 1152$; $64\cdot32+32 = 2080$; $32\cdot3+3 = 99$; totale \textbf{3331}.
+(b) Input 13: $13\cdot64+64 = 896$, totale 3075. Ma TCP=0, UDP=1, ICMP=2 impone un ordine e distanze inesistenti.
+(c) Embedding $5\cdot4 = 20$ parametri; input $12+4 = 16$: $16\cdot64+64 = 1088$; totale $20+1088+2080+99 = $ \textbf{3287}.
+Con 5 categorie il one-hot va benissimo: l'embedding conviene con alta cardinalità.
+
+(rif.\ \rif{2026-10-05}{05/10}, \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 2 -- Metriche]
+(a) $TP=35$, $FN=15$, $FP=40$, $TN=910$. Accuracy $= 945/1000 = 94{,}5\%$; precision $= 35/75 \approx 0{,}467$; recall $= 35/50 = 0{,}70$;
+F1 $= 2\cdot0{,}467\cdot0{,}70/(0{,}467+0{,}70) \approx 0{,}56$.
+(b) Benigni: precision $= 910/925 \approx 0{,}984$, recall $= 910/950 \approx 0{,}958$, F1 $\approx 0{,}971$; F1 macro $\approx (0{,}56+0{,}971)/2 \approx 0{,}77$.
+(c) ``Sempre benigno'': accuracy $95\%$ (più alta del modello!), recall malware 0, F1 malware 0, F1 benigni $\approx 0{,}974$,
+F1 macro $\approx 0{,}49$. L'accuracy sceglierebbe il classificatore inutile; recall/F1 sul malware e F1 macro scelgono il modello.
+
+(rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 3 -- Backpropagation a mano]
+(a) $a = \phi_1\phi_2 = -2$; $b = ax = -6$; $c = b - y = -7$; $\mathcal{L} = 49$.
+(b) $\partial\mathcal{L}/\partial c = 2c = -14$; $\partial\mathcal{L}/\partial b = -14$; $\partial\mathcal{L}/\partial a = 2cx = -42$;
+$\partial\mathcal{L}/\partial\phi_1 = 2cx\phi_2 = 42$; $\partial\mathcal{L}/\partial\phi_2 = 2cx\phi_1 = -84$.
+(c) $\phi_1 = 2 - 0{,}01\cdot42 = 1{,}58$; $\phi_2 = -1 - 0{,}01\cdot(-84) = -0{,}16$. Nuova predizione $1{,}58\cdot(-0{,}16)\cdot3 \approx -0{,}758$;
+$\mathcal{L} \approx (-1{,}758)^2 \approx 3{,}09 < 49$.
+
+(rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 4 -- Trova gli errori (FFNN)]
+\begin{enumerate}
+  \item \code{scaler.fit\_transform(X\_val)}: leakage e distribuzioni diverse $\Rightarrow$ \code{scaler.transform(X\_val)}.
+  \item \code{shuffle=True} sul validation: inutile $\Rightarrow$ \code{shuffle=False}.
+  \item Nessuna non linearità tra \code{fc1} e \code{fc2}: la rete è lineare $\Rightarrow$ \code{x = torch.relu(self.fc1(x))}.
+  \item \code{softmax} nel modello con \code{CrossEntropyLoss}: softmax applicata due volte $\Rightarrow$ restituire i logit.
+  \item \code{zero\_grad()} e \code{step()} fuori dal ciclo sui batch: un solo aggiornamento per epoch con gradienti sommati
+        $\Rightarrow$ spostarli dentro il ciclo, insieme a \code{backward()}.
+  \item Manca \code{model.eval()} prima della validation (qui non ci sono dropout/BN, ma è un errore di metodo; con BN contaminerebbe le
+        running statistics).
+  \item La validation loss è una somma di medie per batch: va pesata per la dimensione del batch e divisa per la dimensione del dataset.
+  \item Bonus: niente seed, nessun salvataggio della training loss, nessun early stopping; le label devono essere \code{torch.long}.
+\end{enumerate}
+
+(rif.\ \rif{2026-10-06}{06/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 5 -- Forme dei tensori in una RNN]
+(a) \code{(3, 6, 2)}; padding: 2, 0, 1 passi.
+(b) \code{h\_n}: \code{(num\_layers $\times$ 2, batch, hidden) = (4, 3, 32)}; si concatenano \code{h\_n[-2]} e \code{h\_n[-1]}
+$\Rightarrow$ \code{(3, 64)}: il layer lineare ha 64 input.
+(c) Per la serie lunga 4, l'indice 5 è padding: l'ultimo passo valido è il 3. Usare \code{h\_n} con \code{pack\_padded\_sequence}, oppure
+selezionare l'ultimo passo valido con le lunghezze.
+(d) \code{x = x.unsqueeze(-1)} $\Rightarrow$ \code{(16, 100, 1)} e \code{input\_size=1}.
+
+(rif.\ \rif{2026-10-12}{12/10}, \rif{2026-10-14}{14/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 6 -- Momentum e bias correction]
+(a) $m_1 = 0{,}2$; $m_2 = 0{,}9\cdot0{,}2 + 0{,}1\cdot(-1) = 0{,}08$; $m_3 = 0{,}9\cdot0{,}08+0{,}1\cdot2 = 0{,}272$.
+(b) $\hat m_1 = 0{,}2/0{,}1 = 2$; $\hat m_2 = 0{,}08/0{,}19 \approx 0{,}42$; $\hat m_3 = 0{,}272/0{,}271 \approx 1{,}00$.
+(c) Senza correzione $m_1 = 0{,}2$ sottostima di 10 volte il gradiente 2: la bias correction lo riporta alla scala giusta nei primi passi e
+poi diventa trascurabile. Il gradiente negativo $g_2$ non inverte la direzione ($m_2>0$): il momentum leviga la traiettoria.
+
+(rif.\ \rif{2026-09-30}{30/09})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 7 -- Progetta la pipeline]
+\begin{itemize}
+  \item \textbf{IP}: identificatori $\Rightarrow$ esclusi (rischio di memorizzazione e scorciatoie). Se servono, embedding con vocabolario dal
+        training e \code{<UNK>}, verificando che non siano una scorciatoia.
+  \item \textbf{Porta}: categorica ad alta cardinalità $\Rightarrow$ embedding, oppure raggruppamento in porte note (feature engineering).
+        Controllo: rimuoverla e vedere se le prestazioni crollano (DoS = porta 80?).
+  \item \textbf{Protocollo}: one-hot (3 valori). \textbf{Byte, durata, pacchetti}: standardizzazione (outlier), scaler fittato sul training.
+  \item \textbf{Timestamp}: split temporale (es.\ giorni 1--20 training, 21--25 validation, 26--30 test), controllando che ogni classe sia
+        presente; eventuale feature ``ora del giorno'' per il contesto.
+  \item \textbf{Modello}: FFNN (input = numeriche + one-hot + embedding), 6 neuroni di output, \code{CrossEntropyLoss} con class weights,
+        Adam, mini-batch, early stopping su validation; baseline shallow (es.\ random forest) per confronto.
+  \item \textbf{Metriche}: precision/recall/F1 per classe e F1 macro; matrice di confusione; niente accuracy come metrica principale.
+\end{itemize}
+
+(rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 8 -- Receptive field e batch di grafi]
+(a) 1 layer: \{A, B\}; 2 layer: \{A, B, C, F\}; 3 layer: \{A, B, C, F, D\}; 4 layer: tutto il grafo. Con 4 layer ogni nodo ``vede'' l'intero
+grafo $\Rightarrow$ over-smoothing.
+(b) 5 archi non orientati $\Rightarrow$ 10 archi diretti $\Rightarrow$ \code{edge\_index} di forma \code{(2, 10)}.
+(c) \code{batch.x}: \code{(288, 5)}; \code{global\_mean\_pool}: \code{(2, 64)}; la loss si pesa per \code{batch.num\_graphs} = 2.
+
+(rif.\ \rif{2026-10-14}{14/10}, \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 9 -- Batch norm e dropout a mano]
+(a) $\mu_B = 4$, $\sigma^2_B = (9+1+1+9)/4 = 5$, $\sigma_B \approx 2{,}236$; $\hat x = 1/2{,}236 \approx 0{,}447$; $y = 2\cdot0{,}447+1 \approx 1{,}89$.
+(b) running mean $= 0{,}9\cdot0 + 0{,}1\cdot4 = 0{,}4$; running variance $= 0{,}9\cdot1 + 0{,}1\cdot5 = 1{,}4$. In \code{eval()}:
+$\hat x = (5-0{,}4)/\sqrt{1{,}4} \approx 3{,}89$, $y \approx 8{,}78$: dopo un solo batch le running statistics sono lontane da quelle reali;
+servono molti batch perché si stabilizzino.$^{*}$
+(c) Training: 0 con probabilità 0,2, oppure $4/0{,}8 = 5$ con probabilità 0,8 (valore atteso 4). Validation: sempre 4.
+
+(rif.\ \rif{2026-10-20}{20/10})
+\end{soluzione}
+\begin{integrazione}[$^{*}$ running variance]
+PyTorch usa la varianza \emph{non distorta} ($n-1$) per aggiornare la running variance; la slide semplifica.
+\end{integrazione}
+
+\begin{soluzione}[Esercizio 10 -- Scegliere $K$]
+I cali sono 460, 290, poi 45 e 20: il gomito è a $K=3$ (accettabile anche 4). La risalita a $K=6$ indica un'inizializzazione sfortunata
+(probabile cluster vuoto): rieseguire k-means più volte per ogni $K$ e tenere l'SSE migliore.
+
+(rif.\ \rif{2026-11-02}{02/11})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 11 -- Leakage in un numero]
+$(70-10)/(50-10) = 1{,}5$: corretto che superi 1. Fittando su training + validation il massimo diventerebbe 70: il valore 50 del training
+diventerebbe $0{,}67$ invece di 1. La trasformazione del training userebbe informazioni sulla distribuzione della validation (leakage), che
+nella realtà non sono disponibili.
+
+(rif.\ \rif{2026-10-05}{05/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 12 -- Trova gli errori (embedding + RNN)]
+\begin{enumerate}
+  \item Vocabolario costruito su \textbf{tutto} il dataset $\Rightarrow$ leakage; va costruito sul solo training.
+  \item Mancano \code{<UNK>} (IP mai visti in validation/test) e \code{<PAD>}: l'ID 0 è un IP reale ma viene usato anche come padding.
+  \item \code{nn.Embedding} senza \code{padding\_idx}: il padding riceve gradiente.
+  \item \code{nn.LSTM(1, ...)}: l'input della LSTM è \code{E} (dimensione dell'embedding), non 1.
+  \item Bidirezionale ma \code{nn.Linear(H, C)}: servono \code{2*H} input.
+  \item Nessun \code{pack\_padded\_sequence}: il padding entra nella LSTM.
+  \item \code{out[:, -1, :]} può essere padding: usare \code{torch.cat((h[-2], h[-1]), dim=1)} con le sequenze impacchettate.
+\end{enumerate}
+
+(rif.\ \rif{2026-10-14}{14/10}, \rif{2026-10-19}{19/10})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 13 -- Trova gli errori (pipeline di anomaly detection)]
+\begin{enumerate}
+  \item La label originale viene eliminata: serve per interpretare (composizione dei cluster, quali attacchi sfuggono).
+  \item Mancano \code{drop\_duplicates} e lo studio delle categorie (categorie rare da raggruppare in \code{other}).
+  \item Encoding e scaling su \textbf{tutto} il dataset prima dello split: leakage; vanno fittati sul solo training.
+  \item Split non stratificato e senza validation set: con il 6\% di anomalie le proporzioni possono cambiare, e manca un set per il tuning.
+  \item L'autoencoder è addestrato su tutto il training, anomalie comprese: va addestrato su \code{X\_train[y\_train == 0]}.
+  \item La soglia è calcolata sugli score del \textbf{test}: va fissata su training o validation.
+  \item Mancano i tensori (\code{torch.tensor(..., dtype=torch.float32)}) e, con feature miste, la loss MSE + CE.
+  \item Solo la ROC-AUC: con forte sbilanciamento può ingannare; riportare precision, recall e F1 della classe anomala.
+\end{enumerate}
+
+(rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 14 -- Silhouette e LOF a mano]
+(a) $s = (5-2)/\max(2,5) = 0{,}6$: ben assegnato.
+(b) $s = (3-4)/4 = -0{,}25$: negativo, il punto è più vicino a un altro cluster (assegnazione sbagliata).
+(c) $\mathrm{LOF} = 2/0{,}5 = 4 > 1$: il punto sta in una zona quattro volte meno densa dei vicini $\Rightarrow$ potenziale outlier.
+
+(rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}

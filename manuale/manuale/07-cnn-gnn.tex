@@ -1,0 +1,496 @@
+\chapter{Convolutional e graph neural network}
+\label{cap:cnn-gnn}
+\fonti{\rif{2026-10-14}{14/10}, \rif{2026-10-19}{19/10}}{3-deep-learning-methodologies, pp.~77--136; notebook GNN (PyTorch Geometric)}
+
+Dopo FFNN (dati tabellari, cap.~\ref{cap:ffnn}) e RNN (sequenze, cap.~\ref{cap:rnn}), le ultime due architetture del corso:
+le CNN per le \textbf{immagini} e le GNN per i \textbf{grafi}. Tutte servono a \textbf{estrarre una rappresentazione} dei dati
+quando costruirla a mano è difficile; le GNN creano embedding di nodi, archi o grafi, e i pesi condivisi garantiscono che
+l'embedding non dipenda dall'ordine di lettura.
+
+% =====================================================================
+\section{Convolutional neural network (CNN)}
+Nate per le \textbf{immagini} (grazie anche alle label raccolte con i CAPTCHA), sono usate anche in cybersecurity:
+\begin{enumerate}
+  \item \textbf{malware} trasformato in immagine e classificato;
+  \item \textbf{siti malevoli} da screenshot: un sito clone si riconosce anche visivamente (logo diverso, grafica imperfetta),
+        utile contro tecniche come redirection, iframe nascosti, content hiding;
+  \item \textbf{intrusion detection}: CNN su serie temporali, anche combinate (CNN-LSTM, CNN-GRU);
+  \item verifica di \textbf{deepfake}.
+\end{enumerate}
+
+\subsection{Come funziona}
+\begin{itemize}
+  \item \textbf{Input}: immagine in forma numerica (ogni pixel un numero, o tre in RGB).
+  \item \textbf{Feature extraction} con layer convoluzionali, in modo \textbf{gerarchico}:
+  \begin{itemize}
+    \item layer iniziali (\en{low-level}): bordi, angoli, texture (linee);
+    \item layer intermedi (\en{mid-level}): forme, parti di oggetti;
+    \item layer finali (\en{high-level}): rappresentazioni astratte, parti di oggetti o oggetti interi (naso, occhi, orecchie).
+  \end{itemize}
+  \item \textbf{Fully connected (FFNN)}: usa le feature estratte per classificare, con softmax (``cane: 0,9'').
+\end{itemize}
+
+\subsection{Il layer convoluzionale}
+\begin{center}
+\begin{tikzpicture}[node distance=0.6cm, every node/.style={font=\small},
+  blk/.style={draw=polblu, fill=polblu!6, rounded corners=2pt, minimum height=0.8cm, minimum width=2.4cm, align=center}]
+  \node[blk] (c) {Convolution\\{\scriptsize filtri scorrevoli}};
+  \node[blk, right=of c] (a) {Activation\\{\scriptsize ReLU elemento per elemento}};
+  \node[blk, right=of a] (p) {Pooling\\{\scriptsize downsampling}};
+  \draw[-{Stealth}] (c) -- (a); \draw[-{Stealth}] (a) -- (p);
+\end{tikzpicture}
+\end{center}
+
+\begin{definizione}[tensore: rango e forma]
+\textbf{Rango} = numero di dimensioni (scalare 0, vettore 1, matrice 2\ldots). \textbf{Forma} (\en{shape}) = numero di elementi per
+dimensione (vettore lungo 5: \code{[5]}; matrice $3\times5$: \code{[3,5]}). Un'immagine è un tensore di rango 3 con forma
+\code{[d, h, w]}: altezza, larghezza e \textbf{profondità} $d$ (1 per scala di grigi, 3 per RGB).
+\end{definizione}
+
+\textbf{Convoluzione}
+\begin{itemize}
+  \item Un \textbf{filtro} (\en{kernel}), es.\ $3\times3$, scorre sull'immagine. Per ogni posizione si moltiplicano elemento per elemento
+        i valori dei pixel con i valori del filtro e si sommano: il risultato è il valore del pixel in output.
+  \item Così un pixel è descritto \textbf{insieme al suo intorno} (per capire se un punto fa parte di una linea servono i vicini).
+  \item I valori dei filtri sono i \textbf{pesi addestrabili}. Ogni layer ha \textbf{centinaia o migliaia di filtri}.
+  \item Ai \textbf{bordi} manca l'intorno: si aggiunge \textbf{padding} di zeri.
+  \item Convolvendo un tensore \code{[d,h,w]} con $N$ filtri si ottiene \code{[N,h,w]}: \textbf{ogni filtro genera uno strato} della profondità
+        dell'output.
+  \item A lezione: nei primi layer kernel più grandi (informazione grossolana), andando in profondità kernel più piccoli (dettagli fini).
+\end{itemize}
+\begin{esempio}[un passo di convoluzione]
+Finestra $3\times3$ dell'immagine e filtro $3\times3$:
+\[
+\begin{bmatrix}1&0&2\\0&1&0\\1&0&1\end{bmatrix} \ast
+\begin{bmatrix}1&0&-1\\1&0&-1\\1&0&-1\end{bmatrix}
+= (1-2) + (0-0) + (1-1) = -1 .
+\]
+Il valore $-1$ diventa il pixel in output per quella posizione; poi il filtro scorre di una posizione.
+\end{esempio}
+\textbf{Attivazione}: la convoluzione è lineare; si applica (tipicamente) \textbf{ReLU} elemento per elemento: training più rapido,
+non satura, derivate veloci da calcolare.
+
+\textbf{Pooling}: un filtro scorrevole che \textbf{sostituisce} i valori con una statistica riassuntiva. Il più comune è il
+\textbf{max pooling}: con finestre $2\times2$ si prende il massimo, e una matrice $4\times4$ diventa $2\times2$.
+Risultato: rappresentazione più compatta e densa.
+
+Durante il training ogni filtro impara a riconoscere un pattern: nei layer superficiali texture e bordi (spesso senza un significato
+evidente per noi), in quelli profondi oggetti e parti (occhi, orecchie, volti).
+
+\begin{integrazione}[una CNN minima in PyTorch]
+Non mostrata a lezione (le CNN non hanno un notebook nel corso); solo per fissare le forme dei tensori.
+\begin{lstlisting}
+class SmallCNN(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)  # [1,h,w] -> [16,h,w]
+        self.pool = nn.MaxPool2d(2)                             # h,w dimezzati
+        self.fc = nn.Linear(16 * 112 * 112, num_classes)        # input 224x224
+    def forward(self, x):                 # x: (batch, 1, 224, 224)
+        x = self.pool(torch.relu(self.conv(x)))
+        return self.fc(x.flatten(1))      # head fully connected
+\end{lstlisting}
+\end{integrazione}
+
+\subsection{CNN famose}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Rete} & \textbf{Anno} & \textbf{Caratteristiche}\\
+\midrule
+LeNet-5 & 1998 & 7 layer; introduce convoluzione + pooling; sigmoid/tanh (niente ReLU); cifre scritte a mano (MNIST), lettura assegni\\
+AlexNet & 2012 & 8 layer (5 conv + 3 fully connected); \textbf{ReLU} contro il vanishing gradient; \textbf{dropout}; vince ImageNet 2012\\
+ResNet-50 & 2015 & 50 layer; \textbf{skip (residual) connection} contro il vanishing gradient, permettono reti oltre 152 layer; vince ImageNet 2015\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{CNN in cybersecurity: STAMINA}
+\textbf{STAMINA} (\en{Static Malware-as-Image Network Analysis}, Intel):
+\begin{enumerate}
+  \item il binario del malware è letto come flusso di byte e mappato direttamente su pixel in scala di grigi (0--255);
+  \item il flusso viene rimodellato in 2D (larghezza scelta con euristiche, es.\ dalla dimensione del file);
+  \item l'immagine viene ridimensionata a $224\times224$ (input della CNN);
+  \item si riusa \textbf{ResNet-50} pre-addestrata su immagini e la si fa \textbf{fine-tuning} su malware etichettati (split train/val/test);
+  \item accuracy di classificazione dei malware \textbf{oltre il 95\%}.
+\end{enumerate}
+Per il computer i numeri sono numeri: un esempio di uso creativo di un'architettura nata per altro.
+
+% =====================================================================
+\section{Graph neural network: perché servono}
+Molti dati sono grafi: Internet, social network (suggerire amici, account falsi, comunità), sistemi di raccomandazione, e in
+cybersecurity \textbf{botnet}, \textbf{frodi} (conti che si scambiano denaro in modo strano), \textbf{malware} descritti da grafi di
+API call.
+
+\begin{definizione}[grafo]
+$G$ con: $V$ insieme dei nodi; $A$ \textbf{matrice di adiacenza} (binaria, o pesata con feature degli archi);
+$X\in\R^{|V|\times m}$ matrice delle \textbf{feature dei nodi}; $N(v)$ insieme dei \textbf{vicini} di $v$.
+Anche gli \textbf{archi} possono avere feature (es.\ da quanto tempo dura un'amicizia).
+Se i nodi non hanno feature: vettore indicatore (one-hot del nodo) o vettore costante $[1,1,\ldots,1]$.
+\end{definizione}
+
+\subsection{Perché non bastano FFNN, CNN e RNN}
+\textbf{FFNN su $[A, X]$}: la matrice si può dare in input, ma:
+\begin{itemize}
+  \item è \textbf{sensibile all'ordine dei nodi}: leggendo i nodi come C, A, B, D, E invece di A, B, C, D, E la matrice cambia, e lo stesso
+        grafo produce input diversi;
+  \item ha $O(|V|)$ parametri: non scala;
+  \item \textbf{non si applica a grafi di dimensione diversa}: un nuovo amico richiede un neurone in più e il ri-addestramento da zero.
+\end{itemize}
+\textbf{CNN e RNN} sono pensate per griglie e sequenze con \textbf{struttura fissa} (so chi viene prima e chi è il mio vicino). I grafi
+hanno dimensione arbitraria, topologia complessa (nessuna località spaziale), \textbf{nessun ordine né punto di riferimento}, e spesso
+sono dinamici e con feature multimodali.
+
+\subsection{Generalizzare la convoluzione}
+In una CNN un pixel è descritto dal suo intorno. In un grafo non c'è una nozione fissa di località né una finestra scorrevole (un nodo
+``a metà'' dentro un kernel non ha senso). Però si può dire: \textbf{un nodo è descritto dai suoi vicini}, cioè dai nodi a un salto
+(\en{hop}), indipendentemente dalla ``distanza fisica''. Una nozione di località senza struttura fissa.
+
+% =====================================================================
+\section{GNN: le proprietà fondamentali}
+\begin{definizione}[permutation invariance --- livello grafo]
+Il grafo non ha un ordine canonico dei nodi. Una funzione $f$ che mappa il grafo $G=(A,X)$ in un vettore $\R^d$ deve dare
+\textbf{lo stesso risultato per qualsiasi ordinamento}:
+\[ f(A_1, X_1) = f(A_2, X_2) \]
+\end{definizione}
+\begin{definizione}[permutation equivariance --- livello nodo]
+Una funzione $f$ che mappa ogni nodo in una rappresentazione $d$-dimensionale ($\R^{|V|\times d}$) è equivariante se la
+rappresentazione di un nodo \textbf{nella stessa posizione del grafo} non cambia con l'ordinamento:
+\[ P f(A,X) = f(PAP^T, PX) \quad \text{per ogni permutazione } P. \]
+\end{definizione}
+Senza queste proprietà la rappresentazione dipenderebbe da come leggo i dati, non dal dato. ``La mia rappresentazione non deve cambiare
+in base all'ordine in cui leggi i miei amici.''
+
+\textbf{Obiettivo}: mappare i nodi in uno spazio $d$-dimensionale (\textbf{embedding}) in cui nodi simili sono vicini. È la stessa idea
+delle feature categoriche ad alta cardinalità (cap.~\ref{cap:embedding}): il vantaggio del deep learning è la \textbf{feature extraction}.
+Una GNN è composta da più funzioni equivarianti/invarianti; l'output sono embedding di nodi, sottografi o grafi.
+
+% =====================================================================
+\section{Message passing}
+\begin{itemize}
+  \item Il \textbf{vicinato} di un nodo definisce il suo \textbf{grafo di calcolo}: nelle immagini il vicinato è fisso, qui dipende dagli archi.
+  \item I nodi \textbf{aggregano informazione dai vicini} con reti neurali; ogni embedding è un \textbf{messaggio} tra layer.
+  \item Il vicino a sua volta è descritto dai \textbf{suoi} vicini: l'amico dell'amico passa il suo messaggio all'amico, che lo aggrega e lo
+        passa a me (\en{reachability graph}, $k$ hop).
+  \item I ``box'' del grafo di calcolo sono \textbf{pesi di una rete neurale}, \textbf{condivisi tra tutti i nodi} (come nelle RNN sono
+        condivisi tra i passi temporali).
+  \item Ogni nodo ha un grafo di calcolo diverso, perché ha vicini diversi.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={font=\small}, nd/.style={circle, draw=polblu, fill=polblu!10, minimum size=0.6cm, inner sep=0pt},
+  box/.style={draw=esecol, fill=esecol!10, rounded corners=2pt, minimum width=0.7cm, minimum height=0.5cm}]
+  % grafo di input
+  \node[nd] (A) at (0,0) {A};
+  \node[nd] (B) at (-1,1) {B}; \node[nd] (C) at (1,1) {C};
+  \node[nd] (D) at (-1,-1) {D}; \node[nd] (E) at (1,-1) {E};
+  \draw (A)--(B) (A)--(C) (A)--(D) (C)--(E) (B)--(C);
+  \node[font=\scriptsize] at (0,-1.7) {grafo di input};
+  % grafo di calcolo di A (2 hop)
+  \node[nd, fill=red!15] (tA) at (6,1.2) {A};
+  \node[box] (b0) at (6,0.4) {};
+  \node[nd] (tB) at (4.5,-0.6) {B}; \node[nd] (tC) at (6,-0.6) {C}; \node[nd] (tD) at (7.5,-0.6) {D};
+  \draw[-{Stealth}] (b0) -- (tA);
+  \foreach \n in {tB,tC,tD} \draw[-{Stealth}] (\n) -- (b0);
+  \node[font=\scriptsize] at (4.5,-1.3) {A,C}; \node[font=\scriptsize] at (6,-1.3) {A,B,E}; \node[font=\scriptsize] at (7.5,-1.3) {A};
+  \node[font=\scriptsize] at (6,-1.9) {grafo di calcolo di A: layer 2 $\leftarrow$ layer 1 $\leftarrow$ feature (layer 0)};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Progettare una GNN: le quattro scelte}
+\begin{enumerate}
+  \item \textbf{Messaggio}: cosa rappresenta (l'embedding di un nodo o di un layer precedente).
+  \item \textbf{Aggregazione}: come combinare i messaggi (la differenza principale tra le architetture).
+  \item \textbf{Struttura}: quanti layer GNN impilare.
+  \item \textbf{Task}: classificare nodi, archi o grafi? (Si può generalizzare anche a compiti non supervisionati.)
+\end{enumerate}
+
+\subsection{Un singolo layer: messaggio + aggregazione}
+Un layer comprime un insieme di vettori (i vicini e il nodo stesso al livello $l-1$) in un solo vettore.
+\begin{enumerate}
+  \item \textbf{Messaggio}: $m_u^{(l)} = \mathrm{MSG}^{(l)}(h_u^{(l-1)})$, es.\ lineare $m_u^{(l)} = W^{(l)}h_u^{(l-1)}$ con
+        $W^{(l)}$ \textbf{uguale per tutti i nodi}.
+  \item \textbf{Aggregazione}: $h_v^{(l)} = \mathrm{AGG}^{(l)}(\{m_u^{(l)}, u\in N(v)\})$, es.\ somma, media, massimo: funzioni
+        \textbf{indipendenti dall'ordine}.
+  \item \textbf{Problema}: così si perde il nodo stesso (``anch'io esisto''). \textbf{Soluzione}: un messaggio del nodo con una matrice
+        diversa, $m_v^{(l)} = B^{(l)}h_v^{(l-1)}$, aggregato dopo i vicini (concatenazione o somma):
+        \[ h_v^{(l)} = \mathrm{CONCAT}\big(\mathrm{AGG}(\{m_u^{(l)}, u\in N(v)\}),\ m_v^{(l)}\big) \]
+  \item \textbf{Non linearità} $\sigma$ (su messaggio o aggregazione) per l'espressività: \textbf{ReLU} (la più usata), sigmoid (solo per
+        limitare il range degli embedding), \textbf{PReLU} (ReLU parametrica, empiricamente spesso migliore).
+\end{enumerate}
+\begin{esame}[perché una GNN è invariante/equivariante e induttiva]
+\begin{itemize}
+  \item I pesi sono \textbf{condivisi} tra tutti i nodi e l'aggregazione (somma, media, max) \textbf{non dipende dall'ordine}
+        $\Rightarrow$ la rappresentazione non cambia con l'ordine di lettura.
+  \item Le GNN sono \textbf{induttive}: gli stessi parametri valgono per \textbf{nodi mai visti} (un nuovo nodo H si descrive senza
+        ri-addestrare), purché il grafo sia simile.
+\end{itemize}
+\end{esame}
+
+% =====================================================================
+\section{Tre architetture: GCN, GraphSAGE, GAT}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Architettura} & \textbf{Idea} & \textbf{Formula}\\
+\midrule
+\textbf{GCN} \newline (Graph Convolutional Network) & usa \textbf{tutta} la matrice di adiacenza, con self-edge; normalizza per il grado (con 500 milioni di vicini la somma esploderebbe) & $h_v^{(l)} = \sigma\Big(\sum_{u\in N(v)} \frac{W^{(l)}h_u^{(l-1)}}{|N(v)|}\Big)$\\
+\textbf{GraphSAGE} \newline (Sample and Aggregate) & \textbf{campiona un numero fisso di vicini} (Cristiano Ronaldo non ha bisogno di 500 milioni di follower per essere descritto); aggrega in \textbf{due stadi}: prima i vicini, poi il nodo stesso & $h_{N(v)}^{(l)} = \mathrm{AGG}(h_u^{(l-1)}, u\in N(v))$\newline $h_v^{(l)} = \sigma\big(W^{(l)}\cdot\mathrm{CONCAT}(h_v^{(l-1)}, h_{N(v)}^{(l)})\big)$\\
+\textbf{GAT} \newline (Graph Attention Network) & pesa ogni vicino con un \textbf{coefficiente di attenzione} $\alpha_{vu}$ \textbf{appreso}: i vicini importanti contano di più & $h_v^{(l)} = \sigma\Big(\sum_{u\in N(v)}\alpha_{vu}W^{(l)}h_u^{(l-1)}\Big)$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\begin{itemize}
+  \item Aggregatori di GraphSAGE: \textbf{media} (dei vicini), \textbf{pooling} (MLP + max), \textbf{LSTM} applicata ai vicini in ordine
+        rimescolato. Qualsiasi funzione che non dipenda dall'ordine.
+  \item In GCN e GraphSAGE si ha in pratica $\alpha_{vu} = 1/|N(v)|$: tutti i vicini contano uguale. In GAT, invece, ``se non ascolto mai
+        un vicino, perché dargli lo stesso peso di chi ascolto sempre?''. L'attenzione sarà centrale nella parte di NLP.
+\end{itemize}
+\begin{sintesi}[quale usare]
+\textbf{GCN} se il grafo non è troppo grande e si vuole un'architettura semplice; \textbf{GraphSAGE} per grafi grandi (campionamento);
+\textbf{GAT} per rappresentazioni migliori. Si possono usare GCN e GAT anche su grafi grandi, ma il campionamento va gestito a mano.
+\end{sintesi}
+
+% =====================================================================
+\section{Impilare layer e over-smoothing}
+\begin{itemize}
+  \item L'embedding al layer 0 è la feature del nodo, $h_v^{(0)} = x_v$; l'embedding al layer $k$ riceve informazione dai nodi a
+        \textbf{$k$ hop}.
+  \item \textbf{Receptive field}: l'insieme dei nodi che determinano l'embedding di un nodo. Con $K$ layer è il vicinato a $K$ hop.
+\end{itemize}
+\begin{esempio}[perché più layer = più vicini]
+Catena diretta A $\to$ B $\to$ C. Con \textbf{un} layer: B riceve da A, C riceve da B. Con \textbf{due} layer: C riceve da B, che al passo
+precedente aveva già ricevuto da A $\Rightarrow$ C ``conosce'' anche A.
+\end{esempio}
+\begin{definizione}[over-smoothing]
+Con troppi layer i receptive field crescono in fretta e si sovrappongono; se due nodi hanno receptive field molto sovrapposti, i loro
+embedding sono molto simili. Al limite ogni nodo diventa la media dell'intero grafo: \textbf{tutti gli embedding si somigliano} e non
+distinguono più ``me da Cristiano Ronaldo''.
+\end{definizione}
+\textbf{Rimedi}
+\begin{enumerate}
+  \item Non aggiungere layer GNN se non servono: \textbf{analizzare il receptive field necessario} (es.\ diametro del grafo, quanti nodi coinvolgo
+        con 1, 2, 3 hop) e fissare $L$ di conseguenza, non inutilmente grande.
+  \item Aumentare l'\textbf{espressività dentro ogni layer}: messaggio e aggregazione possono essere reti profonde invece di un layer lineare.
+  \item Aggiungere \textbf{layer che non passano messaggi}: MLP prima (pre-processing, utile se i nodi sono immagini o testo da codificare)
+        e dopo (post-processing, utile per classificare grafi).
+  \item Soluzioni avanzate: \textbf{skip connection} tra layer GNN (l'informazione passa anche direttamente, non solo mediata).
+\end{enumerate}
+\begin{esame}[over-smoothing]
+Cos'è (embedding tutti simili per receptive field sovrapposti), come si riconosce (distanze tra embedding dei nodi tutte piccole e
+prestazioni scarse) e come si rimedia (meno layer GNN in base al receptive field, layer più espressivi, MLP prima/dopo, skip
+connection, normalizzazione).
+\end{esame}
+
+% =====================================================================
+\section{Task e split dei dati}
+\subsection{Il task}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Task} & \textbf{Come si predice} & \textbf{Esempi}\\
+\midrule
+Node classification & direttamente dagli embedding dei nodi & IP malevoli, account compromessi; monitorare i frigoriferi di una catena di supermercati (in Francia un bug firmware li ha trasformati in forni)\\
+Link prediction & da \textbf{coppie} di embedding di nodi & suggerire amici; relazioni nascoste nelle frodi; computer che comunicano ma non dovrebbero; percorsi di attacco\\
+Graph classification & da \textbf{tutti} gli embedding del grafo (aggregati) & traffico malevolo, tipi di botnet (es.\ di dispositivi IoT); grafo delle API call (API1 $\to$ API3 $\to$ API1) malware o goodware\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Task diversi richiedono aggregazioni e classification head diverse. Nei lab si fa solo \textbf{graph classification}: lo stesso dato del Lab 2
+(sequenze di API call) si può vedere come serie o come grafo (cap.~\ref{cap:lab2}).
+
+\subsection{Come dividere i dati}
+\begin{itemize}
+  \item \textbf{Transductive}: un solo grafo; train/val/test sullo stesso grafo, struttura e feature visibili a tutti gli split, si dividono le
+        label (o gli archi target). Dividere un grafo in parti è complicato.
+  \item \textbf{Inductive}: più grafi; ogni split contiene grafi non visti in training. È il setting dei lab (split per grafo e label).
+        Nodi mai visti in validation/test non sono un problema: le GNN sono induttive.
+\end{itemize}
+
+\subsection{Limiti e sfide}
+\begin{itemize}
+  \item \textbf{Over-smoothing}: non eccedere con i layer, o aggiungere elaborazione.
+  \item \textbf{Scalabilità}: molti messaggi da passare e aggregare; usare l'architettura giusta (GraphSAGE).
+  \item \textbf{Grafi eterogenei}: un modello addestrato sulla rete del Politecnico può andare male su una rete diversa; servono architetture specializzate.
+  \item \textbf{Grafi dinamici}: cambiano in continuazione (follower aggiunti e rimossi); difficile anche validare.
+\end{itemize}
+
+% =====================================================================
+\section{GNN in PyTorch Geometric}
+Implementazione mostrata il \rif{2026-10-19}{19/10} con il notebook GNN.
+\subsection{Preparare i dati}
+\begin{itemize}
+  \item \textbf{Preprocessing} come per le altre reti: feature categoriche dei nodi in one-hot, normalizzazione o standardizzazione delle
+        feature di nodi e archi.
+  \item Un grafo è rappresentato da:
+  \begin{itemize}
+    \item \textbf{nodi} ($V$), eventualmente con feature;
+    \item \textbf{archi} ($E$), come lista di adiacenza o \code{edge\_index} (\code{[2, n\_archi]}: origine e destinazione). Gli archi sono
+          \textbf{diretti}: un arco percorribile nei due sensi diventa \textbf{due archi};
+    \item \textbf{feature dei nodi} $X$ (una riga per nodo, una colonna per feature);
+    \item \textbf{feature degli archi} (opzionali);
+    \item \textbf{label} $y$: a livello di nodo o di grafo (nei lab: di grafo).
+  \end{itemize}
+\end{itemize}
+
+\begin{lstlisting}
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader, NeighborLoader
+from torch_geometric.nn import GCNConv, SAGEConv, GATConv, global_mean_pool
+
+# ogni elemento del dataset e' un GRAFO
+g = Data(x=node_features,         # (n_nodi, n_feature)
+         edge_index=edge_index,   # (2, n_archi)
+         y=graph_label)           # label del grafo
+train_loader = DataLoader(train_graphs, batch_size=32, shuffle=True)
+\end{lstlisting}
+\begin{itemize}
+  \item \code{Data} e \code{Dataset} vengono da \textbf{\code{torch\_geometric}}, non da \code{torch}. Si può scrivere una classe dataset
+        personalizzata (con \code{\_\_len\_\_} e \code{get}) che costruisce un oggetto \code{Data} per grafo da adiacenza, feature e label.
+  \item Il \code{DataLoader} di \code{torch\_geometric.loader} gestisce \textbf{automaticamente} grafi di dimensioni diverse nello stesso batch,
+        \textbf{senza padding} (unisce i grafi in un grande grafo disconnesso). Differenza con le RNN, dove serviva la \code{collate\_fn}
+        (cap.~\ref{cap:rnn}).
+\end{itemize}
+
+\begin{esempio}[ispezionare il dataset del notebook]
+3 classi, classificazione di grafi, una feature per nodo in one-hot con 5 valori, oltre 1.400 grafi di training.
+\begin{itemize}
+  \item Primo grafo: \code{Data(x=[126, 5], edge\_index=[2, 816], y=[1])} $\Rightarrow$ 126 nodi, 5 feature, 816 archi, una label.
+  \item Un batch di 2 grafi ha \code{x=[288, 5]}: i nodi dei due grafi \textbf{sommati}. Nel batch ``l'unità'' sono i nodi, poi aggregati.
+  \item Il grafo più piccolo ha 99 nodi: già difficile da visualizzare.
+\end{itemize}
+\end{esempio}
+
+\subsection{Visualizzare un grafo}
+Con NetworkX: \code{to\_networkx} converte il grafo, \code{spring\_layout} fissa le posizioni dei nodi (ci sono vari layout, più o meno
+leggibili), \code{nx.draw} disegna con etichette dei nodi (le feature) e degli archi, e la label come titolo. Utile, se i nodi non sono
+troppi, per capire ad esempio se il grafo è denso. Come il plot di una serie temporale per scoprire outlier.
+
+\subsection{Il modello}
+\begin{lstlisting}
+import torch.nn.functional as F
+
+class GCN(nn.Module):
+    def __init__(self, in_dim, hidden_dim, num_classes):
+        super().__init__()
+        self.conv1 = GCNConv(in_dim, hidden_dim)       # n. feature nodo -> embedding
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)   # secondo layer: 2 hop
+        self.fc = nn.Linear(hidden_dim, num_classes)   # classification head
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        x = F.relu(self.conv1(x, edge_index))   # edge_index: a chi mandare i messaggi
+        x = F.relu(self.conv2(x, edge_index))
+        x = global_mean_pool(x, batch)          # nodi -> UN embedding per grafo
+        return self.fc(x)
+\end{lstlisting}
+\begin{itemize}
+  \item \code{edge\_index} permette alla GCN di ricostruire il grafo e passare i messaggi ai vicini giusti.
+  \item \code{global\_mean\_pool} aggrega gli embedding dei nodi di ogni grafo in \textbf{un embedding del grafo} (necessario per la
+        graph classification). Fermandosi prima si hanno gli embedding dei nodi. Alternative: max, min\ldots
+  \item \textbf{GraphSAGE}: \code{SAGEConv} al posto di \code{GCNConv} (aggregazione a due stadi). Così però \textbf{non} si campionano i vicini.
+  \item \textbf{GAT}: \code{GATConv(in\_dim, hidden\_dim, heads=8, concat=True)}: 8 meccanismi di attenzione indipendenti; con
+        \code{concat=True} gli output si concatenano $\Rightarrow$ dimensione \code{hidden\_dim * 8}.
+\end{itemize}
+
+\subsection{Il training loop}
+Quasi identico ai precedenti (cap.~\ref{cap:ffnn}), con due differenze:
+\begin{itemize}
+  \item ogni elemento del batch è un \textbf{grafo}, e la label è un \textbf{attributo} del batch (\code{batch.y}), non un elemento separato;
+        \code{batch.y.squeeze()} porta la label da 2D a 1D;
+  \item per pesare la loss si usa il \textbf{numero di grafi} (\code{batch.num\_graphs}), \textbf{non} \code{x.size(0)}, che conterebbe i
+        \textbf{nodi} (288 invece di 2).
+\end{itemize}
+\begin{lstlisting}
+for batch in train_loader:
+    batch = batch.to(device)
+    optimizer.zero_grad()
+    out = model(batch)
+    loss = criterion(out, batch.y.squeeze())
+    loss.backward(); optimizer.step()
+    running += loss.item() * batch.num_graphs     # NON batch.x.size(0)
+\end{lstlisting}
+
+\textbf{Risultati sul dataset ``facile''}: GCN, GraphSAGE e GAT vanno tutte bene in training, validation e test (oltre il 90\%). La GAT
+converge meglio (è più espressiva) ma è molto più lenta: circa 98 s GCN, 71 s GraphSAGE, 281 s GAT. Non è stato fatto tuning: con un solo
+set di iperparametri la validation non serve a sceglierne.
+
+\subsection{GraphSAGE con campionamento dei vicini}
+\begin{itemize}
+  \item La classe GraphSAGE restituisce \textbf{solo gli embedding} (niente pooling); pooling e head sono in una funzione separata
+        (\code{graph\_forward}).
+  \item Il \code{NeighborLoader} campiona i vicini: es.\ batch di 64 nodi, \code{num\_neighbors=[10, 5]} $\Rightarrow$ 10 vicini al primo
+        hop, 5 al secondo. Il modello riceve i nodi campionati, poi si ripete il \code{global\_mean\_pool} e la FFNN finale.
+  \item In \textbf{validation e test} si usa \code{[-1]}: \textbf{tutti} i vicini. Il campionamento serve solo a velocizzare il training.
+\end{itemize}
+
+\begin{attenzione}[errori tipici nel codice GNN -- raccolta dei redattori]
+\begin{itemize}
+  \item Pesare la loss con \code{batch.x.size(0)} (numero di \textbf{nodi}) invece di \code{batch.num\_graphs}.
+  \item Graph classification senza \code{global\_mean\_pool} (o altro readout): la head riceverebbe un output per nodo.
+  \item \code{GATConv(..., heads=8, concat=True)} seguito da un layer con input \code{hidden\_dim}: l'input è \code{hidden\_dim * 8}.
+  \item \code{edge\_index} con un solo verso per archi non diretti: servono due archi.
+  \item Campionamento dei vicini (\code{num\_neighbors=[10,5]}) anche in validation/test: lì si usano tutti i vicini (\code{[-1]}).
+  \item \code{DataLoader} di \code{torch.utils.data} invece di quello di \code{torch\_geometric.loader}.
+\end{itemize}
+\end{attenzione}
+
+% =====================================================================
+\section{Scelte progettuali e iperparametri di una GNN}
+\begin{enumerate}
+  \item \textbf{Tipo}: GCN (grafi non troppo grandi, architettura semplice), GraphSAGE (grafi grandi, campiona i vicini; nodi con grado
+        altissimo), GAT (attenzione, rappresentazioni migliori).
+  \item \textbf{Task}: nodo, arco o grafo? Determina l'embedding finale.
+  \item \textbf{Scala}: grafi piccoli $\Rightarrow$ full-batch (GCN, GAT); grafi grandi $\Rightarrow$ mini-batch con campionamento.
+  \item \textbf{Aggregazione}: media/somma, normalizzata per grado, pesata con attenzione, LSTM; partire da qualcosa di semplice.
+  \item \textbf{Input}: numero di feature dei nodi (e degli archi).
+  \item \textbf{Hidden size}: dimensione dell'embedding. Più grande = più informazione, troppo grande = informazione diluita.
+  \item \textbf{Numero di layer GNN}: in base al \textbf{receptive field} (quanti vicini aggregare). Partire con 2--3; troppi
+        $\Rightarrow$ over-smoothing.
+  \item \textbf{Batching}: lo gestisce la libreria.
+  \item \textbf{Prediction head}: un layer lineare o una FFNN; per i grafi prima il \textbf{pooling/readout}.
+  \item \textbf{Output e attivazione}: in base al task (un output per nodo, per arco candidato o per grafo).
+  \item \textbf{Training}: shuffle dei grafi (ok per la graph classification), loss pesata se sbilanciato, ottimizzatore.
+  \item \textbf{Over-smoothing}: si verifica studiando gli embedding dopo la GNN: se le distanze tra nodi sono tutte piccole e le prestazioni
+        scarse, ridurre i layer, usare skip connection o normalizzazione.
+\end{enumerate}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries}l X}
+\toprule
+Iperparametro & Best practice (dalle slide)\\
+\midrule
+\# layer & 2--3; di più solo se serve (over-smoothing); valutare MLP, dropout\ldots\\
+Hidden size & potenze di 2 (64, 128, 256); troppo grande $\Rightarrow$ overfitting\\
+Attivazione & ReLU, LeakyReLU; softmax/sigmoid in output\\
+Inizializzazione & default di PyTorch; Xavier (Glorot) o He possono stabilizzare\\
+Feature dei nodi & StandardScaler per le continue, one-hot per le categoriche\\
+Batch size & full-batch per grafi piccoli; mini-batch (512--2048 nodi) per grafi grandi\\
+Shuffle & grafi mescolati nella graph classification; nella node classification si mescolano i nodi target, preservando la connettività\\
+Ottimizzatore & Adam; AdamW per il weight decay; SGD + momentum per grafi grandi\\
+Learning rate & 0,01 per grafi piccoli, 0,001 per GNN profonde; scheduler\\
+Regolarizzazione & dropout (0,2--0,5), L2 (0,01), skip connection (cap.~\ref{cap:regolarizzazione})\\
+Dopo la GNN & layer MLP per la classificazione; connessioni residue per GNN profonde\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{sintesi}
+\begin{itemize}
+  \item CNN: convoluzione (filtri addestrabili scorrevoli, \code{[d,h,w]} con $N$ filtri $\to$ \code{[N,h,w]}) + ReLU + pooling;
+        feature gerarchiche (bordi $\to$ forme $\to$ oggetti) e head fully connected. LeNet-5, AlexNet (ReLU, dropout), ResNet-50
+        (skip connection). STAMINA: malware come immagine $224\times224$ + ResNet-50 fine-tuned, $>95\%$.
+  \item GNN: i grafi non hanno ordine né dimensione fissa $\Rightarrow$ servono funzioni \textbf{invarianti} (grafo) ed \textbf{equivarianti}
+        (nodo); message passing con pesi condivisi e aggregazioni indipendenti dall'ordine $\Rightarrow$ modello \textbf{induttivo}.
+  \item GCN (media normalizzata per grado), GraphSAGE (campionamento, due stadi), GAT (attenzione appresa).
+  \item $K$ layer = receptive field a $K$ hop; troppi $\Rightarrow$ over-smoothing. 2--3 layer di partenza.
+  \item Task: nodo, link, grafo (lab: graph classification, setting induttivo).
+  \item PyTorch Geometric: \code{Data(x, edge\_index, y)}, \code{DataLoader} senza padding, \code{global\_mean\_pool}, loss pesata con
+        \code{num\_graphs}.
+\end{itemize}
+\end{sintesi}

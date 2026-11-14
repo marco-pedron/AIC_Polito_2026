@@ -1,0 +1,587 @@
+\chapter{AI per la cybersecurity: concetti e paradigmi}
+\label{cap:ai-cyber}
+\fonti{\rif{2026-09-21}{21/09}, \rif{2026-09-23}{23/09}}{1-intro-ai-for-cybersecurity, pp.\ 1--54}
+
+Obiettivo del corso: non imparare dettagli fini, ma capire \textbf{come usare AI e ML per la
+cybersecurity} e \textbf{cosa c'è sotto il cofano} dei modelli che si usano, per sapere perché
+funzionano (e quando no).
+
+\section{Il problema: superficie d'attacco e costi in crescita}
+\begin{itemize}
+  \item Ogni anno si connettono più dispositivi ICT a Internet: circa \textbf{50 miliardi entro il 2029}.
+  \item Molti sono \textbf{low-cost} (lampadine e prese smart, IoT) con poco budget per la sicurezza.
+  \item Attacchi e data breach sono più frequenti, i dispositivi più complessi, i costi di difesa
+        dell'ordine dei \textbf{trilioni di dollari}.
+\end{itemize}
+$\Rightarrow$ Serve una difesa \textbf{più veloce, più efficiente e automatizzata}.
+
+\section{Cos'è la cybersecurity}
+\begin{definizione}[threat e attack]
+\begin{itemize}
+  \item \textbf{Threat (minaccia)}: qualsiasi pericolo \emph{potenziale} che può sfruttare una vulnerabilità di un sistema ICT. Non è ancora successo.
+  \item \textbf{Attack (attacco)}: quando un utente malevolo \emph{sfrutta effettivamente} una vulnerabilità.
+\end{itemize}
+\end{definizione}
+
+La cybersecurity non è solo software (antivirus, firewall): comprende anche \textbf{attività e
+policy} (es.\ formare il personale) e \textbf{strumenti, pratiche e linee guida} per proteggere
+reti, software e dati da attacchi, danni e accessi non autorizzati. In sintesi: identificare
+minacce e attacchi e le relative \textbf{tattiche di difesa}.
+
+\subsection{Cosa sappiamo e cosa non sappiamo}
+\begin{itemize}
+  \item \textbf{What we know} (gestione del rischio tradizionale): minacce note che sappiamo come
+        contrastare, es.\ applicare una patch. Approccio \textbf{reattivo}, molto lavoro umano.
+  \item \textbf{What we know we don't know}: sappiamo di poter essere vulnerabili e cerchiamo
+        attivamente il problema (es.\ scan delle porte aperte). È il campo della
+        \textbf{Cyber Threat Intelligence (CTI)}, approccio \textbf{proattivo}.
+  \item \textbf{What we don't know we don't know}: rischi che non conosciamo finché non si
+        manifestano, cioè gli \textbf{zero-day}. È il problema vero.
+\end{itemize}
+
+\textbf{Threat intelligence}: raccogliere e analizzare dati sul proprio sistema per scoprire
+vulnerabilità prima dell'attaccante e stare un passo avanti. Con la sola analisi umana
+\textbf{non si regge} la velocità di diffusione delle minacce né la complessità dei sistemi
+(es.\ centinaia di dispositivi connessi al Wi-Fi in una sola aula).
+
+\section{Perché AI/ML: qualche numero}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Più veloci} & Tempo mediano tra compromissione ed esfiltrazione: \textbf{9 giorni (2022) $\to$ 2 giorni (2024)} [Palo Alto Networks].\\
+& \en{Breakout time} (accesso $\to$ movimento laterale): \textbf{84 min $\to$ 62 min} [CrowdStrike].\\
+& Modelli recenti (es.\ \en{Mythos Preview}, Anthropic, 2026) individuano e sfruttano zero-day nei principali sistemi operativi e browser.\\
+\textbf{Più complessi} & Tattiche MITRE: \textbf{9 (2015) $\to$ 14 (2024)}; attacchi \en{hands-on-keyboard} (interattivi): +60\% l'anno.\\
+\textbf{Più costosi} & Costo globale del cybercrime: \textbf{9,5 trilioni USD} nel 2024 (+15\% l'anno); costo medio di un data breach: \textbf{4,88 milioni USD} (+10\%) [IBM].\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{attenzione}[il gioco del gatto e del topo]
+L'AI aiuta chi difende (identificazione, prevenzione e risposta più rapide) ma \textbf{aiuta anche
+chi attacca} (analisi dei sistemi, nuovi malware, varianti che eludono l'antivirus). Difensore e
+attaccante diventano entrambi più ``intelligenti''.
+\end{attenzione}
+
+\subsection{Cosa porta l'AI}
+L'AI impara dai \textbf{dati storici}: se modella il comportamento tipico della rete, quando il
+comportamento cambia può sollevare un allarme. Questo rende la difesa \textbf{adattiva e proattiva}.
+\begin{itemize}
+  \item \textbf{Automazione}: compiti ripetitivi (leggere log, cercare pattern) eseguiti sempre con
+        la stessa qualità, senza stanchezza; tempi di risposta più rapidi, meno carico per gli analisti.
+  \item \textbf{Intelligenza}: coglie correlazioni tra decine o centinaia di variabili che un umano non
+        vede; individua minacce nuove tramite pattern e anomalie (\en{anomaly detection}); migliora nel tempo
+        se ha \textbf{dati di qualità} (l'obiettivo ideale sono gli zero-day).
+  \item \textbf{Robustezza}: rileva anche piccole deviazioni, resiste a rumore e dati mancanti, deve resistere
+        a tentativi di manipolazione. Esempio: Kevin Mitnick negli anni '80 otteneva dati sensibili per telefono
+        in 20 minuti ingannando i dipendenti; un sistema automatico sarebbe stato meno manipolabile.
+\end{itemize}
+
+\section{AI, Machine Learning, Neural Network, Deep Learning}
+\begin{center}
+\begin{tikzpicture}[every node/.style={align=center, font=\small}]
+  \draw[fill=defcol!8, draw=defcol] (0,0) ellipse (6.2 and 2.6);
+  \draw[fill=defcol!16, draw=defcol] (0.8,-0.25) ellipse (4.8 and 2.0);
+  \draw[fill=defcol!26, draw=defcol] (1.6,-0.45) ellipse (3.4 and 1.4);
+  \draw[fill=defcol!40, draw=defcol] (2.4,-0.6) ellipse (1.9 and 0.8);
+  \node at (-4.4,0.9) {\textbf{AI}};
+  \node at (-2.7,0.4) {\textbf{ML}};
+  \node at (-0.6,0.1) {\textbf{Neural}\\\textbf{Network}};
+  \node at (2.4,-0.6) {\textbf{Deep}\\\textbf{Learning}};
+\end{tikzpicture}
+\end{center}
+
+\begin{definizione}[Artificial Intelligence]
+Capacità generale dei computer di \textbf{emulare il pensiero umano} (ragionamento, problem solving,
+decisioni autonome). \textbf{Non richiede per definizione di imparare dai dati}: un sistema a regole
+(``se è lungo e sottile è una penna, se è più largo è uno smartphone'') è AI. La regola la dà l'umano.
+\end{definizione}
+
+\begin{definizione}[Machine Learning]
+Sottoinsieme dell'AI che \textbf{impara dai dati} (o dall'esperienza) creando un
+\textbf{modello data-driven} tramite il \textbf{training}: non diamo la regola, diamo 100 penne e 100
+smartphone e l'algoritmo ne ricava le caratteristiche.
+\end{definizione}
+
+Conseguenze importanti:
+\begin{itemize}
+  \item \textbf{Il ML conosce solo ciò che ha visto in passato.} Se gli mostri un oggetto mai visto
+        (es.\ delle cuffie) non lo riconosce. Gli eventi rari sono difficili da modellare.
+  \item In cybersecurity è critico: i malware evolvono (v1, v2, v3\ldots), quindi un modello generale
+        è difficile o impossibile, e servono aggiornamenti periodici.
+  \item \textbf{Più dati è meglio solo se sono di qualità}: \en{garbage in, garbage out}. Dieci temi d'esame
+        di cui nove di altri corsi non aiutano a preparare questo esame.
+\end{itemize}
+
+\begin{definizione}[Neural Network]
+Algoritmo di ML ispirato al cervello: \textbf{neuroni} (nodi) che elaborano l'input, organizzati in
+\textbf{layer} (input, hidden, output) e collegati da \textbf{sinapsi} (link) che passano
+l'informazione tra layer. Gli \textbf{hidden layer} sono la parte che ``ragiona''; l'output layer dà
+la risposta finale (es.\ vettore di probabilità \{cane: 0,99, gatto: \ldots\}).
+\end{definizione}
+Sono molto versatili (denoising delle foto, LLM, guida autonoma, riconoscimento immagini) e spesso
+superano gli algoritmi \en{shallow} (decision tree, SVM, random forest), specialmente su compiti come
+le immagini.
+
+\begin{definizione}[Deep Learning]
+Reti neurali con \textbf{3 o più hidden layer} che elaborano grandi quantità di dati. La vera differenza
+rispetto alle reti \en{shallow} però non è solo il numero di layer: esistono \textbf{architetture diverse}
+in base al tipo di dato. Il lavoro si sposta sul \textbf{model engineering}.
+\end{definizione}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo di dato} & \textbf{Architettura} & \textbf{Esempio}\\
+\midrule
+Vettori numerici / tabelle & Feed-Forward NN (FFNN) & classificare malware da feature\\
+Serie temporali / sequenze & Recurrent NN (RNN) & frase, traffico nel tempo\\
+Grafi & Graph NN (GNN) & Internet, social network, botnet\\
+Immagini (e non solo) & Convolutional NN (CNN) & malware convertito in immagine\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Breve storia}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+1940 & ENIAC, primo computer general purpose (valvole).\\
+1950 & Alan Turing propone il \textbf{Turing test}.\\
+1955 & Arthur Samuel: ``dare alle macchine la capacità di imparare senza programmarle esplicitamente''; primo giocatore di dama.\\
+1958 & Il \textbf{perceptron} (proposto nel 1943) usato per la prima volta in una vera rete neurale.\\
+1960 & Metodi \textbf{bayesiani}: diventano lo standard rispetto alle reti neurali.\\
+1970--80 & \textbf{AI winter}: poca ricerca, tecnologia non pronta.\\
+1980 & \textbf{Backpropagation}: l'algoritmo chiave per addestrare le reti.\\
+1985 & Crescita delle reti neurali con più hidden layer.\\
+1995 & \textbf{SVM}: rigorose matematicamente, efficienti, superano le reti neurali dell'epoca.\\
+1997 & Deep Blue batte Kasparov a scacchi (AI a regole, non ML).\\
+2015 & ImageNet: le reti superano l'accuratezza umana; AlphaGo batte Fan Hui a Go.\\
+2017 & Google introduce i \textbf{transformer}.\\
+2018 & Era degli LLM: GPT (OpenAI), BERT (Google).\\
+2021--24 & DALL-E, GPT-4, DeepSeek\ldots\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Quanto sono complessi i modelli di oggi}
+\begin{itemize}
+  \item Oltre \textbf{1 trilione di parametri} (``un'equazione con un trilione di coefficienti da tarare'').
+  \item Hanno bisogno di molti dati \textbf{buoni}: c'è il rischio concreto di esaurire i dati disponibili.
+  \item GPT-4: oltre \textbf{60 milioni di dollari}, più di \textbf{20.000 GPU}, $\sim$100 miliardi di petaFLOP.
+        Solo grandi aziende possono permetterselo: non si addestra un LLM sul proprio portatile.
+\end{itemize}
+
+\subsection{Perché il deep learning esplode proprio ora}
+\begin{enumerate}
+  \item \textbf{Tanti dati} (foto, traffico di rete\ldots), ma \textbf{pochi etichettati}: etichettare
+        richiede lavoro umano lento e costoso (i CAPTCHA servivano anche a etichettare immagini).
+  \item \textbf{GPU}: il cuore delle reti è la moltiplicazione di matrici, che le GPU parallelizzano.
+  \item \textbf{Prestazioni} più alte e \textbf{flessibilità} delle architetture.
+  \item \textbf{Modelli pre-addestrati} da altri, riutilizzabili e ri-addestrabili (es.\ BERT nei lab).
+\end{enumerate}
+
+\section{Shallow learning vs deep learning}
+\subsection{La pipeline KDD (shallow)}
+Il \textbf{Knowledge Discovery from Data} prevede:
+\begin{center}
+\begin{tikzpicture}[node distance=0.35cm, every node/.style={font=\scriptsize, align=center},
+  blk/.style={draw=polblu, fill=polblu!6, rounded corners=2pt, minimum height=0.9cm, text width=1.55cm}]
+  \node[blk] (a) {Data};
+  \node[blk, right=of a] (b) {Selection};
+  \node[blk, right=of b] (c) {Pre-\\processing};
+  \node[blk, right=of c] (d) {Transfor-\\mation};
+  \node[blk, right=of d, fill=red!60!black!10, draw=red!60!black] (e) {Feature\\engineering};
+  \node[blk, right=of e] (f) {Machine\\learning};
+  \node[blk, right=of f] (g) {Interpre-\\tation};
+  \foreach \x/\y in {a/b,b/c,c/d,d/e,e/f,f/g} \draw[-{Stealth}] (\x) -- (\y);
+\end{tikzpicture}
+\end{center}
+\begin{itemize}
+  \item \textbf{Selection}: si tiene solo il sottoinsieme di dati rilevante (per prevedere il voto
+        d'esame serve la carriera, non la residenza).
+  \item \textbf{Preprocessing}: \en{data integration} (riconciliare fonti, metadati, conflitti, ridondanza)
+        e \en{data cleaning} (rumore, outlier, inconsistenze, valori mancanti, es.\ chi non dichiara il peso
+        in un sondaggio). Include la normalizzazione delle scale: età 0--100 e reddito 0--10 milioni non sono
+        confrontabili senza standardizzare, altrimenti nella distanza conta solo il reddito.
+  \item \textbf{Feature engineering}: l'analista costruisce le feature a mano.
+\end{itemize}
+
+\begin{esempio}[frodi bancarie, Intesa Sanpaolo]
+Ogni conto era descritto da centinaia di transazioni al mese. Il team ha costruito feature come:
+entrate totali del mese, spesa abituale, giorni tra l'accredito e l'esaurimento del denaro, spesa
+media settimanale. Poi un modello ML classificava il comportamento come benigno o fraudolento.
+Con il deep learning si potrebbe dare in input direttamente la \textbf{serie temporale} delle transazioni.
+\end{esempio}
+
+\subsection{La pipeline deep}
+Stessa pipeline, \textbf{senza feature engineering}: le feature sono \textbf{estratte dalla rete}
+(\en{feature extraction}). Il deep learning è soprattutto \textbf{rappresentazione dei dati}: la rete
+impara come rappresentare l'input nel modo migliore.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Shallow learning} & \textbf{Deep learning}\\
+\midrule
+Preprocessing & Preprocessing (\textbf{non si evita!})\\
+Feature engineering manuale: \textbf{forte sforzo umano}, molti tentativi & Feature extraction automatica: la rete crea feature spesso migliori di quelle umane\\
+Modelli più semplici e \textbf{interpretabili} (``è un'auto perché ha 4 ruote'') & \textbf{Model engineering}: scegliere l'architettura, molti iperparametri\\
+Human-driven, labor-intensive & Semi-automatico, computationally intensive\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Pro del deep learning}
+\begin{itemize}
+  \item \textbf{Modelli complessi}: pattern complessi su dataset enormi (intrusion detection, malware, anomalie).
+  \item \textbf{Efficacia}: superano il plateau del shallow e generalizzano meglio.
+  \item \textbf{Casi d'uso}: tabelle, testo, immagini, serie temporali, grafi; ad esempio per un'immagine è
+        difficilissimo definire a mano feature che distinguano cane e gatto.
+\end{itemize}
+\textbf{Contro}
+\begin{itemize}
+  \item \textbf{Mancanza di trasparenza}: come lavora internamente il modello? (\en{black box})
+  \item \textbf{Mancanza di interpretabilità}: perché ha preso quella decisione? Su quali parti
+        dell'input si è basato? Se un IDS basato su ML segnala un'attività, come la traduco in una
+        \textbf{regola di firewall}? Esistono tecniche di \en{explainable AI} (XAI), fuori dal programma.
+\end{itemize}
+
+\begin{esame}[non sparare a una mosca con un cannone]
+Il deep learning non è sempre la risposta. Se in una serie temporale c'è un picco evidente, basta una
+\textbf{soglia}: evita l'\en{over-engineering}. A volte le soluzioni semplici sono efficaci quanto quelle
+complesse, o di più.
+\end{esame}
+
+\section{Training, validation e test}
+\begin{definizione}[training, validation, testing]
+\begin{itemize}
+  \item \textbf{Training} (o \en{fitting}, \en{building}): creare il modello facendolo imparare dai dati.
+        Nelle librerie è la funzione \code{model.fit(...)}. Usa il \textbf{training set}.
+  \item \textbf{Validation}: scegliere i migliori \textbf{iperparametri} (es.\ architettura della rete)
+        e valutare l'overfitting, su un \textbf{validation set} \textbf{mai usato per il training}.
+  \item \textbf{Testing}: valutare le prestazioni finali su dati \textbf{mai visti} né in training né in
+        validation. Serve solo a una cosa: verificare che le prestazioni siano \textbf{simili a quelle in
+        validation}, cioè che il modello sia \textbf{generale}.
+\end{itemize}
+\end{definizione}
+
+\begin{esempio}[l'analogia dell'esame]
+Le lezioni sono il training set. Un tema d'esame che non hai mai visto è il validation set: se vai bene,
+hai imparato abbastanza. Se impari a memoria le risposte di 10 temi passati senza capire la materia,
+all'esame vero (con domande nuove) andrai male: questo è \textbf{overfitting}. L'opposto,
+non aver imparato nulla neanche sui dati di training, è \textbf{underfitting}.
+\end{esempio}
+
+Il sogno sarebbe un test set enorme; in realtà spesso non si ha nemmeno un test set adeguato.
+
+\section{Panoramica dei paradigmi}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{2.6cm} p{2.1cm} X X}
+\toprule
+Paradigma & Etichette? & Obiettivo & Esempi cyber\\
+\midrule
+Supervised & Sì & imparare una mappa input $\to$ output dai dati etichettati & spam, classificazione malware, previsione del traffico\\
+Unsupervised & No & trovare pattern o struttura nei dati & cluster di URL, anomalie nel traffico\\
+Semi-supervised & In parte & sfruttare poche etichette e tanti dati non etichettati & IDS, rilevamento botnet\\
+Self-supervised & No & imparare dalla struttura dei dati stessi & analisi di log, malware, generazione di immagini false\\
+Reinforcement & No, usa \en{reward} & imparare per tentativi interagendo con un ambiente & tuning di firewall/IDS, attacco e difesa, controllo di un dispositivo\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Supervised learning}
+\begin{definizione}
+Si usa un \textbf{dataset etichettato} per addestrare un modello che impara i pattern delle feature
+di ogni etichetta, e poi predice l'etichetta di dati nuovi. È un metodo \textbf{predittivo}:
+la \textbf{label} è la \textbf{ground truth}, data e validata da un umano, quindi \textbf{costosa} e
+deve essere \textbf{affidabile}.
+\end{definizione}
+\begin{itemize}
+  \item Label \textbf{categorica} $\Rightarrow$ \textbf{classificazione}; label \textbf{numerica} $\Rightarrow$ \textbf{regressione}.
+        Molti algoritmi funzionano per entrambe con poche modifiche.
+  \item \textbf{Il classificatore impara solo ciò che c'è nei dati passati}: addestrato sul meteo estivo,
+        non sa cosa sia $-10$°C.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Esempio} & \textbf{Shallow} & \textbf{Deep}\\
+\midrule
+Spam filter & feature da header, oggetto, testo, metadati & testo grezzo di email e header\\
+Malware & DLL importate, chiamate di funzione, sequenze di API call & eseguibile visto come immagine o in nuove rappresentazioni\\
+Volume di traffico (regressione) & feature dalla serie (media/max/min ultima ora) & serie temporale direttamente; un picco inatteso può indicare esfiltrazione\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Problemi e soluzioni}
+\begin{itemize}
+  \item L'attaccante si adatta: dal ``principe nigeriano'' che chiede soldi al falso ``migliore amico'' che chiede 500€:
+        il filtro aveva imparato che la feature importante era ``principe nigeriano''. Malware leggermente modificato
+        (API diverse, ordine diverso) non viene più riconosciuto. Traffico che imita quello normale.
+  \item \textbf{Drift nei dati}: i dati cambiano nel tempo (le foto di oggi sono 10 volte più pesanti di 3 anni fa)
+        o perché l'attaccante li fa cambiare. Ciò che è nuovo viene assegnato a una classe nota (il ``panda'' diventa ``gatto'').
+  \item \textbf{Sotto-rappresentazione / class imbalance}: alcune classi hanno pochissimi esempi (una sola foto di panda
+        tra migliaia di cani, gatti e polli). In cybersecurity la maggior parte dei dati è benigna, pochi sono malevoli.
+\end{itemize}
+\textbf{Soluzioni}
+\begin{itemize}
+  \item \textbf{Drift detection}: monitorare le metriche nel tempo (se ho ancora le label, vedo le prestazioni peggiorare
+        $\Rightarrow$ ri-addestrare); se non ho label, confrontare con metodi unsupervised i dati passati e presenti
+        $\Rightarrow$ se sono diversi, ri-etichettare e ri-addestrare.
+  \item \textbf{Gestione dello sbilanciamento}: \en{class weights} nella loss (sbagliare un malware costa più di un falso allarme),
+        metriche adatte, ricampionamento, dati sintetici, tecniche di validazione diverse (vedi cap.~\ref{cap:ffnn}).
+\end{itemize}
+
+\section{Unsupervised learning}
+\begin{definizione}
+Crea modelli che scoprono \textbf{pattern nascosti senza label} e senza intervento umano diretto.
+È un metodo \textbf{descrittivo}: descrive la struttura dei dati. Raccogliere dati non etichettati è
+\textbf{economico} (es.\ catturare tutti i pacchetti della rete del Politecnico).
+\end{definizione}
+\begin{itemize}
+  \item \textbf{Clustering}: raggruppa punti simili, es.\ trovare gruppi di computer coinvolti in un attacco coordinato
+        (\textbf{botnet}) senza conoscerne gli IP; poi si studia il cluster per capire perché è diverso.
+  \item \textbf{Anomaly detection}: impari cos'è normale; ciò che si discosta è anomalo (99 foto di cani, gatti e polli
+        e un panda: il panda è l'anomalia).
+\end{itemize}
+\textbf{Problemi}
+\begin{itemize}
+  \item \textbf{Drift}: le botnet cambiano (nuove macchine infettate, vecchie abbandonate); l'attaccante \textbf{spalma}
+        l'esfiltrazione su 5 periodi invece di fare un picco, imitando il traffico normale.
+  \item \textbf{Analisi dei pattern}: senza ground truth i risultati sono \textbf{difficili da interpretare}; le metriche
+        valutano differenze tra i dati, non la correttezza; più \textbf{falsi allarmi}. Lo sforzo che non fai prima
+        (etichettare) lo fai dopo (interpretare). Con il deep learning le dimensioni latenti sono ancora meno interpretabili.
+\end{itemize}
+\textbf{Soluzioni}: drift detection (ricreare periodicamente il modello e confrontare), analisi manuale, metodi di XAI.
+
+\begin{attenzione}[il ``mantra'' dell'unsupervised]
+``La validazione delle strutture di clustering è la parte più difficile e frustrante della cluster analysis.
+Senza un forte sforzo in questa direzione, la cluster analysis resterà un'arte oscura accessibile solo ai veri
+credenti con esperienza e grande coraggio.'' (Jain \& Dubes, 1988)
+\end{attenzione}
+
+\section{Semi-supervised learning}
+Usa dati etichettati \textbf{e} non etichettati per un problema \textbf{supervisionato}:
+\begin{enumerate}
+  \item un \textbf{piccolo dataset etichettato} guida l'estrazione di feature e addestra un primo modello;
+  \item il modello etichetta il \textbf{grande dataset non etichettato} $\Rightarrow$ dataset \textbf{pseudo-etichettato};
+  \item il modello finale si addestra su dati etichettati + pseudo-etichettati.
+\end{enumerate}
+Si può usare anche con classificatori shallow. Esempi: IDS addestrato con pochi attacchi etichettati e tanto traffico
+normale (se si addestra solo su traffico normale, il resto sarà ``normale'' o ``sconosciuto/anomalo''); rilevamento di
+dispositivi infetti da botnet con dati benigni, botnet note e dati non etichettati dell'organizzazione.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Benefici} & \textbf{Problemi}\\
+\midrule
+Unisce la ground truth del supervised e il basso costo dei dati dell'unsupervised & \textbf{Dimensioni}: 1000 etichettati su 1 miliardo; il campione può non essere rappresentativo\\
+Migliore generalizzazione: le piccole variazioni non coperte dalle label vengono compensate dai dati non etichettati & Sbilanciamento: se i malevoli sono 1000 su un miliardo, nel campione da 1000 ce ne saranno forse 2\\
+ & \textbf{Evoluzione}: i dati non etichettati cambiano; servono approcci ibridi con anomaly detection\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Self-supervised learning (SSL)}
+\begin{definizione}
+Genera un \textbf{segnale supervisionato a partire da dati non etichettati}: sono i dati stessi a fare da
+supervisione. È un \textbf{sottoinsieme dell'unsupervised}, ma mentre l'unsupervised \textbf{descrive} i dati,
+il self-supervised impara a \textbf{rappresentarli}. È alla base degli \textbf{LLM} moderni.
+\end{definizione}
+
+\textbf{Come funziona}
+\begin{enumerate}
+  \item \textbf{Pretext task}: il modello impara una rappresentazione significativa. Un \textbf{encoder} comprime
+        l'input ad alta dimensione (una foto da 30 megapixel) in uno spazio a bassa dimensione, il
+        \textbf{bottleneck}. Per dire ``è un cane'' non serve ogni pixel, servono naso, bocca, pelo, quattro zampe:
+        è la fase di \en{feature extraction}, fatta dal modello.
+  \item \textbf{Downstream task}: si usano le feature del bottleneck per il compito reale:
+        \begin{itemize}
+          \item un \textbf{decoder} ricostruisce l'input e si confronta con l'originale;
+          \item un \textbf{classificatore} predice qualcosa a partire dalla rappresentazione.
+        \end{itemize}
+\end{enumerate}
+\textbf{Intuizione del segnale}: se l'output è molto diverso dall'input, la rappresentazione non è buona
+$\Rightarrow$ continua ad addestrare.
+
+\begin{esempio}[denoising delle foto dello smartphone]
+La foto mossa o notturna (rumorosa) passa nell'encoder, che impara a tenere l'informazione importante (forma,
+dimensioni, colori) e scartare il rumore; il decoder ricrea la foto pulita. Non serve sapere se è un cane o una chiesa:
+\textbf{la supervisione viene dall'immagine stessa}. Se la ricostruzione è pessima, forse il bottleneck è troppo piccolo.
+È l'idea dell'\en{autoencoder}.
+\end{esempio}
+
+\textbf{Applicazioni}
+\begin{itemize}
+  \item \textbf{Analisi dei log}: la sequenza tipica è apri file $\to$ modifica $\to$ salva $\to$ chiudi. Se dopo la chiusura
+        compare ``invia via email'' e il modello prediceva altro, l'evento reale può essere un'anomalia.
+  \item \textbf{Malware}: rappresentazioni di eseguibili per migliorare la classificazione con poche etichette.
+  \item \textbf{Immagini false} (GAN): un \textbf{generatore} crea immagini sintetiche, un \textbf{discriminatore} cerca di
+        capire se sono vere o false; il segnale del discriminatore è la supervisione. Se il discriminatore non distingue più,
+        le immagini sembrano vere. (Uso malevolo: falsi annunci Airbnb con foto di case inesistenti.)
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Benefici} & \textbf{Problemi}\\
+\midrule
+Nessun costo di etichettatura & \textbf{Costo computazionale}: migliaia di GPU per mesi\\
+Feature extraction automatica per molti tipi di dato (rete, codice, testo, immagini) & Serve un \textbf{dataset enorme e di qualità} (100 libri pieni di errori non ti insegnano l'italiano)\\
+Funziona meglio con dataset enormi & \textbf{Bias} nei dati appreso dal modello (es.\ studi sul sistema giudiziario USA)\\
+Più robusto all'evoluzione dei dati: le piccole variazioni si riconoscono & Senza label, \textbf{valutare le prestazioni} è difficile\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Reinforcement learning (RL)}
+Un \textbf{agente} esegue \textbf{azioni} in un \textbf{ambiente} per massimizzare una \textbf{ricompensa a lungo termine}.
+\begin{itemize}
+  \item \textbf{Stato}: situazione corrente dell'ambiente; \textbf{azioni}: operazioni possibili;
+        \textbf{reward}: aumenta se l'azione è corretta, diminuisce altrimenti (la progettiamo noi).
+  \item Si impara per \textbf{tentativi ed errori}: i dati li crea l'agente stesso.
+  \item Esempi: agente che adatta dinamicamente regole di firewall o soglie dell'IDS; simulare attacchi per rafforzare le
+        difese; imparare a controllare una \textbf{lampadina smart} che accetta comandi in chiaro (idea di come uno stalker
+        potrebbe abusarne).
+\end{itemize}
+\textbf{Benefici}: impara dall'esperienza senza label, risolve problemi complessi e dinamici, migliora continuamente,
+alta autonomia. \textbf{Problemi}: costo computazionale; \textbf{progettare la reward} è difficile (se sovrastimi un
+miglioramento, l'agente smette di esplorare); apprendimento lento e \textbf{instabile} (la lampadina che si accende e
+spegne); bassa interpretabilità.
+
+\section{Come si usano i modelli}
+\subsection{Modello singolo vs ensemble}
+\begin{itemize}
+  \item \textbf{Ensemble}: più modelli addestrati su dati, sottoinsiemi o feature diversi; decisione finale per
+        \textbf{voto di maggioranza} (classificazione) o \textbf{media} (regressione). Es.: \textbf{random forest} = insieme di alberi.
+  \item \textbf{Model stacking}: le predizioni dei modelli base diventano l'input di un \textbf{meta-learner} che impara
+        quale modello è più affidabile in quale situazione. Es.: rilevamento attacchi in sistemi industriali con modelli
+        deep di base e un meta-learner shallow.
+  \item I modelli base possono avere architetture diverse (FFNN su tabelle, RNN su serie, GNN su grafi).
+\end{itemize}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Modello singolo} & \textbf{Ensemble}\\
+\midrule
++ semplice da addestrare e distribuire & + prestazioni migliori (più ``opinioni'')\\
++ più interpretabile (es.\ decision tree) & + più robusto al rumore, generalizza meglio\\
+$-$ overfitting se dataset piccolo o modello troppo complesso & $-$ se i modelli base sono \textbf{correlati} (dati simili) il guadagno è limitato e aumenta il bias\\
+$-$ generalizzazione limitata, plateau di prestazioni & $-$ costoso da creare e ottimizzare; poco adatto a dataset piccoli\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Federated learning}
+Un \textbf{modello globale} si costruisce combinando modelli \textbf{addestrati localmente} sui dispositivi
+(\en{edge}: smartphone, IoT, server locali) con i soli dati locali. Al server centrale si invia \textbf{il modello,
+non i dati}; il modello aggregato viene rimandato ai dispositivi.
+\begin{esempio}[spam filter degli studenti]
+``Mandatemi tutte le vostre email'' $\Rightarrow$ nessuno accetta. ``Fate girare il modello sul vostro telefono e
+mandatemi solo il modello'' $\Rightarrow$ accettabile. Combino 40.000 modelli e ve li rimando: ognuno riceve la conoscenza
+dello spam visto dagli altri.
+\end{esempio}
+\textbf{Benefici}: \textbf{privacy} (utile anche con vincoli GDPR), \textbf{scalabile e distribuito}, \textbf{visibilità}
+più ampia (punti di vista eterogenei). \textbf{Problemi}: costo del training sull'edge (batteria), \textbf{dati eterogenei}
+(il modello globale può diventare una ``media'' che perde conoscenze specifiche, sbilanciamenti), \textbf{model poisoning}:
+un partecipante malevolo invia un modello addestrato a considerare legittime le sue email di phishing.
+
+\subsection{Transfer learning}
+Si riusa un modello addestrato per un compito e lo si \textbf{ri-addestra} (\en{fine-tuning}) per un compito diverso ma
+\emph{correlato}, con \textbf{molti meno dati}. Di solito si ri-addestrano \textbf{solo gli ultimi layer}.
+(Analogia: voi ``modelli'' già formati in ingegneria vi specializzate in questo corso in 60 ore; uno studente del primo
+anno ci metterebbe molto di più.)
+\begin{esempio}[STAMINA, Intel]
+Il binario del malware $\to$ sequenza di byte $\to$ pixel in scala di grigi $\to$ immagine; si riusa
+\textbf{ResNet-50} (pre-addestrata su immagini) e la si fa fine-tuning su malware etichettati. Funziona, anche se il
+dominio è lontanissimo. Dettagli nel cap.~\ref{cap:cnn-gnn}.
+\end{esempio}
+\textbf{Benefici}: training più rapido, meno calcolo ed energia, meno dati, prestazioni migliori su dataset piccoli,
+funziona tra domini. \textbf{Problemi}: \textbf{domain mismatch} (un modello su cani/gatti/auto può andare male su
+raggi X o log), il fine-tuning può comunque costare, il modello eredita i \textbf{bias} di quello pre-addestrato.
+
+\subsection{Modelli generativi}
+Generano \textbf{nuovi campioni non presenti nel training set} campionando dalla distribuzione appresa (ChatGPT,
+DALL-E\ldots). Spesso addestrati in self-supervised, poi rifiniti con poca supervisione e/o RL.
+Esempi cyber: \textbf{varianti sintetiche di malware} per anticipare attacchi; \textbf{agenti} che cercano e sfruttano
+zero-day. \textbf{Benefici}: dati sintetici (anche per la privacy), creazione di contenuti, generalità.
+\textbf{Problemi}: costo; \textbf{valutazione difficile} (le metriche classiche non si applicano; il modello non è
+progettato per un compito, quindi va scoperto in quali sbaglia); bias; \textbf{uso improprio} (deepfake, phishing, malware);
+\textbf{privacy} (i dati inviati possono essere usati per l'addestramento: un brevetto non ancora depositato dato a un chatbot
+``per correggere l'inglese'' finisce nei dati); questioni etiche e legali (diritti sui contenuti generati); questioni
+sociali (perdita di competenze, \en{vibe coding}, copiare all'esame).
+
+\section{AI e cybersecurity: difesa, attacco, adversarial ML}
+Tre famiglie:
+\begin{enumerate}
+  \item \textbf{AI per la difesa}: migliorare le difese e adattarsi più in fretta;
+  \item \textbf{AI per l'attacco}: attacchi più sofisticati, realistici, veloci;
+  \item \textbf{Adversarial machine learning}: attaccare \textbf{i modelli stessi}.
+\end{enumerate}
+
+\subsection{Difesa}
+\begin{itemize}
+  \item \textbf{Threat detection \& prevention}: IDS basati su AI (fingerprint o pattern tipici), analisi automatica di malware
+        senza firme statiche, \textbf{novelty detection} per zero-day, federated learning tra organizzazioni.
+  \item \textbf{Threat hunting \& incident response}: \textbf{SIEM} potenziati (correlano log, trovano anomalie in tempo reale);
+        \textbf{SOAR} (orchestrano e automatizzano la risposta agli incidenti).
+  \item \textbf{Predictive security}: scansione di sistemi e configurazioni per prevedere vulnerabilità (es.\ un server HTTP
+        aperto verso l'esterno che non dovrebbe esserci); \textbf{analisi comportamentale} per insider threat.
+\end{itemize}
+Dati citati: oltre il 90\% dei SOC dipende ancora da processi manuali (``fatica di Sisifo''); chi usa AI e automazione
+risparmia in media \textbf{2,22 milioni USD} per breach (IBM).
+
+\subsection{Attacco}
+\begin{itemize}
+  \item \textbf{Social engineering avanzato}: deepfake audio/video; email di phishing generate da LLM, migliorate per
+        tentativi e \textbf{tradotte} in lingue che l'attaccante non conosce (allarga la superficie di vittime).
+  \item \textbf{Scoperta automatica di vulnerabilità} e loro sfruttamento; ciò che all'attaccante richiedeva giorni,
+        l'AI lo fa in fretta.
+  \item \textbf{Tecniche di evasione}: modificare leggermente le feature dell'attacco (es.\ spalmare l'esfiltrazione) per
+        sembrare traffico normale.
+  \item L'AI generativa \textbf{abbassa la barriera d'ingresso}: non serve saper scrivere malware, basta saper usare il modello.
+\end{itemize}
+
+\subsection{Adversarial machine learning}
+\begin{itemize}
+  \item \textbf{Data poisoning} (in training): iniettare dati malevoli perché il comportamento malevolo diventi ``normale''.
+  \item \textbf{Adversarial examples}: modificare leggermente l'\textbf{input} (non il modello) aggiungendo rumore
+        impercettibile, così che il modello sbagli (il cane che diventa ``hot dog'' o ``chiesa''). Basta conoscere input
+        e output del modello e un po' del suo funzionamento.
+  \item \textbf{Model exploitation}: aggirare i \textbf{guardrail} degli LLM (jailbreak, ``exploit della nonna'',
+        \en{prompt injection}). Ogni nuovo modello viene jailbreakato in pochi giorni, anche se diventa sempre più difficile.
+        Gli \textbf{agenti} con skill e tool (es.\ usare Word) aumentano la \textbf{superficie d'attacco}.
+  \item \textbf{Privacy}: \textbf{model inversion}, ricostruire dati di training dagli output del modello. Anche nel
+        federated learning, un modello abbastanza grande può far ricostruire le email di partenza.
+\end{itemize}
+
+\begin{sintesi}
+\begin{itemize}
+  \item Attacchi più veloci, complessi e costosi rendono necessaria una difesa \textbf{automatizzata, adattiva e proattiva}: l'AI
+        impara il comportamento tipico dai dati storici e segnala le deviazioni (fino, idealmente, agli zero-day).
+  \item AI $\supset$ ML $\supset$ reti neurali $\supset$ deep learning. Il ML impara dai dati e \textbf{conosce solo ciò che ha visto};
+        la qualità dei dati conta più della quantità (\en{garbage in, garbage out}).
+  \item Shallow: feature engineering manuale, modelli interpretabili. Deep: feature extraction automatica, model engineering,
+        black box. Il deep learning non è sempre la risposta: evita l'over-engineering.
+  \item Training (fit dei pesi) / validation (iperparametri, overfitting) / test (verifica della generalità su dati mai visti).
+  \item Paradigmi: supervised (label costose, drift, sbilanciamento), unsupervised (dati economici, risultati difficili da
+        interpretare), semi-supervised (pseudo-label), self-supervised (pretext/downstream, base degli LLM), reinforcement (reward).
+  \item Uso dei modelli: ensemble e stacking, federated learning (si condivide il modello, non i dati), transfer learning
+        (fine-tuning con pochi dati), modelli generativi.
+  \item AI per la difesa, AI per l'attacco, e attacchi ai modelli stessi (poisoning, adversarial examples, jailbreak, model inversion).
+\end{itemize}
+\end{sintesi}

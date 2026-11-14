@@ -1,0 +1,107 @@
+% =====================================================================
+\lezione{20/10/2026}{Imparare gli embedding; dropout e batch norm nel dettaglio}
+  {Prof.~Danilo Giordano}
+  {embedding supervisionati con \code{nn.Embedding}: dati tabellari, sequenze, architetture composte;
+   shortcut learning; embedding self-supervised (autoencoder, contrastive learning); dropout e batch
+   normalization in training e in valutazione; linee guida per i report dei lab}
+\label{lez:2026-10-20}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con le slide
+\emph{4-embedding-introduction} (pp.~23--51), \emph{2a-dropout\_batchnorm} e con il documento di linee guida
+per i report presentato a fine lezione.
+\end{nota}
+
+\section{Sintesi}
+La lezione completa il discorso sulle feature categoriche iniziato il giorno prima (\rif{2026-10-19}{19/10}):
+come si \textbf{impara} un embedding. Prima nel caso supervisionato, con tre esempi di complessità
+crescente (tabella, sequenza, grafi nel tempo), poi nel caso \textbf{self-supervised}, dove il segnale non
+viene dalle label ma dalle proprietà interne dei dati. Seguono un breve deck che chiarisce come
+\textbf{dropout} e \textbf{batch normalization} si comportano in training e in valutazione, e la
+presentazione delle \textbf{linee guida per i report}. Approfondimenti nei capitoli~\ref{cap:embedding},
+\ref{cap:regolarizzazione} e~\ref{cap:lab-report}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il Lab~2 inizia \textbf{il giorno dopo} (mercoledì 21/10): gli embedding visti oggi servono lì.
+  \item Sul portale è caricato il documento con le \textbf{raccomandazioni per i report} (dettagli nel
+    capitolo~\ref{cap:lab-report}). Punti richiamati in aula:
+    \begin{itemize}
+      \item chi non è ancora in un gruppo deve unirsi a uno \textbf{entro fine mese}; ci sono gruppi da due o
+        tre persone da contattare;
+      \item consegna \textbf{10 giorni prima} dello scritto; PDF di \textbf{massimo 10 pagine} con lab ID,
+        group ID, nomi ed email nell'intestazione; LaTeX o Word indifferentemente, con un font leggibile;
+      \item il notebook deve \textbf{girare ed essere già eseguito} (con gli output visibili), ma il report
+        deve essere autosufficiente: non si va a cercare i risultati nel notebook;
+      \item novità di quest'anno: un \textbf{logbook degli esperimenti} sintetico, che \textbf{non conta}
+        nelle 10 pagine;
+      \item ogni report vale da 0 a 32 e serve almeno 18; si valuta il ragionamento, non lo 0,81 contro lo
+        0,82; figure leggibili e tabelle al posto di elenchi di numeri nel testo.
+    \end{itemize}
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Embedding supervisionati}
+Ipotesi: label disponibili, feature numeriche e categoriche, e una \textbf{rete neurale} (un random forest
+classifica ma non fa feature extraction). \code{nn.Embedding(V, H)} è una lookup table addestrabile con $V$
+righe (le categorie) e $H$ colonne (dimensione dell'embedding, un iperparametro); la backpropagation ne
+aggiorna i valori come per gli altri pesi.
+\begin{itemize}
+  \item \textbf{Tabella} (metadati di email, task phishing/normale): il dominio del mittente ha cardinalità
+    enorme e nessun ordine $\Rightarrow$ embedding. Si fa lo split, si costruisce il \textbf{vocabolario
+    solo sul training} (validation e test simulano il futuro) con \code{<UNK>} per i valori mai visti, si
+    mappano gli ID, si separano categoriche e numeriche, e nel modello l'embedding si \textbf{concatena}
+    alle numeriche prima della FFNN (input del primo layer: \code{embed\_dim + num\_numeric}).
+  \item \textbf{Sequenza} (IP che contattano una darknet, task: attacco di botnet e quale): embedding su
+    ogni elemento, poi LSTM con input di dimensione \code{embed\_dim}; con \code{padding\_idx} l'embedding
+    del padding non viene aggiornato. È lo schema del lab.
+  \item \textbf{Architettura composta} (movimento laterale): embedding dei servizi $\to$ GNN per ogni
+    snapshot $\to$ RNN sulla serie di snapshot $\to$ predizione, tutto addestrato con lo stesso segnale
+    supervisionato.
+\end{itemize}
+
+\begin{esame}[un embedding supervisionato vale per il suo task]
+Il docente insiste: l'embedding appreso con le label è \textbf{ottimo per quel task e sub-ottimo per
+altri}. Numericamente lo si può riusare, ma è stato costruito per un altro obiettivo. E può imparare
+\textbf{scorciatoie}: nell'esempio husky contro lupo il classificatore impara lo sfondo (erba o neve),
+non l'animale.
+\end{esame}
+
+\subsection{Embedding self-supervised}
+Senza label il segnale viene dalle \textbf{proprietà interne} dei dati. Due strade: un
+\textbf{autoencoder}, in cui l'encoder comprime e il decoder ricostruisce (un problema di regressione senza
+label; al test si congela l'encoder e si addestra una piccola head con poche label); il
+\textbf{contrastive learning}, in cui le versioni aumentate di un'immagine (positivi) devono avere embedding
+vicini all'originale (anchor) e un'immagine diversa (negativo) lontano, con la \textbf{contrastive loss}.
+Pre-addestramento su grandi corpora (\en{pretext}) e fine-tuning con poche label (\en{downstream}) sono la
+base dei successi recenti, e sono preziosi in cybersecurity dove le label scarseggiano. Le augmentation
+però iniettano conoscenza, quindi bias (la domanda della slide sullo scoiattolo verde).
+
+\subsection{Dropout e batch normalization nel dettaglio}
+\begin{itemize}
+  \item \textbf{Dropout}: in training ogni neurone è spento con probabilità $p$, con una maschera nuova per
+    ogni campione e ogni mini-batch, e i sopravvissuti sono scalati di $1/(1-p)$; in valutazione è
+    l'identità. Ogni neurone impara solo dai campioni in cui era acceso.
+  \item \textbf{Batch norm}: in training standardizza ogni feature con media e varianza \textbf{del
+    mini-batch}, poi applica $\gamma$ e $\beta$ \textbf{appresi}, e aggiorna media e varianza
+    \textbf{mobili} (calcolate, non apprese); in valutazione usa le statistiche mobili congelate, così il
+    layer successivo riceve dati con la stessa distribuzione vista in training.
+\end{itemize}
+Tabelle ed esempio numerico nel capitolo~\ref{cap:regolarizzazione}.
+
+\begin{integrazione}[\code{model.eval()} e \code{torch.no\_grad()}]
+È \code{model.eval()} che cambia il comportamento di dropout e batch norm; \code{torch.no\_grad()}
+disattiva soltanto il calcolo dei gradienti. In valutazione servono entrambi.
+\end{integrazione}
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Domanda aperta della slide: un modello addestrato con augmentation che tolgono il colore
+    riconoscerebbe come anomala la foto di uno scoiattolo verde? Le slide la lasciano come spunto di
+    ragionamento, senza risposta ufficiale.
+  \item Formato e lunghezza del logbook degli esperimenti: da controllare nel documento sul portale.
+\end{itemize}
+\end{verifica}

@@ -1,0 +1,111 @@
+\chapter{Lab 2 -- Classificazione supervisionata}
+\label{cap:lab2}
+
+\begin{nota}[Fonti e limiti di questo capitolo]
+Per il Lab~2 non abbiamo il PDF del testo. La struttura della consegna è ricostruita dai soli titoli
+e dalle descrizioni dei task del notebook di lavoro e da quanto detto in aula (presentazione dei lab
+alla \rif{2026-09-21}{21/09}, embedding e sequenze alle lezioni del \rif{2026-10-14}{14/10},
+\rif{2026-10-19}{19/10} e \rif{2026-10-20}{20/10}). Il lab è valutato: qui \textbf{non} ci sono
+soluzioni, codice, numeri o scelte di un gruppo.
+\end{nota}
+
+\begin{verifica}
+\begin{itemize}
+  \item Il titolo nella slide di presentazione è \en{supervised traffic classification}; il materiale
+        effettivo riguarda invece \textbf{malware detection} da sequenze di API call.
+  \item In aula il docente aveva anticipato che le stesse sequenze sarebbero state modellate come
+        tabella (FFNN), serie temporale (RNN) e \textbf{grafo} (GNN); nella consegna ricostruita non
+        compare un task con GNN. Controllare sul testo ufficiale.
+  \item Numerazione e sotto-domande esatte dei task vanno confrontate con il testo ufficiale.
+\end{itemize}
+\end{verifica}
+
+\section{Contesto e dataset}
+Classificazione binaria \textbf{malware vs goodware}. Ogni campione è un programma, descritto dalla
+\textbf{sequenza delle API call} di Windows che ha invocato
+(es.\ caricamento di DLL, accesso al registro, \ldots) e da una label binaria (\code{is\_malware}).
+Vengono forniti un file di training e uno di test in formato JSON; il validation set va ricavato dal
+training. Le sequenze hanno lunghezza variabile e il vocabolario delle API è una feature
+\textbf{categorica ad alta cardinalità}: nel test possono comparire API mai viste in training.
+
+L'idea del lab è confrontare \textbf{rappresentazioni diverse dello stesso dato}: insieme di conteggi
+senza ordine, finestra di lunghezza fissa, sequenza completa.
+
+\section{Consegna (parafrasi)}
+\begin{description}[style=nextline,leftmargin=1.2em]
+\item[Task 1 -- Esplorazione dei dati]
+  Bilanciamento delle classi, distribuzione delle lunghezze delle sequenze, vocabolario delle API
+  costruito sul training e API del test che non vi compaiono.
+\item[Task 2 -- Bag-of-Words]
+  Rappresentare ogni sequenza con i conteggi delle API e classificarla con una FFNN.
+  2A: unigrammi (singole API); 2B: unigrammi + bigrammi (coppie di API adiacenti), con lo stesso split.
+  Per ciascuna rappresentazione si confrontano sul validation una variante standard e una con
+  \textbf{pesi di classe}, tenendo fisso tutto il resto, e si congela il modello scelto. Infine si
+  valuta sul test sia con le sequenze originali sia con sequenze \textbf{rimescolate}, senza
+  riaddestrare.
+\item[Task 3 -- FFNN su sequenze di lunghezza fissa]
+  Stessa architettura nascosta, due codifiche dell'input: 3A ID interi delle API (scalati) come
+  feature numeriche; 3B \textbf{embedding addestrabili} delle API.
+\item[Task 4 -- RNN sulle sequenze complete]
+  Sequenze intere, padding nel batch e lunghezze reali; confronto tra 4A RNN ``vanilla'', 4B RNN
+  bidirezionale, 4C LSTM unidirezionale, con scelta del migliore sul validation. Poi: numero di
+  parametri al variare della lunghezza della sequenza (RNN contro FFNN a finestra), benchmark del
+  tempo di training su CPU e GPU, test su sequenze originali e rimescolate, interpretazione
+  complessiva (curve, errori sulla classe minoritaria, parametri, costo) rispetto alle baseline BoW e
+  FFNN.
+\end{description}
+
+\section{Teoria coinvolta}
+\begin{itemize}
+  \item FFNN, split, sbilanciamento, pesi di classe e leakage: cap.~\ref{cap:ffnn}.
+  \item Loss binaria, metriche per classe e macro-F1, learning curve: cap.~\ref{cap:addestramento}.
+  \item Feature categoriche, ID sequenziali contro embedding, vocabolario dal training,
+        \code{<UNK>} e \code{<PAD>}: cap.~\ref{cap:embedding}.
+  \item RNN, BPTT, vanishing/exploding gradient, clipping, LSTM, bidirezionalità, tensori
+        \code{(batch, seq, feat)}, padding e packing: cap.~\ref{cap:rnn}.
+  \item Grafi e GNN (se richiesti dal testo ufficiale): cap.~\ref{cap:cnn-gnn}.
+  \item Early stopping e regolarizzazione: cap.~\ref{cap:regolarizzazione}.
+\end{itemize}
+
+\section{Metodo generale}
+\begin{enumerate}
+  \item \textbf{Un solo split} train/validation, fissato e condiviso da tutti i task, così i confronti
+        sono equi; vocabolario e ogni statistica (scaling, pesi di classe) dal \textbf{solo training}.
+  \item \textbf{Baseline prima}: la BoW ignora l'ordine; se un modello sequenziale non la batte, l'ordine
+        forse non serve (o il modello non lo sfrutta).
+  \item \textbf{Confronti controllati}: tra varianti cambia una cosa sola (rappresentazione, pesi,
+        tipo di cella ricorrente, direzione).
+  \item \textbf{Il test rimescolato} è una sonda: chiedersi in anticipo cosa dovrebbe succedere a un
+        modello che usa l'ordine e a uno che non lo usa, e verificarlo solo dopo aver scelto i modelli.
+  \item \textbf{Costo}: oltre alle metriche, parametri e tempo di training fanno parte del giudizio.
+\end{enumerate}
+
+\section{Insidie tipiche}
+\begin{attenzione}[errori da evitare]
+\begin{itemize}
+  \item Costruire il vocabolario su training + test (leakage) o non prevedere un token per le API
+        sconosciute.
+  \item Usare lo stesso indice per il padding e per un'API reale; dimenticare \code{padding\_idx}.
+  \item Trattare gli ID interi come numeri con un ordine e delle distanze che non hanno significato.
+  \item Prendere l'output dell'ultimo passo del tensore \emph{paddato} invece dell'ultimo passo reale
+        (o dello stato finale con le sequenze impacchettate).
+  \item Sbagliare la dimensione d'ingresso del classificatore con una RNN bidirezionale (servono
+        entrambe le direzioni).
+  \item Scegliere i modelli guardando il test (originale o rimescolato).
+  \item Valutare un problema sbilanciato con la sola accuracy.
+  \item Dimenticare che una RNN bidirezionale richiede la sequenza completa: va bene per l'analisi
+        offline, non per una decisione online.
+\end{itemize}
+\end{attenzione}
+
+\section{Checklist}
+\begin{itemize}
+  \item[$\square$] Esplorazione: classi, lunghezze, API non viste, con implicazioni per il modello.
+  \item[$\square$] Split e vocabolario dal training, gestione di sconosciute e padding dichiarata.
+  \item[$\square$] Confronti standard vs pesato e unigrammi vs bigrammi motivati sul validation.
+  \item[$\square$] ID interi vs embedding: confronto e spiegazione del perché.
+  \item[$\square$] RNN, BiRNN, LSTM: curve, report per classe, scelta sul validation.
+  \item[$\square$] Tabella con parametri e tempi (CPU/GPU) dei modelli confrontati.
+  \item[$\square$] Interpretazione del test con sequenze rimescolate per ogni famiglia di modelli.
+  \item[$\square$] Logbook entro il budget; checklist generale del cap.~\ref{cap:lab-report}.
+\end{itemize}

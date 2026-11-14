@@ -1,0 +1,220 @@
+% =====================================================================
+\chapter{Mappe concettuali}
+\label{cap:mappe}
+% =====================================================================
+
+Come usarle: copri le foglie (a destra) e prova a ricostruirle partendo dal nodo padre; poi controlla. Ogni mappa rimanda al
+capitolo del manuale in cui l'argomento è spiegato. Le tabelle ``quale scelta quando'' sono nel cap.~\ref{cap:schede}.
+
+% ---------------------------------------------------------------------
+\section{Mappa generale del corso}
+\begin{center}
+\begin{tikzpicture}[mindmap, grow cyclic, every node/.style={concept, execute at begin node=\hskip0pt},
+  concept color=polblu, text=white,
+  root concept/.append style={font=\large\bfseries, minimum size=3.1cm, text width=2.6cm},
+  level 1/.append style={level distance=4.6cm, sibling angle=60, font=\small\bfseries, minimum size=2.3cm, text width=2.0cm},
+  level 2/.append style={level distance=2.75cm, sibling angle=34, font=\scriptsize, minimum size=1.6cm, text width=1.5cm}]
+\node[root concept] {AI \&\\Cyber\-security}
+  child[concept color=defcol] { node {Fonda\-menti}
+    child { node {AI, ML, DL} }
+    child { node {Para\-digmi} }
+    child { node {Uso dei modelli} } }
+  child[concept color=red!60!black] { node {Training}
+    child { node {Loss e metriche} }
+    child { node {Ottimiz\-zatori} }
+    child { node {Over\-fitting} } }
+  child[concept color=esecol] { node {Dati}
+    child { node {Pre\-processing} }
+    child { node {Encoding} }
+    child { node {Split e leakage} } }
+  child[concept color=brown!70!black] { node {Archi\-tetture}
+    child { node {FFNN} }
+    child { node {RNN, LSTM} }
+    child { node {CNN} }
+    child { node {GNN} } }
+  child[concept color=orange!80!black] { node {Embed\-ding}
+    child { node {Super\-vised} }
+    child { node {Self-super\-vised} } }
+  child[concept color=violet!60!black] { node {Anomaly detection}
+    child { node {Tipi} }
+    child { node {OC-SVM} }
+    child { node {K-means} } };
+\end{tikzpicture}
+\end{center}
+
+% ---------------------------------------------------------------------
+\clearpage
+\section{Paradigmi e uso dei modelli \normalfont\small(cap.~\ref{cap:ai-cyber}, \rif{2026-09-23}{23/09})}
+\begin{center}
+\begin{forest} mappa
+[Come impara\\un modello
+  [Supervised
+    [{Label = ground truth, costosa, deve essere affidabile. Predittivo: classificazione (categorica) o regressione (numerica). Impara solo il passato. Problemi: \textbf{drift}, \textbf{sbilanciamento}. Rimedi: drift detection, class weights, metriche giuste.}]]
+  [Unsupervised
+    [{Niente label, dati economici. Descrittivo: clustering (botnet), anomaly detection. Problemi: drift, \textbf{interpretazione} difficile, falsi allarmi. Rimedi: drift detection, XAI, analisi manuale.}]]
+  [Semi-supervised
+    [{Poche label $\to$ primo modello $\to$ pseudo-label sul resto $\to$ modello finale. Problemi: campione etichettato poco rappresentativo, sbilanciamento, evoluzione dei dati.}]]
+  [Self-supervised
+    [{La supervisione viene dai dati. \textbf{Rappresentazione}, non descrizione. Pretext (encoder $\to$ bottleneck) + downstream (decoder o classificatore). Base degli LLM. Costoso, serve tanta qualità, bias, valutazione difficile.}]]
+  [Reinforcement
+    [{Agente, stato, azioni, reward; tentativi ed errori. Reward difficile da progettare, lento, instabile, poco interpretabile.}]]
+]
+\end{forest}
+\end{center}
+
+\begin{center}
+\begin{forest} mappa
+[Usare\\i modelli
+  [Singolo / ensemble
+    [{Ensemble: voto o media (random forest); stacking con meta-learner. Meglio se i modelli non sono correlati; più costoso.}]]
+  [Federated
+    [{Si condivide il modello, non i dati: privacy, scalabilità, visibilità. Rischi: costo sull'edge, dati eterogenei, \textbf{model poisoning}.}]]
+  [Transfer
+    [{Fine-tuning degli ultimi layer con pochi dati (STAMINA: ResNet-50 su malware come immagini). Rischi: domain mismatch, bias ereditato.}]]
+  [Generativi
+    [{Nuovi campioni dalla distribuzione appresa. Rischi: costo, valutazione, bias, abuso (deepfake, phishing), privacy (leak di dati).}]]
+  [AI e cyber
+    [{Difesa (IDS, SIEM, SOAR, predictive), attacco (deepfake, phishing, vulnerabilità, evasione), \textbf{adversarial ML} (poisoning, adversarial example, jailbreak, model inversion).}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\clearpage
+\section{Dal neurone all'addestramento \normalfont\small(cap.~\ref{cap:reti-neurali}--\ref{cap:addestramento})}
+\begin{center}
+\begin{forest} mappa
+[Rete neurale
+  [Perceptron
+    [{$y = f(\mathbf{w}^T\mathbf{x})$, con bias $w_0$ ($x_0=1$) per traslare. I pesi sono i parametri, appresi dai dati, inizializzati a caso.}]]
+  [Attivazioni
+    [{Hidden: \textbf{ReLU} (non limitata, sparsità); RNN: \textbf{tanh}. Output: \textbf{sigmoid} (binario), \textbf{softmax} (multi-classe), \textbf{lineare} (regressione). Senza non linearità $N$ layer = 1 layer lineare.}]]
+  [Layer
+    [{Fully connected = $f(W\mathbf{x})$. Approssimazione universale: basta 1 hidden layer, ma non dice quanti neuroni. Meglio \textbf{profonde e strette}: rappresentazioni più astratte.}]]
+  [Logit
+    [{Output grezzi in $(-\infty,+\infty)$; sigmoid/softmax li rendono probabilità. In PyTorch \code{CrossEntropyLoss} vuole i logit.}]]
+  [Loss
+    [{MSE (differenziabile), MAE (robusta agli outlier), BCE, cross-entropy. Loss bassa $\neq$ modello migliore: si sceglie con le metriche.}]]
+  [Ottimizzazione
+    [{GD (tutti i dati, minimi locali) $\to$ SGD (mini-batch, rumore utile) $\to$ momentum ($\beta$, traiettoria liscia) $\to$ normalizzazione (pari importanza) $\to$ \textbf{Adam} (tutto + bias correction). LR scheduler: alto poi basso.}]]
+  [Backpropagation
+    [{Regola della catena sul grafo computazionale, dall'output all'input. Prodotto di gradienti: $<1$ $\Rightarrow$ \textbf{vanishing}, $>1$ $\Rightarrow$ \textbf{exploding} (clipping).}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Leggere le learning curve \normalfont\small(cap.~\ref{cap:addestramento}, \ref{cap:regolarizzazione})}
+\begin{center}
+\begin{forest} mappa3
+[Learning\\curve
+  [Underfitting
+    [{Train e val alte, scendono poco}
+      [{Più complessità (neuroni, layer), altra architettura, più epoch, preprocessing migliore (rumore, outlier, encoding).}]]]
+  [Overfitting
+    [{Train $\to 0$, val scende poi \textbf{risale}}
+      [{Pesi: L1, L2 (\code{weight\_decay}). Architettura: dropout, rete più piccola. Training: early stopping + modello migliore salvato. Dati: batch norm, noise injection.}]]]
+  [Non converge
+    [{Nessun plateau}
+      [{Addestrare più a lungo; controllare il learning rate.}]]]
+  [Curva rumorosa
+    [{Oscillazioni forti}
+      [{LR troppo alto, batch piccolo, troppa regolarizzazione (BN + weight decay); normale un po' di rumore con SGD e RNN.}]]]
+  [Val $<$ train
+    [{Validation più bassa}
+      [{Possibile: validation più facile, o dropout attivo solo in training.}]]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\clearpage
+\section{Data handling \normalfont\small(cap.~\ref{cap:ffnn})}
+\begin{center}
+\begin{forest} mappa
+[Data handling
+  [Ordine corretto
+    [{\textbf{Split} $\to$ fit di scaler/encoder/vocabolario \textbf{solo sul training} $\to$ transform di validation e test. Altrimenti \textbf{leakage}.}]]
+  [Pre-processing
+    [{Rumore; \textbf{outlier} (rovinano il min-max); ridondanza e duplicati; valori mancanti: elimina punti, stima, togli feature, sostituisci con pesi.}]]
+  [Categoriche
+    [{Ordinale $\to$ ID sequenziali. Nominale con poche categorie $\to$ one-hot. Molte categorie e rete neurale $\to$ \textbf{embedding} (+ \code{<UNK>}). Altrimenti feature engineering. Porte = categoriche!}]]
+  [Numeriche
+    [{Min-max $[0,1]$: sensibile agli outlier. Z-score $(x-\mu)/\sigma$ ($\sigma$ = deviazione standard): robusto, senza limiti.}]]
+  [Split
+    [{Hold-out (70/20/10, dataset grandi), k-fold (medi; poi ri-addestra su tutto), leave-one-out (minuscoli). Stratificato senza reinserimento; bootstrap con reinserimento.}]]
+  [Sbilanciamento
+    [{Dati: oversampling (SMOTE, ADASYN), undersampling (cluster-based). Algoritmo: class weights, focal loss. Metrica: per classe, F1, \textbf{macro}.}]]
+  [Leakage
+    [{Correlazione temporale (split temporale: sliding/expanding window), feature-scorciatoia (DoS = porta 80), identificatori, pezzi adiacenti di un'immagine.}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Architetture \normalfont\small(cap.~\ref{cap:ffnn}, \ref{cap:rnn}, \ref{cap:cnn-gnn})}
+\begin{center}
+\begin{forest} mappa
+[Architetture
+  [FFNN (tabelle)
+    [{Input = n.\ feature dopo l'encoding; hidden 3--5 layer, potenze di 2, ReLU; output = classi. \code{model.train()} / \code{eval()} + \code{no\_grad()}; \code{zero\_grad} $\to$ \code{backward} $\to$ \code{step} per batch.}]]
+  [RNN (sequenze)
+    [{$h_t = \tanh(W_{hh}h_{t-1} + W_{xh}x_t + b)$, pesi condivisi nel tempo; BPTT; many-to-one, one-to-many, many-to-many; mono/bidirezionale. Tensore \code{(batch, seq, feat)}; padding nel batch + \code{pack\_padded\_sequence}; \code{hidden[-1]} per classificare.}]]
+  [LSTM
+    [{Cell state (lungo termine) + hidden (breve); gate forget, input, candidate, output (sigmoid come rubinetti). Mitiga il vanishing gradient, più costosa.}]]
+  [CNN (immagini)
+    [{Convoluzione (filtri = pesi) + ReLU + pooling (max). Feature gerarchiche: bordi $\to$ forme $\to$ oggetti. LeNet, AlexNet (ReLU, dropout), ResNet (skip). Malware come immagine.}]]
+  [GNN (grafi)
+    [{FFNN fallisce: ordine dei nodi, dimensione. Invarianza (grafo) ed equivarianza (nodo). Message passing: pesi condivisi + aggregazione indipendente dall'ordine; induttiva. GCN, GraphSAGE (campiona), GAT (attenzione). $K$ layer = $K$ hop; troppi = \textbf{over-smoothing}. \code{global\_mean\_pool} per grafo.}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\clearpage
+\section{Embedding \normalfont\small(cap.~\ref{cap:embedding})}
+\begin{center}
+\begin{forest} mappa
+[Embedding
+  [Cosa sono
+    [{Vettori \textbf{densi} $H$-dimensionali ($H \ll V$) che codificano semantica; partono casuali e si imparano risolvendo un task con backprop. Solo con reti neurali.}]]
+  [Supervised
+    [{\code{nn.Embedding(V, H)} = lookup addestrabile (one-hot + lineare). Vocabolario \textbf{dal solo training} + \code{<UNK>}. Concatenazione con le numeriche (input = embed\_dim + n\_num). Anche su sequenze (RNN, \code{padding\_idx}) e architetture composte (embedding + GNN + RNN).}]]
+  [Limiti supervised
+    [{Ottimi per \textbf{quel} task, sub-ottimi per altri. Rischio \textbf{scorciatoie} (husky su erba, lupo su neve).}]]
+  [Self-supervised
+    [{Pretext su tanti dati + downstream con poche label. \textbf{Autoencoder}: encoder $\to$ embedding $\to$ decoder, ricostruzione (regressione). \textbf{Contrastive}: anchor e augmentation vicini, negativi lontani (contrastive loss); le augmentation introducono bias.}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Anomaly detection \normalfont\small(cap.~\ref{cap:anomaly})}
+\begin{center}
+\begin{forest} mappa
+[Anomaly\\detection
+  [Definizioni
+    [{Anomaly/outlier: insolito, spesso malevolo. Novelty: nuovo, può diventare la \textbf{nuova normalità} (VPN nel COVID).}]]
+  [Tipi
+    [{\textbf{Point} (login dalla Russia), \textbf{contextual} (backup di domenica), \textbf{collective} (brute force sotto il rate limit).}]]
+  [Complessità
+    [{Sconosciute, rare e sbilanciate, eterogenee, in evoluzione; errore su anomalia costa di più. Sfide ML: recall vs falsi positivi, dati complessi, poche label, rumore, anomalie complesse, spiegabilità.}]]
+  [Output
+    [{\textbf{Score} (ranking + budget, es.\ top 10.000) o \textbf{label} (quantità controllata dagli iperparametri).}]]
+  [Shallow
+    [{Interpretabili, ottimi su tabelle e anomalie puntuali, baseline. Deboli su contestuali (serve feature engineering) e collettive (feature aggregate).}]]
+  [One-class SVM
+    [{Confine attorno al normale; kernel (RBF il più usato); $\nu$ = frazione attesa di outlier. ``Supervised'' (solo normali, novelty) vs unsupervised (tutto mescolato, outlier).}]]
+  [Clustering
+    [{Anomalie = cluster piccoli e lontani, punti lontani dal centroide, punti senza cluster. \textbf{K-means}: $K$ fissato, ogni punto in un cluster, sensibile all'inizializzazione (più run), $K$ con SSE + gomito.}]]
+  [Densità e alberi
+    [{\textbf{DBSCAN}: rumore = anomalia, $\varepsilon$ dal k-distance plot. \textbf{LOF}: densità del punto vs vicini, score continuo, anomalie locali. \textbf{Isolation Forest}: percorso corto = anomalia, niente distanze (alta dimensionalità).}]]
+  [Deep
+    [{\textbf{Autoencoder} addestrato \textbf{solo sui normali}: score = errore di ricostruzione (MSE + CE). Encoder come estrattore di feature + metodo shallow. Anomalie nel training $\Rightarrow$ prestazioni peggiori.}]]
+  [Validazione
+    [{Label solo per valutare; scaling prima di PCA e distanze; t-SNE solo visivo; tuning sul validation, test una volta; ROC-AUC ingannevole: guarda F1 delle anomalie.}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
