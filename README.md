@@ -5,6 +5,16 @@ Prof. Danilo Giordano; Prof. Matteo Boffa per NLP e ultima parte). Copre AI e ML
 di deep learning (perceptron, addestramento, regolarizzazione), FFNN, RNN/LSTM, CNN e GNN, embedding, supervised
 vs unsupervised e anomaly detection. Si aggiorna lezione per lezione.
 
+## 📄 Scarica il PDF
+
+**[Manuale_AIC.pdf](https://github.com/marco-pedron/AIC_Polito_2026/releases/latest/download/Manuale_AIC.pdf)**: l'ultima versione compilata,
+sempre allineata a `main`.
+
+Il PDF non è nel repository: lo genera una GitHub Action (`.github/workflows/manuale.yml`) a ogni push su `main` che
+tocca `manuale/`, e lo pubblica nella release [`latest`](https://github.com/marco-pedron/AIC_Polito_2026/releases/latest)
+con data e commit di origine. Se la compilazione fallisce, la scheda *Actions* mostra l'errore e resta il PDF
+precedente. Per rigenerarlo a mano: *Actions → Manuale PDF → Run workflow*.
+
 > ⚠️ **Non è materiale ufficiale.** Sono appunti rielaborati: possono contenere errori. Per l'esame fanno fede le
 > slide, i notebook e le indicazioni dei docenti. Le parti aggiunte da noi, cioè non dette a lezione e non presenti
 > nelle slide, sono sempre in un riquadro viola **"Integrazione – non dal corso"**. I punti incerti sono nei
@@ -17,7 +27,9 @@ vs unsupervised e anomaly detection. Si aggiorna lezione per lezione.
 ```
 AIC_Polito_2026/
 ├── README.md
-├── .gitignore              whitelist: entrano solo i sorgenti .tex (e latexmkrc)
+├── .gitignore              whitelist: entrano solo i sorgenti .tex, latexmkrc e il workflow
+├── .github/workflows/
+│   └── manuale.yml         compila il manuale e pubblica il PDF nella release "latest"
 └── manuale/
     ├── main.tex            documento principale: ordine delle parti e degli \input
     ├── preambolo.tex       pacchetti, riquadri, stile del codice Python, mappe, macro
@@ -75,6 +87,9 @@ La parte NLP (Prof. Boffa) e il Lab 4 non sono ancora stati trattati.
 
 ## Come compilare
 
+Per leggere il manuale non serve compilarlo: basta il [PDF della release](#-scarica-il-pdf). Compila in locale
+solo se modifichi i sorgenti.
+
 **In locale (macOS):**
 
 ```sh
@@ -107,6 +122,7 @@ registrazione → audio ottimizzato per ASR → trascrizione (Whisper) → bozza
 4. **Manuale, laboratori, ripasso, quiz:** si aggiornano i capitoli per argomento partendo da diario, slide e
    notebook. Ciò che non viene dal corso va nei riquadri `integrazione`.
 5. **Controllo:** il documento deve compilare senza errori né riferimenti indefiniti. Si rilegge, poi si fa commit.
+   Dopo il push controlla che l'Action *Manuale PDF* sia verde: il PDF nella release si aggiorna da solo.
 
 **Registrazioni, audio, trascrizioni, slide, notebook e dataset del corso non sono e non saranno nel repository**,
 per il diritto d'autore dell'ateneo e dei docenti. Il `.gitignore` lascia entrare solo i sorgenti `.tex`.
@@ -114,7 +130,8 @@ per il diritto d'autore dell'ateneo e dei docenti. Il `.gitignore` lascia entrar
 ## Come contribuire
 
 - Correzioni e aggiunte sono benvenute: crea un branch (`git checkout -b fix/rnn-lstm`), fai le modifiche, compila,
-  apri una pull request. Per una segnalazione rapida basta una *issue*.
+  apri una pull request. Per una segnalazione rapida basta una *issue*. Il PDF della release si rigenera solo dopo
+  il merge su `main`.
 - **Nuova lezione:** copia `lezioni/_template.tex` in `lezioni/AAAA-MM-GG.tex` e aggiungi
   `\input{lezioni/AAAA-MM-GG}` in `main.tex`, in ordine cronologico.
 - Scrivi in italiano, lasciando in inglese i termini tecnici del corso. Virgolette ``` ``…'' ```.
