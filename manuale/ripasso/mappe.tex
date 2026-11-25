@@ -12,7 +12,7 @@ capitolo del manuale in cui l'argomento è spiegato. Le tabelle ``quale scelta q
 \begin{tikzpicture}[mindmap, grow cyclic, every node/.style={concept, execute at begin node=\hskip0pt},
   concept color=polblu, text=white,
   root concept/.append style={font=\large\bfseries, minimum size=3.1cm, text width=2.6cm},
-  level 1/.append style={level distance=4.6cm, sibling angle=60, font=\small\bfseries, minimum size=2.3cm, text width=2.0cm},
+  level 1/.append style={level distance=4.6cm, sibling angle=51.4, font=\small\bfseries, minimum size=2.3cm, text width=2.0cm},
   level 2/.append style={level distance=2.75cm, sibling angle=34, font=\scriptsize, minimum size=1.6cm, text width=1.5cm}]
 \node[root concept] {AI \&\\Cyber\-security}
   child[concept color=defcol] { node {Fonda\-menti}
@@ -38,7 +38,11 @@ capitolo del manuale in cui l'argomento è spiegato. Le tabelle ``quale scelta q
   child[concept color=violet!60!black] { node {Anomaly detection}
     child { node {Tipi} }
     child { node {OC-SVM} }
-    child { node {K-means} } };
+    child { node {K-means} } }
+  child[concept color=teal!60!black] { node {NLP}
+    child { node {Bag of words} }
+    child { node {Word2\-Vec} }
+    child { node {Dark\-Vec} } };
 \end{tikzpicture}
 \end{center}
 
@@ -213,6 +217,32 @@ capitolo del manuale in cui l'argomento è spiegato. Le tabelle ``quale scelta q
     [{\textbf{Autoencoder} addestrato \textbf{solo sui normali}: score = errore di ricostruzione (MSE + CE). Encoder come estrattore di feature + metodo shallow. Anomalie nel training $\Rightarrow$ prestazioni peggiori.}]]
   [Validazione
     [{Label solo per valutare; scaling prima di PCA e distanze; t-SNE solo visivo; tuning sul validation, test una volta; ROC-AUC ingannevole: guarda F1 delle anomalie.}]]
+]
+\end{forest}
+\end{center}
+
+% ---------------------------------------------------------------------
+\clearpage
+\section{NLP: Word2Vec e DarkVec \normalfont\small(cap.~\ref{cap:word2vec}, \ref{cap:darkvec})}
+\begin{center}
+\begin{forest} mappa
+[NLP e\\embedding
+  [Problema
+    [{Parole = feature \textbf{nominali} con vocabolario enorme; niente label. Si impara dalla \textbf{struttura relazionale}: chi compare vicino a chi.}]]
+  [Bag of words
+    [{Conteggi per parola (count vectorizer, TF-IDF). Baseline solida; perde ordine e semantica; dimensione = vocabolario (dal solo training).}]]
+  [Word2Vec
+    [{\textbf{Ipotesi distribuzionale}: il significato viene dalle parole vicine (contesto $c$). CBOW: contesto $\to$ centrale. \textbf{Skip-gram}: centrale $\to$ contesto.}]]
+  [Skip-gram
+    [{Due tabelle di embedding; score = prodotto scalare; softmax su $V$ = classificazione self-supervised. \textbf{Negative sampling}: 1 positivo + $k$ negativi casuali.}]]
+  [Uso e limiti
+    [{Pre-addestrato una volta, poi riusato o rifinito. Limiti: non contestuale (\emph{mouse}), OOV (\emph{petaloso}), parole rare, aggregazione parole $\to$ frase.}]]
+  [Darknet
+    [{IP senza servizi: ricevono solo traffico non richiesto (scansioni, backscattering, errori). Dati enormi, categorici, senza label, molto dinamici.}]]
+  [DarkVec
+    [{IP sorgente = parola; sequenza di IP per servizio = frase; \textbf{co-occorrenza temporale} = comportamento simile. Skip-gram $\to$ embedding degli IP $\to$ clustering (downstream).}]]
+  [i-DarkVec
+    [{Embedding aggiornati ogni giorno partendo dai precedenti (ancore): gestisce IP nuovi e comportamenti che cambiano senza ripartire da zero.}]]
 ]
 \end{forest}
 \end{center}

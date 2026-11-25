@@ -78,6 +78,22 @@ Embedding appreso & nominale ad \textbf{alta cardinalità} con una rete neurale 
 \end{tabularx}
 \end{center}
 
+\section{Rappresentare parole e sequenze di token}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Rappresentazione} & \textbf{Cosa cattura} & \textbf{Limiti}\\
+\midrule
+Bag of words (count vectorizer, TF-IDF) & frequenze dei token in una frase o sequenza; baseline solida, anche per modelli shallow & perde ordine e semantica; dimensione = vocabolario\\
+Embedding supervisionato & ciò che serve per \textbf{quel} task (label esterne) & servono label; sub-ottimo per altri task\\
+Word2Vec (skip-gram, CBOW) & semantica dal \textbf{contesto} (ipotesi distribuzionale), senza label; si pre-addestra e si riusa & un vettore per token (non contestuale); OOV; token rari; aggregazione per le frasi\\
+DarkVec & comportamento di un IP dagli IP che scandiscono gli stessi servizi nello stesso periodo & IP nuovi = OOV: serve riaddestrare o l'approccio incrementale (i-DarkVec)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Riferimenti: cap.~\ref{cap:embedding}, \ref{cap:word2vec}, \ref{cap:darkvec}.
+
 \section{Scaling e split}
 \begin{center}
 \small

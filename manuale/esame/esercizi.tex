@@ -32,6 +32,9 @@ Rispondi in 10--15 righe, con esempi di cybersecurity dove possibile.
   \item\label{es:a14} One-class SVM: differenze tra uso ``supervisionato'' e non supervisionato; ruolo di $\nu$ e del kernel.
   \item\label{es:a15} Confronta k-means, DBSCAN, LOF e Isolation Forest per l'anomaly detection: come producono uno score, punti deboli, quando li useresti.
   \item\label{es:a16} Come usi un autoencoder per l'anomaly detection su dati con feature numeriche e categoriche? Loss, dati di training, soglia; perché una one-class SVM nello spazio latente può andare peggio dell'errore di ricostruzione?
+  \item\label{es:a17} Ti viene mostrata la formula $\frac{1}{T}\sum_{t}\sum_{-c\le j\le c,\, j\ne 0}\log p(w_{t+j}\mid w_t)$ con $p(w_{t+j}\mid w_t) = \exp(e_{t+j}^{\top}e_t)/\sum_{w}\exp(e_w^{\top}e_t)$. Da dove viene, cosa rappresenta ogni termine, qual è l'intuizione? Perché in pratica si usa il negative sampling?
+  \item\label{es:a18} Quali sono i limiti di Word2Vec? Per ciascuno fai un esempio sul linguaggio naturale e uno di cybersecurity.
+  \item\label{es:a19} DarkVec: perché una darknet è un buon punto di osservazione, come si costruiscono le ``frasi'' e su quale ipotesi si basa il metodo? Funzionerebbe sul traffico di tutti i giorni?
 \end{enumerate}
 
 \section{Esercizi su pipeline, calcoli e codice}
@@ -185,6 +188,16 @@ print("ROC-AUC:", roc_auc_score(y_test, scores))    # unica metrica riportata
   \item Un punto $p$ ha $\mathrm{LRD}(p) = 0{,}5$; la LRD media dei suoi $k$ vicini è 2. Calcola il LOF e interpretalo.
 \end{enumerate}
 
+\subsection*{Esercizio 15 --- Le frasi di DarkVec}\label{es:e15}
+Una darknet riceve, in quest'ordine, i pacchetti: IP1 $\to$ 22/TCP, IP2 $\to$ 445/TCP, IP3 $\to$ 445/TCP, IP4 $\to$ 22/TCP,
+IP1 $\to$ 22/TCP, IP3 $\to$ 445/TCP, IP2 $\to$ 445/TCP.
+\begin{enumerate}[label=(\alph*)]
+  \item Scrivi la ``frase'' unica con tutto il traffico e le frasi per servizio.
+  \item Con finestra $c = 1$, elenca le coppie (centrale, contesto) dello skip-gram per la frase di 22/TCP.
+  \item Perché la frase unica porterebbe a conclusioni sbagliate?
+  \item Il giorno dopo compare IP5. Cosa succede con DarkVec e cosa propone i-DarkVec?
+\end{enumerate}
+
 % =====================================================================
 
 
@@ -322,6 +335,35 @@ Loss = MSE sulle numeriche (scalate) + cross-entropy su ogni blocco one-hot; lo 
         normale, avvicina le anomalie ai normali simili: l'informazione anomala è quella persa nel bottleneck e finisce nell'errore di
         ricostruzione, quindi un OC-SVM su $Z$ può perdere recall.
 (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[A17 -- Skip-gram]
+È l'obiettivo dello skip-gram di Word2Vec. Per ogni parola $w_t$ della frase (somma su $t$, media su $T$) si considerano le parole nella
+finestra $[-c, c]$ (somma su $j \ne 0$) e si massimizza la log-probabilità che compaiano dato $w_t$. La probabilità è una softmax: al
+numeratore il prodotto scalare tra embedding di contesto e centrale (alto se i vettori sono paralleli, cioè portano lo stesso
+significato), al denominatore lo stesso score con tutte le $V$ parole. Intuizione: ipotesi distribuzionale, il significato di una parola
+viene dalle compagnie; è una classificazione con label ricavate dal testo (self-supervised). Il denominatore costa $O(V)$ a ogni passo:
+il negative sampling tiene il termine positivo e usa $k \ll V$ parole casuali come negativi. $c$ e $k$ sono compromessi tra informazione
+e calcolo.
+(rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[A18 -- Limiti di Word2Vec]
+(1) Non contestuale: un vettore per parola (\emph{mouse} animale o dispositivo; un IP che cambia comportamento). (2) Parole nuove (OOV):
+``petaloso'' non è nel vocabolario; un IP mai visto non ha embedding, serve riaddestrare o un approccio incrementale. (3) Parole rare:
+composte tedesche come \emph{Sitzpinkler}; un IP o un termine tecnico raro avrà un embedding povero (i modelli successivi usano token
+sotto-parola). (4) Dalle parole alle frasi: i compiti utili (sentiment, traduzione, codice malevolo o no) sono su frasi e Word2Vec non
+dice come aggregare gli embedding.
+(rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[A19 -- DarkVec]
+La darknet non offre servizi e non risponde: ogni pacchetto è non richiesto (scansioni, backscattering, errori), quindi chi la contatta ha
+uno scopo. Dati: solo IP e porte (categorici), enormi, senza label, mutevoli $\Rightarrow$ embedding self-supervised. Frasi: sequenze di
+IP sorgente in ordine di arrivo, una per servizio (porta/protocollo); parole = IP. Ipotesi: gli IP che compaiono insieme nel tempo sugli
+stessi servizi si comportano in modo simile (botnet coordinate). Sul traffico ordinario la co-occorrenza temporale è dominata da utenti e
+servizi legittimi non correlati: l'ipotesi non è garantita e va verificata (domanda indicata come possibile dal docente nelle slide).
+(rif.\ \rif{2026-11-23}{23/11}; cap.~\ref{cap:darkvec})
 \end{soluzione}
 
 \subsection*{Esercizi}
@@ -481,4 +523,15 @@ nella realtà non sono disponibili.
 (c) $\mathrm{LOF} = 2/0{,}5 = 4 > 1$: il punto sta in una zona quattro volte meno densa dei vicini $\Rightarrow$ potenziale outlier.
 
 (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Esercizio 15 -- Le frasi di DarkVec]
+(a) Frase unica: IP1 IP2 IP3 IP4 IP1 IP3 IP2. Per servizio: 22/TCP: IP1 IP4 IP1; 445/TCP: IP2 IP3 IP3 IP2.
+(b) (IP1, IP4), (IP4, IP1), (IP4, IP1), (IP1, IP4): IP1 e IP4 condividono il contesto.
+(c) Nella frase unica IP1 è vicino a IP2, che sonda un altro servizio (SMB invece di SSH): la rete li renderebbe simili senza motivo.
+Le porte contano.
+(d) IP5 è fuori vocabolario: non ha una riga nella tabella degli embedding e servirebbe riaddestrare. i-DarkVec divide il traffico in
+batch giornalieri e aggiorna gli embedding partendo da quelli già noti (ancore), senza ripartire da zero.
+
+(cap.~\ref{cap:darkvec})
 \end{soluzione}

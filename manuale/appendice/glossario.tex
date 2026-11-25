@@ -13,19 +13,25 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[Anomaly / outlier] istanza che devia dal comportamento atteso. Cap.~\ref{cap:anomaly}.
 \item[Autoencoder] encoder + decoder addestrati a ricostruire l'input (self-supervised). Cap.~\ref{cap:embedding}.
 \item[Backpropagation] calcolo dei gradienti con la regola della catena dall'output all'input. Cap.~\ref{cap:addestramento}.
+\item[Bag of words (BoW)] vettore dei conteggi delle parole di una frase sul vocabolario (count vectorizer; TF-IDF pesa i termini frequenti); perde ordine e semantica. Cap.~\ref{cap:word2vec}.
 \item[Batch normalization] normalizzazione delle attivazioni con le statistiche del mini-batch; $\gamma, \beta$ appresi. Cap.~\ref{cap:regolarizzazione}.
 \item[Bias] (1) peso che non moltiplica una feature, trasla la funzione; (2) distorsione nei dati o nel modello. Cap.~\ref{cap:reti-neurali}.
 \item[Bottleneck] spazio a bassa dimensione in cui l'encoder comprime l'input. Cap.~\ref{cap:ai-cyber}.
 \item[BPTT] Backpropagation Through Time: backprop lungo i passi temporali di una RNN. Cap.~\ref{cap:rnn}.
+\item[CBOW] Continuous Bag of Words: variante di Word2Vec che predice la parola centrale dal contesto. Cap.~\ref{cap:word2vec}.
 \item[Class imbalance] sbilanciamento tra le classi. Cap.~\ref{cap:ffnn}.
 \item[Class weights] pesi per classe nella loss. Cap.~\ref{cap:ffnn}.
 \item[Contamination] frazione attesa di anomalie; fissa la soglia di molti metodi (\code{nu}, \code{contamination}). Cap.~\ref{cap:anomaly}.
+\item[Context window] finestra di $c$ parole a sinistra e a destra della parola centrale (iperparametro di Word2Vec). Cap.~\ref{cap:word2vec}.
 \item[Contrastive loss] loss che avvicina gli embedding di viste dello stesso oggetto e allontana quelli di oggetti diversi. Cap.~\ref{cap:embedding}.
 \item[Cross-entropy] loss per la classificazione (BCE nel binario). Cap.~\ref{cap:addestramento}.
 \item[Cross-validation (k-fold)] $k$ addestramenti ruotando il fold di validazione. Cap.~\ref{cap:ffnn}.
+\item[Darknet / network telescope] blocco di IP senza servizi che riceve solo traffico non richiesto (scansioni, backscattering, errori). Cap.~\ref{cap:darkvec}.
+\item[DarkVec] Word2Vec sul traffico di una darknet: IP sorgente = parola, sequenza di IP per servizio = frase; embedding degli scanner. Cap.~\ref{cap:darkvec}.
 \item[Data leakage] informazioni di validation/test che entrano nel training. Cap.~\ref{cap:ffnn}.
 \item[DataLoader] oggetto PyTorch che crea i mini-batch. Cap.~\ref{cap:ffnn}.
 \item[DBSCAN] clustering a densità ($\varepsilon$, MinPts): core, border e noise point; il rumore è l'anomalia. Cap.~\ref{cap:anomaly}.
+\item[Distributional hypothesis] ipotesi distribuzionale: il significato di una parola dipende dalle parole vicine. Cap.~\ref{cap:word2vec}.
 \item[Downstream task] compito finale che usa la rappresentazione appresa. Cap.~\ref{cap:ai-cyber}.
 \item[Drift] cambiamento della distribuzione dei dati nel tempo. Cap.~\ref{cap:ai-cyber}.
 \item[Dropout] spegnimento casuale di neuroni in training. Cap.~\ref{cap:regolarizzazione}.
@@ -43,7 +49,9 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[Hidden state / size] stato interno di una RNN / sua dimensione. Cap.~\ref{cap:rnn}.
 \item[Hold-out] split fisso train/val/test. Cap.~\ref{cap:ffnn}.
 \item[Hyperparameter] parametro scelto da noi (LR, batch size, layer\ldots), non appreso. Cap.~\ref{cap:addestramento}.
+\item[i-DarkVec] versione incrementale di DarkVec: embedding aggiornati ogni giorno a partire dai precedenti. Cap.~\ref{cap:darkvec}.
 \item[Inductive / transductive] su grafi nuovi / sullo stesso grafo. Cap.~\ref{cap:cnn-gnn}.
+\item[Internet scanner] host che sonda lo spazio di indirizzi per scoprire servizi e vulnerabilità; benigno o malevolo. Cap.~\ref{cap:darkvec}.
 \item[Isolation Forest] alberi a tagli casuali; percorso medio corto = anomalia; nessuna distanza. Cap.~\ref{cap:anomaly}.
 \item[Kernel] (CNN) filtro convoluzionale; (SVM) funzione che mappa i dati in uno spazio separabile. Cap.~\ref{cap:cnn-gnn}, \ref{cap:anomaly}.
 \item[Learning rate] dimensione del passo di aggiornamento. Cap.~\ref{cap:addestramento}.
@@ -53,8 +61,11 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[Message passing] aggregazione dei messaggi dei vicini in una GNN. Cap.~\ref{cap:cnn-gnn}.
 \item[Mini-batch] sottoinsieme casuale di dati per un aggiornamento. Cap.~\ref{cap:addestramento}.
 \item[Momentum] media mobile delle direzioni di aggiornamento. Cap.~\ref{cap:addestramento}.
+\item[Negative sampling] approssimazione della softmax di Word2Vec: un contesto vero (positivo) contro $k$ parole casuali (negativi). Cap.~\ref{cap:word2vec}.
+\item[NLP] Natural Language Processing: far comprendere, interpretare e generare linguaggio umano ai computer. Cap.~\ref{cap:word2vec}.
 \item[Novelty] pattern nuovo, potenzialmente nuova normalità. Cap.~\ref{cap:anomaly}.
 \item[One-hot encoding] vettore binario con un solo 1. Cap.~\ref{cap:ffnn}.
+\item[OOV] Out-Of-Vocabulary: token mai visto in training, senza embedding (parole nuove, IP nuovi). Cap.~\ref{cap:word2vec}.
 \item[Over-smoothing] embedding dei nodi tutti simili con troppi layer GNN. Cap.~\ref{cap:cnn-gnn}.
 \item[Overfitting / underfitting] modello che memorizza il training / troppo semplice. Cap.~\ref{cap:addestramento}.
 \item[Padding] valori aggiunti per uniformare lunghezze o bordi. Cap.~\ref{cap:rnn}, \ref{cap:cnn-gnn}.
@@ -67,6 +78,7 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[Regularization (L1, L2)] penalità sui pesi per ridurre l'overfitting. Cap.~\ref{cap:regolarizzazione}.
 \item[Shortcut] scorciatoia: il modello usa una feature spuria (sfondo, porta 80). Cap.~\ref{cap:embedding}.
 \item[Silhouette] $s(i) = (b-a)/\max(a,b) \in [-1,1]$: quanto un punto sta bene nel suo cluster. Cap.~\ref{cap:anomaly}.
+\item[Skip-gram] variante di Word2Vec che predice le parole del contesto dalla parola centrale. Cap.~\ref{cap:word2vec}.
 \item[Softmax] trasforma $C$ logit in probabilità con somma 1. Cap.~\ref{cap:reti-neurali}.
 \item[SSE] Sum of Squared Error: coesione dei cluster, per scegliere $K$. Cap.~\ref{cap:anomaly}.
 \item[Stratified sampling] split che preserva le proporzioni di classe. Cap.~\ref{cap:ffnn}.
@@ -74,6 +86,7 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[Tensor] matrice multidimensionale di numeri dello stesso tipo. Cap.~\ref{cap:ffnn}.
 \item[Vanishing gradient] gradienti che svaniscono nei primi layer o passi. Cap.~\ref{cap:addestramento}, \ref{cap:rnn}.
 \item[Weight decay] regolarizzazione L2 nell'ottimizzatore. Cap.~\ref{cap:regolarizzazione}.
+\item[Word2Vec] algoritmo self-supervised (2013) che impara embedding di parole dal loro contesto (CBOW, skip-gram). Cap.~\ref{cap:word2vec}.
 \item[Zero-day] vulnerabilità sconosciuta e senza patch. Cap.~\ref{cap:ai-cyber}.
 \end{description}
 \end{multicols}
@@ -85,7 +98,9 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[AE] autoencoder
 \item[BCE] binary cross-entropy
 \item[BN] batch normalization
+\item[BoW] bag of words
 \item[BPTT] backpropagation through time
+\item[CBOW] continuous bag of words
 \item[CNN] convolutional neural network
 \item[DBSCAN] density-based spatial clustering of applications with noise
 \item[FFNN] feed-forward neural network
@@ -98,11 +113,15 @@ Il corso e lo scritto sono in inglese: ecco i termini chiave con una definizione
 \item[LR] learning rate
 \item[LSTM] long short-term memory
 \item[MAE / MSE] mean absolute / squared error
+\item[NLP] natural language processing
 \item[OC-SVM] one-class support vector machine
+\item[OOV] out of vocabulary
 \item[PCA] principal component analysis
 \item[RNN] recurrent neural network
 \item[SSE] sum of squared errors
 \item[t-SNE] t-distributed stochastic neighbor embedding
+\item[TF-IDF] term frequency -- inverse document frequency
 \item[UNK / PAD] token per valori sconosciuti / di riempimento
+\item[W2V] Word2Vec
 \end{description}
 \end{multicols}

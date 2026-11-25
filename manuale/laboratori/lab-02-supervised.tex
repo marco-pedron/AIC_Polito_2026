@@ -1,59 +1,166 @@
-\chapter{Lab 2 -- Classificazione supervisionata}
+\chapter{Lab 2 -- Model engineering: BoW, FFNN, RNN e GNN}
 \label{cap:lab2}
 
 \begin{nota}[Fonti e limiti di questo capitolo]
-Per il Lab~2 non abbiamo il PDF del testo. La struttura della consegna è ricostruita dai soli titoli
-e dalle descrizioni dei task del notebook di lavoro e da quanto detto in aula (presentazione dei lab
-alla \rif{2026-09-21}{21/09}, embedding e sequenze alle lezioni del \rif{2026-10-14}{14/10},
-\rif{2026-10-19}{19/10} e \rif{2026-10-20}{20/10}). Il lab è valutato: qui \textbf{non} ci sono
-soluzioni, codice, numeri o scelte di un gruppo.
+Consegna parafrasata dal testo ufficiale (\en{Project 2: Model Engineering}), con i collegamenti a
+quanto detto in aula (presentazione dei lab alla \rif{2026-09-21}{21/09}, embedding, sequenze e grafi
+alle lezioni del \rif{2026-10-14}{14/10}, \rif{2026-10-19}{19/10} e \rif{2026-10-20}{20/10}).
+Il lab è valutato: qui \textbf{non} ci sono soluzioni, codice, numeri o scelte di un gruppo.
 \end{nota}
 
 \begin{verifica}
-\begin{itemize}
-  \item Il titolo nella slide di presentazione è \en{supervised traffic classification}; il materiale
-        effettivo riguarda invece \textbf{malware detection} da sequenze di API call.
-  \item In aula il docente aveva anticipato che le stesse sequenze sarebbero state modellate come
-        tabella (FFNN), serie temporale (RNN) e \textbf{grafo} (GNN); nella consegna ricostruita non
-        compare un task con GNN. Controllare sul testo ufficiale.
-  \item Numerazione e sotto-domande esatte dei task vanno confrontate con il testo ufficiale.
-\end{itemize}
+Il titolo nella slide di presentazione dei lab è \en{supervised traffic classification}; il testo
+ufficiale tratta invece \textbf{malware detection} da sequenze di API call. Vale il testo del lab.
 \end{verifica}
 
-\section{Contesto e dataset}
-Classificazione binaria \textbf{malware vs goodware}. Ogni campione è un programma, descritto dalla
-\textbf{sequenza delle API call} di Windows che ha invocato
-(es.\ caricamento di DLL, accesso al registro, \ldots) e da una label binaria (\code{is\_malware}).
-Vengono forniti un file di training e uno di test in formato JSON; il validation set va ricavato dal
-training. Le sequenze hanno lunghezza variabile e il vocabolario delle API è una feature
-\textbf{categorica ad alta cardinalità}: nel test possono comparire API mai viste in training.
+\section{Obiettivo e domanda centrale}
+Lo \textbf{stesso dato} viene modellato con rappresentazioni e architetture diverse, per capire
+quanto la rappresentazione e l'ingegneria del modello incidano sulla classificazione:
+\begin{itemize}
+  \item \textbf{Bag-of-Words}: frequenze delle singole API (unigrammi) o delle coppie adiacenti
+        (bigrammi), con un classificatore semplice;
+  \item \textbf{FFNN}: la sequenza forzata in un input di lunghezza fissa;
+  \item \textbf{RNN}: la sequenza elaborata in ordine, di qualunque lunghezza;
+  \item \textbf{GNN}: la sequenza vista come \textbf{grafo delle transizioni} tra API consecutive.
+\end{itemize}
+Per ogni rappresentazione ci si chiede cosa conserva e cosa butta via, e se la complessità in più
+è giustificata. La domanda centrale è: \textbf{l'ordine delle chiamate e la struttura delle
+transizioni contano, per questo dataset?} Si risponde anche con modifiche controllate dell'input,
+in particolare rimescolando l'ordine delle chiamate.
 
-L'idea del lab è confrontare \textbf{rappresentazioni diverse dello stesso dato}: insieme di conteggi
-senza ordine, finestra di lunghezza fissa, sequenza completa.
+\begin{nota}[Assistenti AI]
+Il testo ammette gli assistenti di codice, ma il gruppo resta responsabile del codice: deve saperlo
+spiegare e saperne trovare e correggere i bug, anche quelli generati da un LLM. Questa capacità può
+essere valutata all'esame.
+\end{nota}
+
+\section{Dataset}
+Programmi eseguiti in una \en{Cuckoo Sandbox}, di cui è stata registrata la sequenza delle API call
+di Windows (ricerca di Oliveira \& Sassi, 2019, su \en{behavioral malware detection} con graph
+convolutional network; dataset anche su Kaggle). Due file JSON, \code{train.json} e
+\code{test.json}, già separati; ogni campione ha:
+\begin{itemize}
+  \item \code{api\_call\_sequence}: lista di nomi di API di lunghezza variabile. Le chiamate
+        \textbf{identiche consecutive sono state collassate}, ma la stessa API può ricomparire più
+        avanti;
+  \item \code{is\_malware}: 0 goodware, 1 malware. Il \textbf{goodware è la classe minoritaria}.
+\end{itemize}
+Il test serve \textbf{solo} per la valutazione finale; il validation set va ricavato da
+\code{train.json}, scegliendo e motivando la strategia di split.
+
+\section{Regole specifiche}
+\begin{itemize}
+  \item \textbf{Logbook} unico per tutto il lab, con i soli run che addestrano un modello (anche i
+        classificatori BoW). Le scelte di preprocessing e di analisi del Task~1 vanno nel testo del
+        report.
+  \item \textbf{Budget} di circa \textbf{30 run}, indicativamente: pochi per la BoW, circa 6 per la
+        FFNN, circa 8 per la RNN e circa 8 per la GNN. Non serve usarli tutti.
+  \item \textbf{Ipotesi attese}: prima di ogni esperimento chiedersi cosa ci si aspetta e perché;
+        non serve scrivere un'ipotesi per ogni run, ma vanno discussi i risultati rilevanti o
+        inattesi.
+  \item \textbf{Setup comune ai modelli neurali (Task 3--5)}: stessa gestione dello sbilanciamento
+        per tutti (motivare la loss e, se si usano pesi di classe, come e su quale partizione si
+        calcolano); vocabolario dal \textbf{solo training}, con una gestione dichiarata delle API
+        sconosciute e un padding distinguibile dalle API vere; per le RNN, learning rate, celle LSTM
+        e \textbf{gradient clipping} (\code{clip\_grad\_norm\_} tra \code{backward()} e
+        \code{step()}) contro l'instabilità.
+\end{itemize}
+
+\subsection{Il test di rimescolamento (\texorpdfstring{\en{shuffle test}}{shuffle test})}
+Si usa più volte nel lab per verificare l'affermazione ``il modello usa l'ordine delle API'':
+\begin{enumerate}
+  \item valutare un modello addestrato sul test originale;
+  \item rimescolare a caso le chiamate \textbf{dentro} ogni sequenza di test (stesse chiamate, stessi
+        conteggi);
+  \item valutare lo \textbf{stesso} modello, senza riaddestrarlo e con le stesse impostazioni.
+\end{enumerate}
+Domande guida: come cambia l'input di ciascun modello (per gli unigrammi i vettori dovrebbero restare
+identici: va controllato sulla propria implementazione)? La prestazione sale, scende o resta uguale?
+Una prestazione invariata basta a dire che il modello ignora l'ordine, o le singole predizioni
+possono comunque cambiare? Il test distingue l'ordine locale dalle dipendenze a lungo raggio?
+Va applicato a BoW, FFNN, RNN e GNN.
 
 \section{Consegna (parafrasi)}
 \begin{description}[style=nextline,leftmargin=1.2em]
-\item[Task 1 -- Esplorazione dei dati]
-  Bilanciamento delle classi, distribuzione delle lunghezze delle sequenze, vocabolario delle API
-  costruito sul training e API del test che non vi compaiono.
-\item[Task 2 -- Bag-of-Words]
-  Rappresentare ogni sequenza con i conteggi delle API e classificarla con una FFNN.
-  2A: unigrammi (singole API); 2B: unigrammi + bigrammi (coppie di API adiacenti), con lo stesso split.
-  Per ciascuna rappresentazione si confrontano sul validation una variante standard e una con
-  \textbf{pesi di classe}, tenendo fisso tutto il resto, e si congela il modello scelto. Infine si
-  valuta sul test sia con le sequenze originali sia con sequenze \textbf{rimescolate}, senza
-  riaddestrare.
-\item[Task 3 -- FFNN su sequenze di lunghezza fissa]
-  Stessa architettura nascosta, due codifiche dell'input: 3A ID interi delle API (scalati) come
-  feature numeriche; 3B \textbf{embedding addestrabili} delle API.
-\item[Task 4 -- RNN sulle sequenze complete]
-  Sequenze intere, padding nel batch e lunghezze reali; confronto tra 4A RNN ``vanilla'', 4B RNN
-  bidirezionale, 4C LSTM unidirezionale, con scelta del migliore sul validation. Poi: numero di
-  parametri al variare della lunghezza della sequenza (RNN contro FFNN a finestra), benchmark del
-  tempo di training su CPU e GPU, test su sequenze originali e rimescolate, interpretazione
-  complessiva (curve, errori sulla classe minoritaria, parametri, costo) rispetto alle baseline BoW e
-  FFNN.
+\item[Task 1 -- Guardare i dati prima di modellarli]
+  \textbf{Bilanciamento} in train e test: accuracy del classificatore che predice sempre la classe
+  maggioritaria e perché l'accuracy inganna. Scelta motivata delle \textbf{metriche} per il resto del
+  lab, ragionando sul costo di un falso negativo (malware non visto) rispetto a un falso positivo
+  (goodware bloccato): non c'è una risposta unica.
+  \textbf{Lunghezze} delle sequenze: distribuzioni di train e test a confronto (minimo, massimo,
+  valore tipico) e conseguenze per la FFNN del Task~3.
+  \textbf{Vocabolario} della partizione di training dopo lo split: API distinte, API del test assenti
+  dal training (\en{out-of-vocabulary}) e quanti campioni di test le contengono.
+\item[Task 2 -- Bag-of-Words, la baseline da battere]
+  \code{CountVectorizer} adattato sulla sola partizione di training e applicato a validation e test.
+  \textbf{2A, unigrammi}: classificatore a scelta (modello shallow o FFNN con pochi layer), con
+  iperparametri e sbilanciamento motivati. Domande: quante colonne e perché, cosa rappresenta una
+  riga, se si può ricostruire l'ordine; un esempio di due sequenze diverse con lo stesso vettore e
+  di due sequenze con le stesse API ma vettori diversi; cosa fa il vectorizer con le API mai viste
+  e quanti campioni ne sono toccati; previsione, poi risultato, con attenzione alla classe rara.
+  \textbf{2B, unigrammi + bigrammi} (\code{ngram\_range=(1, 2)}): aspettativa motivata, confronto
+  con 2A, spiegazione di un eventuale miglioramento o della sua assenza; shuffle test su entrambi,
+  verificando che gli unigrammi non cambino e i bigrammi sì. Il miglior modello BoW, scelto sul
+  validation, è la baseline per tutto il resto.
+\item[Task 3 -- FFNN su finestre di lunghezza fissa]
+  Perché una FFNN non accetta sequenze di lunghezza variabile; padding e/o troncamento; scelta della
+  lunghezza $L$ dai dati del Task~1 e gestione delle sequenze di test più lunghe. Due FFNN con la
+  \textbf{stessa architettura}, cambia solo la codifica (e il layer di input): (a) \textbf{ID interi}
+  delle API, eventualmente scalati; (b) \textbf{embedding addestrabili} (\code{nn.Embedding}),
+  appiattiti. Domande: l'ordine numerico degli ID ha senso? quale codifica dovrebbe andare meglio?
+  stabilità e durata del training dalle curve; confronto con la baseline BoW; tempo medio per epoca
+  su \textbf{CPU e GPU} a parità di configurazione e batch. Shuffle test: se si tronca, prima si
+  scelgono le chiamate tenute, poi si rimescolano solo quelle, e il padding resta nelle stesse
+  posizioni.
+\item[Task 4 -- RNN, ordine completo e lunghezza qualsiasi]
+  Serve ancora padding o troncamento in training/validation, e sulle sequenze di test più lunghe?
+  Confronto del numero di parametri tra RNN e FFNN al crescere della lunghezza. Tre varianti, con la
+  prima a guidare le altre: \textbf{RNN vanilla unidirezionale} (curve e cause di eventuali
+  difficoltà), \textbf{RNN bidirezionale} (ha senso usare le chiamate successive se la rilevazione
+  avviene durante l'esecuzione e non a sequenza completa?), \textbf{LSTM} (uni- o bidirezionale,
+  motivando). Poi: tempo per epoca RNN contro FFNN e perché; CPU contro GPU per la RNN migliore;
+  shuffle test; confronto con FFNN e BoW, inclusa la baseline a bigrammi.
+\item[Task 5 -- GNN, la sequenza come grafo]
+  \textbf{Costruzione del grafo}: nodi, archi e feature dei nodi, motivati (per esempio un nodo per
+  API distinta e un arco orientato $a \to b$ quando $a$ è seguita subito da $b$). Domande: cosa
+  conserva e cosa perde il grafo, se si recuperano l'ordine e il numero di occorrenze; cosa
+  rappresentano self-loop e cicli, sapendo che le ripetizioni consecutive sono state rimosse; quali
+  feature dei nodi (ad esempio embedding addestrabili). \textbf{Visualizzazione} del grafo di un
+  campione accanto alla sua sequenza, con nodi e archi etichettati (NetworkX). Serve padding o
+  troncamento con una GNN, rispetto alla FFNN? Poi \textbf{GCN, GraphSAGE e GAT} confrontati sul
+  validation a parità del resto, ragionando sulle differenze di message passing e aggregazione;
+  shuffle test ricostruendo i grafi dalle sequenze rimescolate; confronto con BoW, FFNN e RNN.
+\item[Task 6 -- Verdetto: dove si fermano i guadagni?]
+  Tabella finale sul test per unigrammi, bigrammi e migliori FFNN, RNN e GNN (ciascuno scelto sul
+  validation): score sul test, tempo totale di training del run scelto (esclusa la ricerca degli
+  iperparametri), score dopo lo shuffle, ``ne vale la pena?''; indicare il device e, per i modelli
+  neurali, le epoche. Domande: quali approcci migliorano sui più semplici e quando la complessità non
+  paga; cosa dicono i risultati sull'importanza di frequenze, ordine locale e dipendenze a lungo
+  raggio (e cosa gli esperimenti non possono stabilire); se i guadagni giustificano costo e
+  complessità.
 \end{description}
+
+\section{Criteri di valutazione}
+Il testo chiude con una griglia di autovalutazione: si premia il ragionamento, non la prestazione, e
+i risultati non vengono confrontati tra gruppi.
+\begin{itemize}
+  \item \textbf{Scelte di rappresentazione}: cosa conserva e perde ciascuna, con lunghezza della
+        sequenza, codifica, costruzione del grafo e feature dei nodi motivate.
+  \item \textbf{Metriche e sbilanciamento}: scelta legata a classi e costi di FN/FP; pesi di classe
+        e partizione da cui si stimano.
+  \item \textbf{Approccio sperimentale}: aspettative contro risultati, tentativi falliti inclusi.
+  \item \textbf{Effetto dell'ordine}: shuffle test sugli stessi modelli, controllo che gli unigrammi
+        non cambino, effetto sulle altre rappresentazioni.
+  \item \textbf{Interpretazione}: supportata dalle proprie curve e misure (lunghezze diverse, API
+        sconosciute, difficoltà di training, cambi dopo lo shuffle), senza presumere che un modello
+        debba vincere o perdere.
+  \item \textbf{Confronto e complessità}: FFNN, RNN e GNN contro la baseline, con tempo e
+        complessità del modello.
+  \item \textbf{Codice e riproducibilità}: codice che gira e che si sa spiegare e correggere,
+        dati separati, seed documentati.
+  \item \textbf{Chiarezza del report}: entro il limite di pagine, conclusioni collegate agli
+        esperimenti, limiti e domande aperte.
+\end{itemize}
 
 \section{Teoria coinvolta}
 \begin{itemize}
@@ -63,49 +170,63 @@ senza ordine, finestra di lunghezza fissa, sequenza completa.
         \code{<UNK>} e \code{<PAD>}: cap.~\ref{cap:embedding}.
   \item RNN, BPTT, vanishing/exploding gradient, clipping, LSTM, bidirezionalità, tensori
         \code{(batch, seq, feat)}, padding e packing: cap.~\ref{cap:rnn}.
-  \item Grafi e GNN (se richiesti dal testo ufficiale): cap.~\ref{cap:cnn-gnn}.
+  \item Grafi, message passing, GCN, GraphSAGE, GAT, graph classification e pooling:
+        cap.~\ref{cap:cnn-gnn}.
   \item Early stopping e regolarizzazione: cap.~\ref{cap:regolarizzazione}.
 \end{itemize}
 
 \section{Metodo generale}
 \begin{enumerate}
   \item \textbf{Un solo split} train/validation, fissato e condiviso da tutti i task, così i confronti
-        sono equi; vocabolario e ogni statistica (scaling, pesi di classe) dal \textbf{solo training}.
-  \item \textbf{Baseline prima}: la BoW ignora l'ordine; se un modello sequenziale non la batte, l'ordine
-        forse non serve (o il modello non lo sfrutta).
-  \item \textbf{Confronti controllati}: tra varianti cambia una cosa sola (rappresentazione, pesi,
-        tipo di cella ricorrente, direzione).
-  \item \textbf{Il test rimescolato} è una sonda: chiedersi in anticipo cosa dovrebbe succedere a un
-        modello che usa l'ordine e a uno che non lo usa, e verificarlo solo dopo aver scelto i modelli.
-  \item \textbf{Costo}: oltre alle metriche, parametri e tempo di training fanno parte del giudizio.
+        sono equi; vocabolario, vectorizer e ogni statistica (scaling, pesi di classe) dal
+        \textbf{solo training}.
+  \item \textbf{Baseline prima}: la BoW a unigrammi ignora l'ordine; se un modello sequenziale o a
+        grafo non la batte, l'ordine forse non serve (o il modello non lo sfrutta).
+  \item \textbf{Confronti controllati}: tra varianti cambia una cosa sola (codifica, n-grammi, tipo
+        di cella, direzione, layer GNN).
+  \item \textbf{Lo shuffle test è una sonda}: decidere in anticipo cosa dovrebbe succedere a un
+        modello che usa l'ordine e a uno che non lo usa, e farlo solo dopo aver scelto i modelli.
+  \item \textbf{Rappresentazioni a confronto}: per ognuna scrivere cosa resta (frequenze, coppie
+        adiacenti, posizioni, ordine completo, transizioni) e cosa si perde.
+  \item \textbf{Costo}: parametri, tempo per epoca e device fanno parte del giudizio, insieme alle
+        metriche.
 \end{enumerate}
 
 \section{Insidie tipiche}
 \begin{attenzione}[errori da evitare]
 \begin{itemize}
-  \item Costruire il vocabolario su training + test (leakage) o non prevedere un token per le API
-        sconosciute.
+  \item Adattare vocabolario o \code{CountVectorizer} su training + validation/test (leakage), o non
+        prevedere un token per le API sconosciute.
   \item Usare lo stesso indice per il padding e per un'API reale; dimenticare \code{padding\_idx}.
   \item Trattare gli ID interi come numeri con un ordine e delle distanze che non hanno significato.
+  \item Nello shuffle test della FFNN, rimescolare prima di troncare o spostare il padding: si
+        cambiano due cose insieme.
   \item Prendere l'output dell'ultimo passo del tensore \emph{paddato} invece dell'ultimo passo reale
         (o dello stato finale con le sequenze impacchettate).
   \item Sbagliare la dimensione d'ingresso del classificatore con una RNN bidirezionale (servono
         entrambe le direzioni).
+  \item Dimenticare che una RNN bidirezionale richiede la sequenza completa: va bene per l'analisi
+        offline, non per una decisione durante l'esecuzione.
+  \item Nel grafo, dimenticare cosa si perde (ordine globale, conteggi) prima di interpretare lo
+        shuffle test della GNN.
+  \item Confrontare GCN, GraphSAGE e GAT cambiando anche altri iperparametri.
   \item Scegliere i modelli guardando il test (originale o rimescolato).
   \item Valutare un problema sbilanciato con la sola accuracy.
-  \item Dimenticare che una RNN bidirezionale richiede la sequenza completa: va bene per l'analisi
-        offline, non per una decisione online.
+  \item Misurare i tempi CPU/GPU con configurazioni o batch diversi.
 \end{itemize}
 \end{attenzione}
 
 \section{Checklist}
 \begin{itemize}
-  \item[$\square$] Esplorazione: classi, lunghezze, API non viste, con implicazioni per il modello.
+  \item[$\square$] Task 1: classi, metriche motivate, lunghezze train/test, API non viste, con le
+        implicazioni per i modelli.
   \item[$\square$] Split e vocabolario dal training, gestione di sconosciute e padding dichiarata.
-  \item[$\square$] Confronti standard vs pesato e unigrammi vs bigrammi motivati sul validation.
-  \item[$\square$] ID interi vs embedding: confronto e spiegazione del perché.
-  \item[$\square$] RNN, BiRNN, LSTM: curve, report per classe, scelta sul validation.
-  \item[$\square$] Tabella con parametri e tempi (CPU/GPU) dei modelli confrontati.
-  \item[$\square$] Interpretazione del test con sequenze rimescolate per ogni famiglia di modelli.
-  \item[$\square$] Logbook entro il budget; checklist generale del cap.~\ref{cap:lab-report}.
+  \item[$\square$] BoW: domande 2A/2B, unigrammi vs bigrammi sul validation, baseline scelta.
+  \item[$\square$] FFNN: scelta di $L$, ID interi vs embedding, curve, tempi CPU/GPU.
+  \item[$\square$] RNN, BiRNN, LSTM: curve, parametri contro FFNN, tempi, scelta sul validation.
+  \item[$\square$] GNN: costruzione del grafo motivata, visualizzazione di un campione, GCN vs
+        GraphSAGE vs GAT.
+  \item[$\square$] Shuffle test per BoW, FFNN, RNN e GNN, con l'interpretazione.
+  \item[$\square$] Tabella del Task 6 completa (score, tempo, device, epoche, score dopo lo shuffle).
+  \item[$\square$] Logbook entro il budget (circa 30 run); checklist generale del cap.~\ref{cap:lab-report}.
 \end{itemize}

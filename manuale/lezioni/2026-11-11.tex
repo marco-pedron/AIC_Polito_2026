@@ -1,0 +1,64 @@
+% =====================================================================
+\lezione{11/11/2026}{Lab 3: presentazione}
+  {Prof.~Matteo Boffa; Prof.~Danilo Giordano (seconda parte, non registrata)}
+  {obiettivi del Lab~3 (anomaly detection non supervisionata su log di un IDS); uso delle label; budget e
+   logbook; consigli di metodo; Task~5 (Isolation Forest) eliminato}
+\label{lez:2026-11-11}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con il testo del laboratorio
+(cap.~\ref{cap:lab3}). La registrazione dura circa 8 minuti e copre solo la presentazione iniziale; il
+resto della sessione (lavoro a gruppi) non è registrato, come la seconda sessione del 18/11.
+\end{nota}
+
+\section{Sintesi}
+Prima sessione del \textbf{Lab~3}. Il Prof.~Boffa presenta il lab: costruire un IDS ``vanilla'' (volutamente
+semplice) e vedere come reagiscono i metodi di anomaly detection a seconda di \textbf{quanto si sa dei dati}:
+training su soli normali, dati contaminati da anomalie, nessuna informazione. Le label ci sono ma non si usano
+come segnale supervisionato. Il dettaglio della consegna è nel cap.~\ref{cap:lab3}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Il lab è \textbf{valutato}: i Lab~2, 3 e~4 fanno parte della valutazione finale, con gli stessi
+        requisiti del Lab~2 (cap.~\ref{cap:lab-report}).
+  \item Il \textbf{Task~5} sull'Isolation Forest è stato \textbf{eliminato}: ignorare le menzioni rimaste nel
+        testo (introduzione, budget); il docente pubblicherà una versione corretta.
+  \item Logbook obbligatorio come sempre; per ogni run chiedersi quale informazione aggiunge e riportare nel
+        logbook i run significativi, cioè il percorso verso la soluzione. Esperimenti extra sono liberi.
+  \item Seconda sessione mercoledì 18/11; lunedì 16/11 nessuna lezione (evento Cyber Monday).
+\end{itemize}
+
+\section{Contenuti}
+
+\subsection{Cosa si fa e con quali dati}
+Due dataset già pronti (training e test) di traffico di rete descritto da feature; una parte è intrusione, il
+resto è normale. Due famiglie di metodi: \textbf{shallow} (one-class SVM, LOF, clustering) e \textbf{neurali}
+(autoencoder con l'errore di ricostruzione e con il bottleneck, confrontato con la PCA, lineare). Le label
+servono solo a \textbf{valutare} e a simulare scenari in cui si sa qualcosa in più (dati ``puri'' o
+contaminati).
+
+\subsection{Task 1: guardare i dati da esperto}
+Un esperto di dominio non ha label: esplora i dati e isola i punti sospetti con la propria conoscenza (es.\
+connessioni con tempi di inter-arrivo bassissimi per le probe). Nel lab le label ci sono: si possono
+raggruppare i dati per tipo di attacco e studiarne le feature. Questo punto di vista privilegiato serve a
+\textbf{spiegare} i risultati successivi.
+
+\begin{esame}[la domanda centrale del lab]
+``Un'intrusione è sempre un'anomalia?'' Se l'attaccante si comporta come un elefante in una stanza, il
+detector lo trova; se cerca di nascondersi, no. L'analisi per tipo di attacco del Task~1 serve proprio a
+rispondere.
+\end{esame}
+
+\subsection{Consigli di metodo}
+Alcune parti non sono difficili da scrivere ma sono \textbf{concettualmente} delicate: conviene iniziarle in
+aula e fare domande, non finire un task alla volta a casa. Le domande da porsi: allenarsi su soli normali è lo
+scenario migliore o il peggiore per un anomaly detector? Come cambiano i risultati aggiungendo traffico
+anomalo? Come si stimano i parametri senza ground truth? Poi clustering (come la macchina vede distribuiti i
+punti) e infine la parte deep, nelle due varianti.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+In aula il budget è indicato come ``15 run''; il testo del lab parla di circa 25. Fa fede il testo (la cifra
+in aula potrebbe essere un errore di trascrizione).
+\end{verifica}

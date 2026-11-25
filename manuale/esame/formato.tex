@@ -15,11 +15,10 @@ sul portale (sezione ``Lab Rules''). Dove le fonti non coincidono lo segnaliamo 
   \item \textbf{Dimensione dei gruppi}: in aula, in una slide (``Classes' structure'') e nei testi dei
         lab \textbf{4 persone} (``novità di quest'anno''); un'altra slide (``Lab activities'') dice
         \textbf{3 persone}.
-  \item \textbf{Scadenza dei report}: la slide e il testo del Lab~3 dicono \textbf{10 giorni} prima
+  \item \textbf{Scadenza dei report}: la slide e i testi dei Lab~2 e~3 dicono \textbf{10 giorni} prima
         dell'appello; il testo del Lab~1 dice ``fino a \textbf{due settimane} prima'' di un appello.
-  \item \textbf{Lab 2}: la slide lo chiama \en{supervised traffic classification}; in aula è stato
-        descritto come classificazione malware/goodware a partire da sequenze di API call (vedi
-        cap.~\ref{cap:lab2}).
+  \item \textbf{Lab 2}: la slide lo chiama \en{supervised traffic classification}; il testo ufficiale
+        tratta la classificazione malware/goodware da sequenze di API call (cap.~\ref{cap:lab2}).
 \end{itemize}
 La guida del corso sul portale (\code{didattica.polito.it}) richiede l'accesso autenticato: non è
 stato possibile consultarla per risolvere i dubbi.
@@ -116,7 +115,7 @@ Un \textbf{file zip} per lab, chiamato \code{groupID\_labX.zip} secondo i testi 
         esecuzione visibili), \textbf{commentato} e \textbf{rieseguibile} (seed fissati); secondo i testi
         dei lab va incluso sia il \code{.ipynb} sia un export HTML.
   \item \textbf{Experiment logbook} (novità di quest'anno): una tabella con una riga per ogni
-        addestramento, con budget di circa 25 run per lab; \textbf{non conta} nelle 10 pagine
+        addestramento, con budget di circa 25 run per lab (circa 30 nel Lab~2); \textbf{non conta} nelle 10 pagine
         (dettagli nel cap.~\ref{cap:lab-report}).
 \end{enumerate}
 
@@ -183,6 +182,12 @@ perché la sigmoid causa il \en{vanishing gradient}). Le formule nel manuale ser
 ragionare, non a essere memorizzate. Esempi di domande nei cap.~\ref{cap:quiz} e~\ref{cap:esercizi}.
 \end{esame}
 
+\begin{esame}[parte NLP (Prof.~Boffa)]
+Stessa linea del Prof.~Boffa (\rif{2026-11-23}{23/11}): nessuna formula da scrivere, ma può mostrarne una (es.\ quella dello
+skip-gram) e chiedere di commentarla, cioè da dove viene, cosa significano i termini e qual è l'intuizione. Attenzione a non
+confondere embedding \textbf{non contestuali} (Word2Vec) e \textbf{contestuali} (transformer).
+\end{esame}
+
 \section{Voto finale}
 \[
 \text{Voto} = 0{,}6 \cdot \text{Scritto} + 0{,}4 \cdot \overline{\text{Report}} + \text{punti aggiuntivi}
@@ -224,6 +229,8 @@ $24{,}2 \Rightarrow 24$.
 \rif{2026-10-20}{20/10} & Embedding supervisionati e self-supervised; dropout e batch norm nel dettaglio; linee guida report & 4 (pp.\ 23--51), 2a\\
 \rif{2026-11-02}{02/11} & Anomaly detection: definizioni, tipi, sfide; one-class SVM; clustering e k-means & 5 (pp.\ 1--33)\\
 \rif{2026-11-09}{09/11} & Notebook di anomaly detection su KDD99: preprocessing, PCA/t-SNE, OC-SVM, LOF, k-means, DBSCAN, Isolation Forest, autoencoder & 5 (pp.\ 33--57), 6\\
+\rif{2026-11-11}{11/11} & Presentazione del Lab~3 (Task~5 eliminato) & ---\\
+\rif{2026-11-23}{23/11} & NLP, bag of words, Word2Vec (skip-gram, negative sampling, limiti); DarkVec: darknet e idea & 7 (tutte), 8 (pp.\ 1--49)\\
 \bottomrule
 \end{tabularx}
 \end{center}

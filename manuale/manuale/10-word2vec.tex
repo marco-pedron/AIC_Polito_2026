@@ -1,0 +1,234 @@
+\chapter{Verso l'NLP: Word2Vec}
+\label{cap:word2vec}
+\fonti{\rif{2026-11-23}{23/11}}{7-Word2Vec, pp.\ 1--127}
+
+Con questo capitolo inizia la parte del corso tenuta dal Prof.~Boffa. Il filo è quello del cap.~\ref{cap:embedding}: imparare
+una \textbf{rappresentazione} (un embedding) per dati categorici \textbf{senza label}, con un pretext task self-supervised. Qui la
+supervisione non viene dalla ricostruzione né dalle augmentation, ma dalla \textbf{struttura relazionale} dei dati: quali oggetti
+compaiono vicini. Il caso più noto è il testo (Word2Vec); il cap.~\ref{cap:darkvec} applica la stessa idea al traffico di rete
+(DarkVec). Il riferimento del docente per il collegamento tra pretext task e log di rete è un suo lavoro, Boffa et al., \emph{On using
+pretext tasks to learn representations from network logs} (2022): Word2Vec applicato alle sessioni bash raccolte da honeypot fa emergere
+gruppi di URL, percorsi e IP che compaiono spesso insieme (\rif{2026-11-23}{23/11}). Su Word2Vec non è previsto un lab.
+
+\begin{esame}[come chiede Word2Vec il docente (\rif{2026-11-23}{23/11})]
+Nessuna formula da scrivere a memoria: può dare la formula (obiettivo dello skip-gram o probabilità con la softmax) e chiedere da dove
+viene, cosa rappresenta ogni termine e qual è l'intuizione. E non confondere \textbf{non contestuale} (Word2Vec, un vettore per parola)
+con \textbf{contestuale} (transformer).
+\end{esame}
+
+% =====================================================================
+\section{Ripasso: cosa sappiamo già degli embedding}
+\begin{definizione}[embedding --- slide 7, p.~5]
+Rappresentazione numerica dei dati in uno spazio vettoriale continuo in cui oggetti semanticamente o strutturalmente simili finiscono
+in punti vicini. Così dati complessi si possono confrontare, raggruppare ed elaborare con operazioni matematiche.
+\end{definizione}
+In breve (slide 7, p.~18):
+\begin{itemize}
+  \item un embedding è un vettore multidimensionale che mappa proprietà del mondo reale in uno spazio numerico; è utile soprattutto per
+        le \textbf{feature categoriche};
+  \item è la rete a imparare come fare questa mappatura in modo significativo;
+  \item \textbf{supervised}: la rete impara gli embedding risolvendo un compito con label esterne (classificazione, regressione, ma
+        anche reinforcement learning, dove la ``label'' è la ricompensa);
+  \item \textbf{self-supervised}: la rete impara gli embedding risolvendo un \textbf{pretext task} ricavato dai dati stessi, senza label
+        esterne (contrastive loss, ricostruzione, \ldots).
+\end{itemize}
+La slide riporta un post di Yann LeCun del 2022 che mette il self-supervised learning al primo posto tra le idee più importanti
+dell'AI dell'ultimo decennio (seguono ResNet, gating e attenzione, memoria differenziabile e moduli permutation-equivariant come la
+multi-head self-attention dei transformer).
+
+% =====================================================================
+\section{Il tema: imparare dalla struttura relazionale}
+Con le immagini il pretext task è intuitivo: un encoder CNN comprime l'immagine in un embedding e un decoder CNN la ricostruisce; si
+impara una \textbf{compressione con perdita} (cap.~\ref{cap:embedding}). Con il testo la domanda cambia (slide 7, pp.~29--38):
+\begin{itemize}
+  \item nella frase ``\en{The king and the queen entered the castle}'', come si impara un embedding per le parole \emph{king} e
+        \emph{queen}? E uno per l'intera frase?
+  \item e per una \textbf{sequenza di IP che fanno scansione}? Si vorrebbe un embedding in cui gli IP della botnet Mirai siano lontani da
+        quelli di Stretchoid.
+\end{itemize}
+Le risposte sono due: l'\textbf{NLP} (Word2Vec, questo capitolo) e le sue \textbf{applicazioni alla cybersecurity} (DarkVec,
+cap.~\ref{cap:darkvec}).
+
+% =====================================================================
+\section{Natural Language Processing}
+\begin{definizione}[NLP --- slide 7, p.~42]
+Ramo dell'intelligenza artificiale che permette ai computer di comprendere, interpretare e generare il linguaggio umano.
+\end{definizione}
+\begin{itemize}
+  \item Le parole sono \textbf{feature categoriche nominali}: il problema è lo stesso del cap.~\ref{cap:embedding}, con un vocabolario
+        enorme.
+  \item Nonostante gli sforzi dei linguisti, è difficile scrivere regole sistematiche che mappino le parole in vettori: intuitivamente
+        \emph{king} e \emph{queen} dovrebbero avere embedding simili, e \emph{king} e \emph{kangaroo}?
+  \item Applicazioni note: sentiment analysis, categorizzazione di testi, traduzione automatica, question answering, topic modelling,
+        riassunto automatico.
+  \item Oggi la modalità testuale funziona così bene che si tende a \textbf{trasformare tutto in testo}: anche immagini e grafi vengono
+        affrontati con modelli di linguaggio (la slide cita due articoli, uno per le immagini e uno per i grafi).
+\end{itemize}
+
+% =====================================================================
+\section{Prima delle reti neurali: bag of words}
+\textbf{Idea}: ogni frase è un ``sacchetto'' di parole. Per ogni parola del vocabolario si scrive quante volte compare nella frase;
+le parole assenti valgono 0. La frase diventa un vettore lungo quanto il vocabolario (slide 7, pp.~49--54).
+\begin{itemize}
+  \item Il \textbf{vocabolario} può essere noto (es.\ un dizionario inglese) oppure \textbf{stimato} dai dati. In quel caso, su quali
+        dati? Solo sul training, come per qualsiasi vocabolario (cap.~\ref{cap:embedding}).
+  \item Il docente la chiama \en{frequency-based baseline}; il nome della libreria è \textbf{count vectorizer}
+        (\code{sklearn.feature\_extraction}). Una variante pesa i termini per scoraggiare quelli troppo frequenti: \textbf{TF-IDF}.
+  \item È la stessa rappresentazione usata come baseline nel Lab~2 sulle sequenze di API call (cap.~\ref{cap:lab2}).
+\end{itemize}
+\begin{attenzione}[una baseline solida ma cieca]
+La bag of words funziona spesso bene, a volte in modo frustrante per chi prova modelli più complessi. Però perde del tutto
+l'\textbf{ordine} delle parole e la \textbf{semantica} (cosa significano): guarda solo come è scritta la frase. Con un vocabolario
+grande soffre la \textbf{maledizione della dimensionalità}.
+\end{attenzione}
+
+% =====================================================================
+\section{Word2Vec}
+Word2Vec (2013) è un algoritmo per estrarre embedding di parole. Si basa sull'\textbf{ipotesi distribuzionale}, un esempio di
+\en{model engineering} (si progetta il modello attorno a un'ipotesi sui dati):
+\begin{definizione}[ipotesi distribuzionale --- slide 7, pp.~58--62]
+Il significato di una parola dipende dal \textbf{contesto} in cui compare. Non da tutto il contesto, ma soprattutto dalle parole
+\textbf{più vicine}: è l'intuizione chiave di Word2Vec.
+\end{definizione}
+A lezione il docente la riconduce al linguista J.~R.~Firth (1957): ``\en{you shall know a word by the company it keeps}''. Più esempi
+di una parola si hanno, più il suo significato è affidabile. In termini di rete: se dall'embedding di \emph{banking} si riescono a
+predire le parole che lo circondano (o viceversa), l'embedding ha catturato qualcosa del significato.
+Esempio della slide: ``\ldots government debt problems turning into \textbf{banking} crises as has happened in\ldots'' e ``\ldots saying
+that Europe handles the \textbf{banking} crisis with a shared market\ldots'': le parole attorno a \emph{banking} ne definiscono il senso.
+
+Due modi di trasformare l'ipotesi in un compito per una rete:
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Variante} & \textbf{Compito}\\
+\midrule
+CBOW (\en{Continuous Bag of Words}) & predire la parola centrale date le parole del contesto\\
+\textbf{Skip-gram} & predire le parole del contesto data la parola centrale (la più usata, e quella trattata dal corso)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Sono due articoli diversi degli stessi autori; nelle librerie la scelta tra le due varianti è un parametro.
+
+\subsection{Lo skip-gram: l'obiettivo}
+Per ogni parola $w_t$ di una frase di lunghezza $T$ si massimizza la probabilità delle parole che le stanno attorno, entro un
+\textbf{contesto} $c$ (iperparametro: un contesto più largo porta forse più informazione, di sicuro più calcolo). Si massimizza la
+log-probabilità media (slide 7, p.~70):
+\[
+  \frac{1}{T}\sum_{t=1}^{T}\ \sum_{\substack{-c \le j \le c\\ j \neq 0}} \log p(w_{t+j} \mid w_t)
+\]
+Letta da dentro a fuori: la probabilità di una parola di contesto data quella centrale, per tutte le parole del contesto
+$[-c, c]$, per tutte le parole della frase, per tutte le frasi del corpus. Di solito $c$ si sceglie piccolo, per il costo.
+
+\subsection{Come si stima \texorpdfstring{$p(w_{t+j} \mid w_t)$}{p(w\_t+j | w\_t)}}
+\textbf{Intuizione}: data la parola centrale, il modello deve capire che le parole del suo contesto sono \textbf{più probabili} di tutte
+le altre del vocabolario. Formalmente Word2Vec è una rete con \textbf{due layer lineari}, cioè due tabelle di embedding (slide 7,
+pp.~81--86):
+\begin{itemize}
+  \item una per le parole \textbf{centrali} ($e_t$);
+  \item una per le parole di \textbf{contesto} ($e_{t+j}$, e $e_w$ per una parola qualsiasi del vocabolario).
+\end{itemize}
+Le dimensioni aiutano (\rif{2026-11-23}{23/11}): il one-hot della parola ($1 \times V$) per una matrice $V \times H$ dà un embedding
+$1 \times H$, con $H \ll V$. Lo spazio più piccolo è una riduzione di dimensionalità: costringe la rete a tenere solo le dimensioni
+importanti. Prima del training le matrici sono casuali e le proiezioni non hanno alcun significato.
+\[
+  p(w_{t+j} \mid w_t) = \frac{\exp\!\left(e_{t+j}^{\top} e_t\right)}{\sum_{w=1}^{V} \exp\!\left(e_w^{\top} e_t\right)}
+\]
+\begin{itemize}
+  \item Al numeratore lo \textbf{score} tra embedding centrale e di contesto: è un prodotto scalare, massimo quando i due vettori sono
+        paralleli, cioè portano informazione simile (come due segnali con la stessa direzione). Massimizzarlo per le parole dello stesso
+        contesto le rende simili alla parola centrale.
+  \item Al denominatore lo score contro \textbf{tutte} le parole del vocabolario $V$.
+  \item È una \textbf{softmax}: risolvere Word2Vec equivale a risolvere un \textbf{problema di classificazione} con $V$ classi
+        (``quale parola compare nel contesto?''), con le label ricavate dal testo stesso.
+\end{itemize}
+
+\subsection{Negative sampling}
+In pratica il denominatore è \textbf{incalcolabile}: bisognerebbe calcolare lo score con ogni parola del vocabolario a ogni passo, e
+$V$ è enorme (la slide cita 171\,476 parole nel dizionario inglese). Si approssima con il \textbf{negative sampling} (slide 7, p.~93;
+$v_{w_I}$ è l'embedding della parola centrale, $v'_{w_O}$ quello della parola di contesto osservata):
+\[
+  \log \sigma\!\left({v'_{w_O}}^{\top} v_{w_I}\right) + \sum_{i=1}^{k} \mathbb{E}_{w_i \sim P_n(w)}
+  \left[\log \sigma\!\left(-{v'_{w_i}}^{\top} v_{w_I}\right)\right]
+\]
+\begin{itemize}
+  \item \textbf{contributo positivo}: la coppia (centrale, contesto) vera deve avere score alto;
+  \item \textbf{contributi negativi}: $k$ parole estratte a caso dal vocabolario (i \en{negative}, $k \ll V$) devono avere score basso;
+  \item $k$ più grande = approssimazione migliore, ma più calcolo. Nell'articolo si mostra che l'approssimazione converge alla
+        distribuzione vera al crescere di $k$.
+\end{itemize}
+Per il corso basta l'intuizione: chi sta nello stesso contesto deve essere vicino, chi non ci sta lontano.
+È di nuovo una scelta tra coppie vicine e lontane, come la contrastive loss del cap.~\ref{cap:embedding}.
+
+\subsection{Come si scrive}
+Lo scheletro in PyTorch mostrato a lezione (slide 7, p.~98) ha \textbf{due \code{nn.Embedding}} (ricorda: un embedding layer
+equivale a one-hot più un layer lineare, cap.~\ref{cap:embedding}) e una loss con i due contributi; senza negativi lo score andrebbe
+calcolato su tutto il vocabolario. Qui una versione ridotta:
+\begin{lstlisting}
+class Word2VecSkipGram(nn.Module):
+    def __init__(self, vocab_size, embed_dim):
+        super().__init__()
+        self.center_embeddings = nn.Embedding(vocab_size, embed_dim)   # parole centrali
+        self.context_embeddings = nn.Embedding(vocab_size, embed_dim)  # parole di contesto
+
+    def forward(self, center, context, negatives):
+        # center: [B], context: [B, C], negatives: [B, C, K]
+        e_c = self.center_embeddings(center).unsqueeze(1)              # [B, 1, H]
+        pos = (e_c * self.context_embeddings(context)).sum(-1)        # [B, C]
+        loss = -torch.log(torch.sigmoid(pos) + 1e-10).mean()          # contributo positivo
+        neg = (e_c.unsqueeze(2) * self.context_embeddings(negatives)).sum(-1)  # [B, C, K]
+        loss += -torch.log(torch.sigmoid(-neg) + 1e-10).mean()        # contributi negativi
+        return loss
+\end{lstlisting}
+Nella pratica si usa una libreria: con \textbf{Gensim} basta una riga, \code{Word2Vec(sentences=sentences)} dal modulo
+\code{gensim.models}, con parametri per la finestra di contesto, la variante e così via.
+
+% =====================================================================
+\section{Modelli pre-addestrati}
+Non serve addestrare un modello nuovo ogni volta (slide 7, p.~103): il training self-supervised impara embedding \textbf{generici};
+il pretext task si fa \textbf{una volta}, poi si fa fine-tuning. Esempio: un servizio di completamento automatico in inglese.
+\begin{enumerate}
+  \item si carica un Word2Vec pre-addestrato (es.\ su Wikipedia);
+  \item lo si usa così com'è, come dizionario parola $\to$ embedding, oppure lo si \textbf{rifinisce} (fine-tuning) per esempio per
+        preferire certi suggerimenti.
+\end{enumerate}
+Il pre-training non richiede label, solo frasi: ogni frase di Wikipedia è un esempio. Sopra gli embedding si può anche costruire un
+classificatore: in DarkVec, per esempio, decidere se l'embedding di un IP appartiene a uno scanner benigno o alla botnet Mirai. La
+stessa logica (pre-training self-supervised + fine-tuning) tornerà con i transformer.
+
+% =====================================================================
+\section{I limiti di Word2Vec}
+\begin{enumerate}
+  \item \textbf{Embedding non contestuali.} Ogni parola ha un solo vettore. Se si addestra su tre corpora con lo stesso numero di frasi
+        (biologia e zoologia, favole per bambini, libri di informatica), dove finisce \emph{mouse}? Due corpora su tre parlano
+        dell'animale: l'embedding si sposta verso l'animale, ma non rappresenta bene \textbf{nessuno} dei due significati. In realtà è
+        il contesto della frase a definire la parola (``il topolino della storia ha battuto il gatto'' contro ``Engelbart ha inventato
+        il mouse nel 1968''). Per adattarlo servirebbe riaddestrare su nuovi corpora.
+  \item \textbf{Parole nuove.} Tutto parte da un one-hot su un vocabolario fisso: una parola nuova è \textbf{fuori vocabolario} (OOV).
+        Esempio: ``petaloso'', nata nel 2016, non c'è nel Word2Vec italiano del 2015. Aggiungere una parola vuol dire allargare la
+        matrice $V \times H$ di una riga e riaddestrare. Lo stesso vale per DarkVec: che fare con un IP mai visto
+        (cap.~\ref{cap:darkvec})?
+  \item \textbf{Parole rare.} In tedesco si compongono parole per esprimere concetti nuovi (\emph{Sitzpinkler} da \emph{sitzen} e
+        \emph{pinkeln}). Word2Vec vede la parola composta e le sue parti come tre voci separate del dizionario: la composta è rara, quindi
+        è difficile imparare un buon embedding. Per una parola rara di cybersecurity, o un IP raro, sarebbe invece importante. I
+        modelli successivi lavorano a \textbf{token}, pezzi di parola (i limiti dei chatbot si contano in token): la parola composta
+        si spezza in parti già note.
+  \item \textbf{Dalle parole alle frasi.} I compiti interessanti sono quasi sempre su frasi (sentiment analysis di una recensione,
+        traduzione). Con Word2Vec non è banale passare da molti oggetti (le parole) a una sola predizione (recensione positiva): serve
+        un'aggregazione, e Word2Vec non dice come impararla. In sicurezza interessa per esempio decidere se un intero frammento di codice
+        è malware o goodware.
+\end{enumerate}
+Questi limiti preparano i modelli successivi (transformer), trattati nelle lezioni seguenti.
+
+\begin{sintesi}
+\begin{itemize}
+  \item Le parole sono feature categoriche nominali con vocabolari enormi: servono embedding, e non ci sono label.
+  \item \textbf{Bag of words} (count vectorizer, TF-IDF): baseline solida, ma perde ordine e semantica e cresce con il vocabolario.
+  \item \textbf{Word2Vec}: ipotesi distribuzionale (il significato viene dalle parole vicine); \textbf{CBOW} predice la parola
+        centrale, \textbf{skip-gram} predice il contesto. Due tabelle di embedding; score = prodotto scalare; softmax su $V$ classi
+        $\Rightarrow$ è una classificazione con label ricavate dal testo (self-supervised).
+  \item \textbf{Negative sampling}: un positivo e $k$ negativi casuali al posto della softmax completa.
+  \item Pre-addestrato una volta, poi riusato o rifinito.
+  \item Limiti: embedding non contestuali, OOV, parole rare, aggregazione da parole a frasi.
+\end{itemize}
+\end{sintesi}

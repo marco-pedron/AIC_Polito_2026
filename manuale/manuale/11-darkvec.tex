@@ -1,0 +1,178 @@
+\chapter{DarkVec: NLP per scoprire gli scanner di Internet}
+\label{cap:darkvec}
+\fonti{\rif{2026-11-23}{23/11}}{8-Darkvec, pp.\ 1--90}
+
+DarkVec è il caso di studio con cui il corso applica Word2Vec (cap.~\ref{cap:word2vec}) a un problema di cybersecurity: capire
+\textbf{chi scandisce Internet} a partire dal traffico che arriva a una darknet. Gli IP sorgente si trattano come parole, il traffico
+come testo, e lo skip-gram impara un embedding per ogni IP senza alcuna label. Il riferimento principale è Gioacchini et al.,
+\emph{DarkVec: automatic analysis of darknet traffic with word embeddings} (CoNEXT 2021); la slide iniziale elenca anche i lavori
+successivi dello stesso gruppo (i-DarkVec, embedding con GNN temporali, embedding federati, analisi dinamica dei cluster). È il gruppo
+di ricerca del docente, che però non è tra gli autori.
+
+\begin{nota}[la domanda di ricerca (\rif{2026-11-23}{23/11})]
+Nasce attorno al 2020, dopo la botnet \textbf{Mirai}, il primo attacco riuscito che ha usato dispositivi IoT vulnerabili per campagne di
+denial of service su Internet. Gli scanner non hanno un nome, solo un IP, e l'IP può cambiare: bloccarlo dopo averlo visto attaccare
+molte volte è già tardi. Se so che un IP è di Mirai e le sue ``compagnie'' sono sempre le stesse, posso generalizzare agli altri IP e
+accorgermi prima dell'attacco?
+\end{nota}
+
+% =====================================================================
+\section{Internet: uno spazio enorme e sparso}
+Lo spazio IPv4 conta $2^{32} \approx 4{,}2$ miliardi di indirizzi, ciascuno con $2^{16}$ porte TCP e UDP (slide 8, pp.~6--11). In
+questo spazio vivono servizi e dispositivi, utenti e attaccanti. Per attaccare Internet, o per proteggerlo, serve
+\textbf{visibilità}: sapere cosa c'è e chi lo sta cercando.
+
+\subsection{Gli scanner}
+Gli \textbf{scanner} sondano Internet per scoprire quali dispositivi e servizi sono attivi, quali vulnerabilità hanno, quali sono i
+percorsi di routing (slide 8, pp.~15--19). Possono essere su tutto Internet o \textbf{mirati} (per esempio su un servizio che si vuole
+attaccare), \textbf{benigni} (aziende come Google o Censys che mappano Internet) o \textbf{malevoli}: ogni dispositivo vulnerabile
+scoperto allarga la superficie d'attacco.
+\begin{itemize}
+  \item Strumenti: Nmap (1997), Masscan e ZMap (2013).
+  \item Il traffico di scansione è aumentato di circa 30 volte dal 2015 al 2024.
+  \item Episodi noti: la botnet \textbf{Mirai} (settembre 2016) e l'incidente \textbf{Log4j/Log4Shell} (dicembre 2021).
+\end{itemize}
+Per osservarli servono \textbf{punti di osservazione} (\en{vantage points}), attivi o passivi: più sono numerosi e distribuiti nel mondo,
+più si vede. Il Politecnico ha darknet in sede, in altre università italiane, in Brasile, negli Stati Uniti e nel cloud (telescopi
+molto più grandi esistono negli Stati Uniti). La verità di base resta quasi sempre ignota: che un IP fosse davvero di una botnet si può
+solo supporre.
+
+% =====================================================================
+\section{Network telescope (darknet)}
+\begin{definizione}[darknet / network telescope --- slide 8, p.~30]
+Insieme di indirizzi IP che \textbf{non ospitano alcun servizio}: non inviano mai richieste e non rispondono mai. Tutto il traffico che
+ricevono è quindi \textbf{non richiesto}: scansioni (malevole e benigne), \en{backscattering} delle vittime, configurazioni errate.
+\end{definizione}
+È una misura \textbf{passiva}: la darknet occupa IP e porte e ascolta, ma non risponde e non partecipa alla scansione. Non offrendo
+servizi né pubblicizzandosi, per costruzione chiunque la contatti ha uno scopo diverso dall'usare un servizio: c'è sempre qualcosa da
+imparare, se si riesce a elaborare i dati su larga scala.
+\begin{integrazione}[backscattering]
+Quando un attaccante usa IP sorgente falsificati (per esempio in un DoS), la vittima risponde a quegli indirizzi: se cadono in una
+darknet, il telescopio vede le risposte e quindi, indirettamente, l'attacco.
+\end{integrazione}
+I dati raccolti da un telescopio (slide 8, pp.~35--36) hanno quattro caratteristiche che rendono impraticabile l'analisi manuale:
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm} X >{\raggedright\arraybackslash}p{3.6cm}}
+\toprule
+\textbf{Caratteristica} & \textbf{In pratica} & \textbf{Strumento del corso}\\
+\midrule
+Volume enorme & un telescopio /24 (256 indirizzi) riceve più di un milione di pacchetti al giorno & ---\\
+Dati categorici & il traffico è fatto soprattutto di attributi categorici (IP, porte, protocolli) & embedding\\
+Niente label & non c'è una corrispondenza tra IP e utenti reali, tanto meno per gli attaccanti & self-supervised learning\\
+Alta dinamicità & le attività nascono e cambiano di continuo & ---\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Il docente la chiama la parte ``a pensiero veloce'' dell'AI: dati massicci e mutevoli che vanno trattati subito, dove un transformer o un
+modello linguistico sarebbe troppo lento. Poiché la darknet non risponde, dopo la scansione non arriva alcuna richiesta: si vedono solo IP
+sorgente e porta cercata, cioè dati \textbf{categorici}. Le label mancano, salvo i pochi IP già segnalati. Il monitoraggio manuale si
+riduce a filtri sul volume (fermarsi quando il traffico cresce troppo), che intervengono quando ormai è tardi.
+
+L'obiettivo è passare dal traffico grezzo, categorico e senza label a una \textbf{rappresentazione numerica ricca}: un vettore per ogni
+IP sorgente, prodotto da un embedder self-supervised (slide 8, pp.~38--45). Sugli embedding si costruiscono poi i \textbf{downstream
+task}: trovare attività coordinate, anomaly detection, cercare gli IP più vicini (se la rete li ha messi insieme, hanno qualcosa in
+comune), classificare se ci sono abbastanza dati. La parte difficile è il \emph{come}: trasformare solo IP e porte in qualcosa di molto
+più ricco.
+
+% =====================================================================
+\section{L'idea di DarkVec}
+\begin{definizione}[DarkVec --- slide 8, pp.~48--49]
+Word2Vec impara una rappresentazione del \textbf{significato di una parola} dal contesto in cui compare. DarkVec impara una
+rappresentazione del \textbf{comportamento di uno scanner} (un IP sorgente) dalle sue ``compagnie''.
+\textbf{Ipotesi}: gli scanner che compaiono insieme nel tempo (\textbf{co-occorrenza temporale}) si comportano in modo simile nello
+stesso periodo.
+\end{definizione}
+L'intuizione viene dalla natura di una botnet: tanti host che arrivano \textbf{insieme} a fare cose simili, sullo stesso servizio
+oppure su porte o vantage point diversi ma nello stesso momento. Riprendendo Firth: si capisce cosa vuole un IP dalle compagnie che
+frequenta (\rif{2026-11-23}{23/11}). In una darknet:
+\begin{itemize}
+  \item chi arriva \textbf{per errore} non compare con costanza insieme ad altri;
+  \item gli scanner \textbf{benigni} di solito sono noti (le grandi aziende pubblicano i propri IP);
+  \item chi compare con costanza insieme ad altri e non è in elenco restringe il cerchio: perché è lì?
+\end{itemize}
+
+\subsection{Il traffico come testo}
+\dacompletare{Questa sezione e le seguenti seguono le slide (pp.~50--90); il docente le spiega nella lezione del 24/11,
+da integrare quando sarà disponibile la registrazione.}
+
+Il traffico raccolto in un mese è una tabella con timestamp, IP sorgente, porta di destinazione e protocollo (slide 8, pp.~50--62).
+DarkVec lo modella come un insieme di documenti:
+\begin{itemize}
+  \item gli \textbf{IP sorgente} sono le \textbf{parole};
+  \item la \textbf{sequenza degli IP} in ordine di arrivo è una \textbf{frase}.
+\end{itemize}
+Una sola frase con tutto il traffico però mette vicini IP che non hanno niente in comune: un IP che sonda la porta 22 (SSH) può
+arrivare subito dopo uno che sonda la 445 (SMB). Le \textbf{porte contano}: per questo si costruisce \textbf{una frase per servizio}
+(porta/protocollo). Così IP1 e IP4, che sondano entrambi la 22/TCP, finiscono nello stesso contesto; IP2 e IP3, sulla 445/TCP, in un
+altro. Si scartano gli IP con meno di 10 pacchetti al giorno.
+
+\subsection{La pipeline}
+Raccolta dei dati $\rightarrow$ preprocessing (frasi di IP per servizio) $\rightarrow$ \textbf{DarkVec} (skip-gram, self-supervised)
+$\rightarrow$ \textbf{task finale} non supervisionato (slide 8, pp.~64--69). Il docente fa notare che è la stessa struttura delle
+pipeline dei lab. Nell'articolo ogni IP diventa un punto in uno spazio a $V$ dimensioni: le coppie (input, predizione) dello
+skip-gram si costruiscono dentro una finestra $[-c, +c]$ attorno a ogni IP, separatamente per ogni servizio.
+
+% =====================================================================
+\section{Il task finale: clustering degli scanner}
+Nell'articolo (slide 8, pp.~72--73): DarkVec addestrato su un mese di traffico (circa 100\,000 IP, 486 milioni di skip-gram), poi
+\textbf{clustering} degli embedding dell'ultimo giorno con l'algoritmo di \textbf{Louvain} (rilevamento di comunità su grafi). Due
+scenari:
+\begin{itemize}
+  \item \textbf{A}: gli IP degli scanner sono noti (es.\ quelli di un progetto di scansione come Censys): i cluster mostrano gruppi di
+        IP con attività regolari e coordinate nel tempo;
+  \item \textbf{B}: gli IP non sono noti: compaiono di continuo IP nuovi.
+\end{itemize}
+
+% =====================================================================
+\section{Il limite di Word2Vec e i-DarkVec}
+Il problema delle parole nuove (cap.~\ref{cap:word2vec}) qui è centrale (slide 8, p.~76):
+\begin{itemize}
+  \item Word2Vec impara solo le parole viste in training: non sa rappresentare parole (IP) nuove, e di scanner nuovi se ne vedono
+        ogni giorno;
+  \item nel linguaggio il significato di una parola cambia raramente, mentre uno scanner può cambiare comportamento in fretta;
+  \item non si può riaddestrare da zero ogni volta che compare qualcosa di nuovo.
+\end{itemize}
+\textbf{i-DarkVec} passa da un addestramento unico a uno \textbf{incrementale} (slide 8, pp.~77--83):
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{DarkVec} & \textbf{i-DarkVec}\\
+\midrule
+documenti con tutto il traffico osservato & traffico diviso in \textbf{batch giornalieri}, documenti per ogni giorno\\
+embedding imparati in un solo passaggio (un mese di dati) & embedding aggiornati giorno per giorno, usando quelli già noti come
+\textbf{ancore}\\
+--- & si continua ad aggiornare quando arriva traffico nuovo, sfruttando quanto già imparato, senza ripartire da zero\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Secondo la slide i risultati sono di fatto gli stessi che si otterrebbero con DarkVec.
+
+% =====================================================================
+\section{Conclusioni del docente}
+DarkVec è un esempio di ciò di cui tratta il corso (slide 8, p.~89): conoscere il problema reale (esperti di cybersecurity), imparare
+tecniche e buone pratiche di AI, applicarle al problema. Domande aperte:
+\begin{itemize}
+  \item cosa succede con gli IP nuovi (per esempio quelli del mese dopo)? $\rightarrow$ i-DarkVec;
+  \item si può trasferire la conoscenza da una rete all'altra (embedding imparati sulla darknet del Politecnico usati su una darknet
+        brasiliana)? $\rightarrow$ embedding federati e incrementali.
+\end{itemize}
+\begin{esame}[possibile domanda d'esame (slide 8, p.~89)]
+DarkVec impara dalla \textbf{co-occorrenza temporale} degli scanner. Funzionerebbe sul traffico di tutti i giorni?
+\end{esame}
+\begin{integrazione}[uno spunto di risposta]
+In una darknet ogni pacchetto è non richiesto e gli scanner coordinati arrivano insieme sugli stessi servizi, quindi stare vicini nel
+tempo dice qualcosa sul comportamento. Nel traffico ordinario la vicinanza temporale è dominata da utenti e servizi legittimi che non
+hanno nulla in comune: l'ipotesi va verificata, e probabilmente servono contesti diversi (per esempio sessioni dello stesso host).
+\end{integrazione}
+Una demo è disponibile sul GitHub del docente (\code{MatteoBoffa/DarkVec\_Demo}).
+
+\begin{sintesi}
+\begin{itemize}
+  \item Darknet = IP senza servizi: ricevono solo traffico non richiesto. Dati enormi, categorici, senza label, molto dinamici.
+  \item DarkVec = Word2Vec sul traffico: IP = parola, sequenza di IP per servizio = frase; ipotesi della co-occorrenza temporale.
+  \item Skip-gram $\rightarrow$ un embedding per IP $\rightarrow$ clustering (Louvain) per trovare gruppi di scanner coordinati.
+  \item Limite: IP nuovi fuori vocabolario e comportamenti che cambiano $\rightarrow$ i-DarkVec, embedding aggiornati ogni giorno.
+\end{itemize}
+\end{sintesi}

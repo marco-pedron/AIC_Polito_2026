@@ -1,0 +1,154 @@
+% =====================================================================
+\lezione{23/11/2026}{Verso l'NLP: Word2Vec e l'idea di DarkVec}
+  {Prof.~Matteo Boffa}
+  {perché l'NLP in un corso di cybersecurity; ripasso degli embedding e del self-supervised learning;
+   NLP e bag of words (Lab~2); ipotesi distribuzionale; Word2Vec: CBOW e skip-gram, obiettivo, softmax,
+   negative sampling, codice; modelli pre-addestrati; limiti; DarkVec: scanner, darknet, dati, ipotesi
+   della co-occorrenza (slide~1--10)}
+\label{lez:2026-11-23}
+% =====================================================================
+
+\begin{nota}[Fonte]
+Trascrizione automatica della registrazione, revisionata, confrontata con le slide \emph{7-Word2Vec}
+(tutte) e \emph{8-Darkvec} (fino alla slide~10, p.~49 del PDF).
+\end{nota}
+
+\section{Sintesi}
+Prima lezione di teoria del Prof.~Boffa, che terrà le lezioni rimanenti, tutte sull'NLP. Il percorso parte da
+Word2Vec (2013), il primo modo efficace di far ``capire'' a una rete le relazioni tra parole (il classico
+\emph{king} $-$ \emph{man} $+$ \emph{woman} $\approx$ \emph{queen}), passa per un'applicazione di sicurezza
+(DarkVec) e arriva ai transformer, base dei modelli linguistici attuali. Il messaggio della lezione: le
+parole sono categorie senza label, e la supervisione si ricava dal \textbf{contesto} in cui compaiono (``you
+shall know a word by the company it keeps''). Lo stesso vale per gli IP che contattano una darknet. Teoria
+completa nei capitoli~\ref{cap:word2vec} e~\ref{cap:darkvec}.
+
+\section{Avvisi pratici}
+\begin{itemize}
+  \item Calendario annunciato: martedì 24/11 lezione (si finisce DarkVec), mercoledì 25/11 i
+        \textbf{transformer}. Dal 09/11 non ci sono state lezioni di teoria: 11/11 e 18/11 Lab~3
+        (\rif{2026-11-11}{11/11}), 16/11 nessuna lezione (evento Cyber Monday).
+  \item Su Word2Vec \textbf{non ci sarà un lab}: il codice mostrato serve solo a capire.
+  \item In fondo alle slide di DarkVec ci sono una demo su GitHub e il link a un'altra lezione del docente
+        che tratta DarkVec, agenti e, secondo il docente, \textbf{anticipa il Lab~4}.
+  \item Il docente segue la chat per chi è collegato da casa: si può aprire il microfono e intervenire.
+\end{itemize}
+
+\begin{esame}[cosa chiede il docente su Word2Vec]
+\begin{itemize}
+  \item \textbf{Non} chiede di scrivere a memoria le formule. Una volta ha dato uno screenshot della formula
+        (dello skip-gram o della sua probabilità) chiedendo da dove viene, cosa significa ogni termine e qual è
+        l'intuizione. Si può essere imprecisi, purché l'intuizione sia giusta.
+  \item Non confondere \textbf{non contestuale} e \textbf{contestuale}: Word2Vec è non contestuale (un vettore
+        per parola), il transformer è contestuale. Secondo il docente è un errore frequente.
+\end{itemize}
+\end{esame}
+
+\section{Contenuti}
+
+\subsection{Perché l'NLP}
+È un buon esempio di embedding (proiettare proprietà del mondo reale in uno spazio numerico che le conserva)
+ed è il tema del momento: i modelli linguistici sono ovunque e preoccupano anche per le loro capacità
+offensive in ambito cyber, tanto che esistono limiti e guardrail sull'uso dei modelli più potenti. L'obiettivo
+del docente è arrivare a dare un'intuizione di come funziona un modello come GPT. Come apertura mostra un suo
+lavoro del 2022: Word2Vec applicato alle sessioni bash raccolte da \textbf{honeypot} (servizi esca che
+mostrano all'attaccante un servizio vulnerabile). Le sessioni, tutte diverse come stringhe, rivelano gruppi
+di URL, percorsi e IP che \textbf{compaiono spesso insieme}.
+
+\subsection{Ripasso: embedding e self-supervised learning}
+Il one-hot è uno spazio ortogonale in cui tutto è equidistante (distanza $\sqrt{2}$) e non c'è nozione di
+somiglianza; una rete, risolvendo un compito (es.\ protocolli sicuri o insicuri), impara uno spazio in cui la
+distinzione emerge. Gli embedding si imparano solo con le reti neurali. Con la supervisione la rete può
+imparare divisioni non volute (cane contro lupo che diventa erba contro neve); per questo oggi gli embedding
+si ottengono soprattutto in modo \textbf{self-supervised}. Yann LeCun, interpellato sulle innovazioni più
+importanti dell'ultimo decennio, ha messo al primo posto il self-supervised learning: senza, niente
+transformer né modelli linguistici. Con le immagini l'idea di comprimere e ricostruire è intuitiva; con il
+testo no: come capire che \emph{king} e \emph{queen} sono più vicini di \emph{king} e \emph{kangaroo}? E come
+ottenere un embedding per una frase, o per una sequenza di IP che arriva a una darknet (scanner legittimo o
+botnet?), senza label?
+
+\subsection{NLP e bag of words}
+NLP: comprendere, interpretare e \textbf{generare} linguaggio umano (il docente sottolinea la generazione).
+Secondo i grafici dell'AI Index già nel 2023 i modelli raggiungevano le prestazioni umane in molti benchmark.
+Prima delle reti c'era la \textbf{bag of words}: ogni frase è un sacchetto, ogni parola un oggetto; la
+matrice ha una colonna per parola del vocabolario e una riga per frase. È ciò che si è fatto nel
+\textbf{Lab~2} con le sequenze di API call, ``senza sapere di fare NLP''. Il vocabolario può essere noto
+(dizionario inglese) o, come per i nomi delle API, da stimare (sul training). In \code{scikit-learn} è il
+\code{CountVectorizer}. Ignora ordine e semantica (aprire un registro e aprire un file non hanno nulla in
+comune), eppure funzionava bene.
+
+\subsection{Word2Vec: l'idea}
+Articolo del 2013, basato sull'\textbf{ipotesi distribuzionale} del linguista J.~R.~Firth (1957): ``you shall
+know a word by the company it keeps''. Il significato di \emph{banking} viene dalle parole che lo circondano;
+più esempi si hanno, più il significato è affidabile. Non conta tutto il contesto, solo le parole più vicine
+(una finestra). L'intuizione: se l'embedding di \emph{banking} permette di predire le parole attorno (o
+viceversa), è un buon embedding. Due varianti, scelte con un parametro nella libreria: \textbf{CBOW}
+(contesto $\to$ parola centrale) e \textbf{skip-gram} (parola centrale $\to$ contesto), la più usata e quella
+trattata.
+
+\subsection{Skip-gram: obiettivo, probabilità, negative sampling}
+Si massimizza la log-probabilità media delle parole nella finestra $[-c, c]$ attorno a ogni parola, per tutte
+le frasi del corpus; $c$ è un iperparametro, di solito piccolo (più contesto, più calcolo). Graficamente: il
+one-hot della parola centrale ($1 \times V$) moltiplicato per una matrice $V \times H$ dà l'embedding
+($1 \times H$), uno spazio più piccolo che costringe la rete a tenere solo le dimensioni importanti. Una
+seconda rete mappa le parole di contesto (positivi) e altre parole (negativi). Prima del training le
+proiezioni sono casuali e non significano nulla.
+
+La probabilità che una parola stia nel contesto della centrale è il prodotto scalare dei due embedding
+normalizzato su tutto il vocabolario. Vettori paralleli portano lo stesso significato (come in teoria dei
+segnali): massimizzare il prodotto scalare rende simili gli embedding delle parole che stanno insieme. È una
+\textbf{softmax}: nell'articolo il problema è impostato come una classificazione. Il denominatore richiede
+tutto il vocabolario (circa 171\,000 parole in inglese) a ogni predizione: non scala. Il \textbf{negative
+sampling} tiene il contributo positivo e sostituisce il denominatore con $k$ negativi casuali; più $k$ è
+grande, più ci si avvicina alla distribuzione vera, ma costa di più. Nel codice: due \code{nn.Embedding}
+(centrale e contesto), score positivo e negativo; nella pratica si usa Gensim.
+
+\subsection{Pre-training e limiti}
+Per la prima volta non serve addestrare da zero per ogni compito: si pre-addestra una volta su un corpus
+enorme senza label (es.\ Wikipedia) e si riusa, per esempio per suggerire la parola successiva sul telefono o
+come base per un classificatore (\textbf{fine-tuning}: un IP mappato in un embedding e un classificatore sopra
+che decide se è uno scanner benigno o Mirai). La stessa idea tornerà con i transformer. Limiti:
+\begin{itemize}
+  \item \textbf{non contestuale}: con corpora di biologia, favole e informatica, \emph{mouse} viene trascinato
+        verso l'animale (due contributi contro uno) e non si adatta alla frase;
+  \item \textbf{parole nuove}: ``petaloso'' non ha una riga nella matrice $V \times H$; aggiungere una parola
+        significa allargare la matrice e riaddestrare (è il problema dei token del test assenti dal training
+        visto nei lab, e di DarkVec con gli IP nuovi);
+  \item \textbf{parole rare}: \emph{Sitzpinkler} ha una rappresentazione separata da \emph{sitzen} e
+        \emph{pinkeln} e compare troppo poco per impararla. I modelli successivi lavorano a \textbf{token}
+        (pezzi di parola: i limiti dei chatbot si contano in token), così la parola composta sfrutta le parti
+        note;
+  \item \textbf{dalle parole alle frasi}: i compiti utili sono su frasi (argomenti vietati, codice malevolo,
+        traduzione, sentiment); con cinque parole si hanno cinque embedding e non è chiaro come combinarli.
+\end{itemize}
+
+\subsection{DarkVec: il problema}
+Applicazione sviluppata nel gruppo di ricerca del docente (primo autore L.~Gioacchini). La domanda nasce
+attorno al 2020 dopo la botnet \textbf{Mirai}, il primo attacco riuscito che ha usato dispositivi IoT
+vulnerabili per campagne di denial of service. Gli scanner non hanno un nome, solo un IP che può cambiare:
+bloccarlo dopo molti attacchi è tardi. Se so che un IP è di Mirai e vedo che le sue ``compagnie'' sono sempre
+le stesse, posso dire qualcosa sugli altri IP prima di essere attaccato?
+
+Per avere visibilità servono \textbf{vantage point}; il Politecnico ha darknet al Politecnico, in altre
+università italiane, in Brasile, negli Stati Uniti e nel cloud. Una \textbf{darknet} occupa IP e porte senza
+offrire servizi e senza rispondere: chi la contatta lo fa per scansione, attacco, errore di configurazione o
+backscattering. È la parte ``a pensiero veloce'' dell'AI: volumi enormi e molto dinamici, che non lasciano il
+tempo di usare un transformer. I dati sono solo IP e porte (nessuna richiesta segue, perché la darknet non
+risponde), quindi \textbf{categorici} e \textbf{senza label} (tranne pochi IP segnalati); il monitoraggio
+manuale si limita a filtri che arrivano tardi. Servono quindi embedding e self-supervision, e poi i downstream
+task (IP più vicini, classificazione se ci sono dati).
+
+\subsection{DarkVec: l'idea}
+Una botnet è fatta di tanti host che arrivano \textbf{insieme} a fare cose simili: contattano lo stesso servizio
+o compaiono insieme su vantage point o porte diverse. Come per le parole, ``si capisce cosa vuole un IP dalle
+compagnie che frequenta''. Chi arriva per errore non compare con costanza insieme ad altri; gli scanner
+benigni di solito pubblicano i propri IP; chi compare con costanza insieme ad altri e non è in elenco è
+sospetto. La lezione si ferma qui (slide~10); il resto di DarkVec è previsto per il 24/11.
+
+\section{Domande aperte e punti da verificare}
+\begin{verifica}
+\begin{itemize}
+  \item Il docente data ``petaloso'' al 2015; la slide dice 2016 (fa fede la slide).
+  \item Il racconto dell'onorificenza a LeCun nella trascrizione non è chiaro (anno e citazioni): il manuale
+        riporta solo la risposta sul self-supervised learning mostrata in slide.
+\end{itemize}
+\end{verifica}

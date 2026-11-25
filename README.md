@@ -3,7 +3,7 @@
 Manuale in LaTeX, scritto da studenti, del corso **AI and Cybersecurity** (Politecnico di Torino, A.A. 2026/27,
 Prof. Danilo Giordano; Prof. Matteo Boffa per NLP e ultima parte). Copre AI e ML per la cybersecurity, fondamenti
 di deep learning (perceptron, addestramento, regolarizzazione), FFNN, RNN/LSTM, CNN e GNN, embedding, supervised
-vs unsupervised e anomaly detection. Si aggiorna lezione per lezione.
+vs unsupervised e anomaly detection, NLP (Word2Vec, DarkVec). Si aggiorna lezione per lezione.
 
 ## 📄 Scarica il PDF
 
@@ -36,7 +36,7 @@ AIC_Polito_2026/
     ├── premessa.tex        "Come leggere questo manuale": legenda e fonti
     ├── latexmkrc           configurazione di latexmk (output in build/)
     ├── lezioni/            Parte I  – Diario: una lezione per file, AAAA-MM-GG.tex (+ _template.tex)
-    ├── manuale/            Parte II – Manuale: un capitolo per argomento, 01-ai-cybersecurity … 09-anomaly-detection
+    ├── manuale/            Parte II – Manuale: un capitolo per argomento, 01-ai-cybersecurity … 11-darkvec
     ├── laboratori/         Parte III – Laboratori: come scrivere il report, lab-NN-nome.tex
     ├── ripasso/            Parte IV – Schemi di ripasso: mappe, schede "quale scelta quando"
     ├── esame/              Parte V – Quiz ed esame: formato, quiz, domande aperte ed esercizi
@@ -72,7 +72,7 @@ AIC_Polito_2026/
 
 ## Copertura attuale
 
-12 lezioni, dal 21/09 al 09/11/2026, tutte nel diario.
+14 lezioni registrate, dal 21/09 al 23/11/2026, tutte nel diario (l'11/11 è la presentazione del Lab 3).
 
 | Data | Argomento |
 |---|---|
@@ -82,8 +82,10 @@ AIC_Polito_2026/
 | 12/10, 14/10 | Recurrent neural network; RNN in PyTorch, CNN e GNN |
 | 19/10, 20/10 | GNN in pratica e feature categoriche; embedding, dropout e batch norm |
 | 02/11, 09/11 | Anomaly detection: concetti, one-class SVM, k-means; dal clustering agli autoencoder (notebook) |
+| 11/11 | Presentazione del Lab 3 (anomaly detection) |
+| 23/11 | Verso l'NLP: bag of words, Word2Vec (skip-gram, negative sampling, limiti); DarkVec: darknet e idea |
 
-La parte NLP (Prof. Boffa) e il Lab 4 non sono ancora stati trattati.
+Il resto di DarkVec (24/11), i transformer (25/11) e il Lab 4 non sono ancora nel manuale.
 
 ## Come compilare
 

@@ -3,16 +3,28 @@
 
 \begin{nota}[Fonti e limiti di questo capitolo]
 Testo del laboratorio ``\emph{Project 3: Supervised vs Unsupervised Anomaly Detection}'' pubblicato
-sul portale; teoria dalle lezioni del \rif{2026-11-02}{02/11} e del \rif{2026-11-09}{09/11}. La
+sul portale; teoria dalle lezioni del \rif{2026-11-02}{02/11} e del \rif{2026-11-09}{09/11};
+presentazione del lab in aula all'inizio della prima sessione (\rif{2026-11-11}{11/11}). La
 consegna è \textbf{parafrasata}; per i dettagli fa fede il testo originale. Il lab è valutato: qui
 \textbf{non} ci sono soluzioni, codice, numeri o scelte di un gruppo.
 \end{nota}
 
+\begin{nota}[Sessioni in aula]
+Due sessioni: mercoledì \textbf{11/11} (presentazione del Prof.~Boffa, poi lavoro a gruppi con il
+Prof.~Giordano) e mercoledì \textbf{18/11}. Lunedì 16/11 non c'è stata lezione (evento Cyber Monday).
+\end{nota}
+
+\begin{nota}[Task 5 eliminato]
+Nel testo i task passano dal 4 (clustering) al 6 (autoencoder). Alla presentazione dell'11/11 il docente
+ha chiarito che l'esercizio sull'\textbf{Isolation Forest} (Task 5) è stato \textbf{tolto}: le menzioni
+rimaste (sottotitolo, introduzione, budget) vanno ignorate e il testo sarà corretto.
+\end{nota}
+
 \begin{verifica}
-Nel testo i task passano dal 4 (clustering) al 6 (autoencoder): manca il paragrafo del
-\textbf{Task 5}, che dal budget suggerito (``un paio di run per l'Isolation Forest'') e dal sottotitolo
-dovrebbe riguardare l'\textbf{Isolation Forest}. Il testo dice inoltre che il report si può consegnare
-fino a 10 giorni prima di un appello, mentre quello del Lab~1 dice due settimane (cap.~\ref{cap:formato}).
+Il testo dice che il report si può consegnare fino a 10 giorni prima di un appello, mentre quello del
+Lab~1 dice due settimane (cap.~\ref{cap:formato}). In aula il budget è stato indicato come ``15 run'',
+mentre il testo parla di circa 25: fa fede il testo (la cifra in aula potrebbe essere un errore di
+trascrizione).
 \end{verifica}
 
 \section{Contesto e obiettivi}
@@ -23,7 +35,7 @@ ciò che si sa dei dati (sapere quali punti sono normali oppure non sapere nulla
 \begin{itemize}
   \item analisi ``da esperto di dominio'': come ogni attacco differisce dal traffico normale;
   \item anomaly detection \textbf{shallow} con famiglie diverse: a confine (one-class SVM), a densità
-        (LOF), a clustering (k-means, DBSCAN), a isolamento (Isolation Forest);
+        (LOF), a clustering (k-means, DBSCAN), a isolamento (Isolation Forest, poi tolto: vedi sopra);
   \item anomaly detection \textbf{deep}: autoencoder addestrato sul normale, errore di ricostruzione
         come score;
   \item \textbf{rappresentazione}: PCA (lineare) contro bottleneck dell'autoencoder (non lineare) come
@@ -78,8 +90,8 @@ conta come un run (cap.~\ref{cap:lab-report}).
 \item[Task 4B -- DBSCAN]
   Scelta motivata di \code{min\_points} ed $\varepsilon$; il rumore (cluster $-1$) è l'anomalia.
   Domande: il rumore contiene solo attacchi? Quanti cluster? Somiglianze con LOF?
-\item[Task 5 -- Isolation Forest]
-  Vedi il riquadro ``Da verificare'': il paragrafo manca nel testo.
+\item[Task 5 -- (eliminato)]
+  L'esercizio sull'Isolation Forest è stato tolto dal docente (riquadro ``Task 5 eliminato'').
 \item[Task 6 -- Autoencoder]
   Architettura libera ma con encoder che si restringe, bottleneck e decoder che si espande. Training
   sul \textbf{solo normale}, scegliendo epoch e learning rate su un validation di soli normali; soglia

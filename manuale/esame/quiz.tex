@@ -455,6 +455,76 @@ Un attacco forma un gruppo piccolo ma molto denso di connessioni quasi identiche
 \end{domanda}
 
 
+\begin{domanda}[bag of words]\label{quiz:m45}
+Quale affermazione sulla bag of words (count vectorizer) è corretta?
+\begin{opzioni}
+  \item Conserva l'ordine delle parole ma non la loro frequenza.
+  \item Rappresenta ogni frase con i conteggi delle parole del vocabolario: perde ordine e semantica, e la dimensione cresce con il vocabolario.
+  \item Richiede una rete neurale per essere calcolata.
+  \item Assegna a parole con significato simile vettori vicini.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[Word2Vec]\label{quiz:m46}
+Nello skip-gram di Word2Vec la rete impara a:
+\begin{opzioni}
+  \item predire la parola centrale a partire dalle parole del contesto;
+  \item classificare le frasi come positive o negative;
+  \item predire le parole del contesto a partire dalla parola centrale;
+  \item ricostruire la frase intera a partire dal suo embedding.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[Word2Vec]\label{quiz:m47}
+Nella probabilità $p(w_{t+j} \mid w_t) = \exp(e_{t+j}^{\top} e_t) / \sum_{w=1}^{V} \exp(e_w^{\top} e_t)$, cosa rende il calcolo impraticabile e come lo si risolve?
+\begin{opzioni}
+  \item Il numeratore, perché il prodotto scalare è costoso; lo si sostituisce con la distanza euclidea.
+  \item Il denominatore, che somma su tutto il vocabolario a ogni passo; lo si approssima con $k$ parole negative estratte a caso.
+  \item Il contesto $c$, che deve coprire tutta la frase; lo si riduce a una parola.
+  \item L'esponenziale, che va in overflow; lo si toglie.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[Word2Vec]\label{quiz:m48}
+Un corpus contiene in parti uguali testi di zoologia, favole e libri di informatica. Che embedding avrà la parola \emph{mouse} in Word2Vec?
+\begin{opzioni}
+  \item Due embedding, uno per l'animale e uno per il dispositivo.
+  \item Un embedding diverso a seconda della frase in cui la parola compare.
+  \item Un solo embedding, spostato verso il significato più frequente (l'animale), che non rappresenta bene nessuno dei due.
+  \item Nessun embedding, perché la parola è ambigua.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[darknet]\label{quiz:m49}
+Perché tutto il traffico ricevuto da una darknet è interessante?
+\begin{opzioni}
+  \item Perché contiene il traffico degli utenti legittimi verso i servizi dell'ateneo.
+  \item Perché la darknet risponde agli scanner e ne registra le richieste complete.
+  \item Perché i suoi IP non offrono servizi né inviano richieste: ogni pacchetto è non richiesto (scansioni, backscattering, errori).
+  \item Perché ogni pacchetto arriva con una label che indica l'attaccante.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[DarkVec]\label{quiz:m50}
+In DarkVec, che cosa corrisponde alle ``parole'' e alle ``frasi'' di Word2Vec?
+\begin{opzioni}
+  \item Parole = porte di destinazione; frasi = pacchetti di un singolo IP.
+  \item Parole = IP sorgente; frasi = sequenze di IP sorgente in ordine di arrivo, una per servizio (porta/protocollo).
+  \item Parole = byte del payload; frasi = sessioni TCP complete.
+  \item Parole = IP di destinazione della darknet; frasi = giorni di osservazione.
+\end{opzioni}
+\end{domanda}
+
+\begin{domanda}[i-DarkVec]\label{quiz:m51}
+Quale limite di Word2Vec affronta i-DarkVec?
+\begin{opzioni}
+  \item L'impossibilità di usare il negative sampling.
+  \item Gli IP nuovi (fuori vocabolario) e i comportamenti che cambiano, aggiornando gli embedding giorno per giorno a partire da quelli già noti.
+  \item La necessità di label per addestrare gli embedding.
+  \item La dimensione eccessiva degli embedding rispetto al one-hot.
+\end{opzioni}
+\end{domanda}
+
 \section{Vero o falso}
 Come all'esame: risposta giusta = punto, risposta sbagliata = piccola penalità. Se non sei sicuro,
 valuta se rischiare. Per ogni affermazione indica V o F.
@@ -529,6 +599,16 @@ Gruppo G -- Anomaly detection in pratica.
 \end{enumerate}
 \end{domanda}
 
+
+\begin{domanda}[vero/falso -- NLP e DarkVec]\label{quiz:vfH}
+Gruppo H -- NLP e DarkVec.
+\begin{enumerate}[label=H\arabic*.,nosep,leftmargin=2.6em]
+  \item Word2Vec ha bisogno di frasi etichettate a mano per imparare gli embedding. \hfill V\quad F
+  \item Una finestra di contesto $c$ più grande porta più informazione ma richiede più calcolo. \hfill V\quad F
+  \item Word2Vec produce embedding contestuali: la stessa parola ha vettori diversi in frasi diverse. \hfill V\quad F
+  \item In DarkVec l'ipotesi è che gli IP che compaiono insieme nel tempo sugli stessi servizi abbiano un comportamento simile. \hfill V\quad F
+\end{enumerate}
+\end{domanda}
 
 \section{Soluzioni}
 \label{sec:quiz-soluzioni}
@@ -710,6 +790,34 @@ Gruppo G -- Anomaly detection in pratica.
 \textbf{(b)}. Un attacco etichettato non è per forza un outlier di densità: servirebbe un $k$ più grande del gruppo. (rif.\ \rif{2026-11-09}{09/11})
 \end{soluzione}
 
+\begin{soluzione}[Domanda~\ref{quiz:m45}]
+\textbf{(b)}. È la baseline usata nel Lab~2 sulle API call: solida, ma senza ordine né semantica. (rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m46}]
+\textbf{(c)}. La (a) è il CBOW. (rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m47}]
+\textbf{(b)}. È una softmax su $V$ classi; il negative sampling tiene il contributo positivo e usa $k \ll V$ negativi (più $k$ è grande, migliore l'approssimazione). (rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m48}]
+\textbf{(c)}. Word2Vec è \textbf{non contestuale}: un vettore per parola. La (b) descrive un modello contestuale (transformer). (rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m49}]
+\textbf{(c)}. La darknet non risponde, quindi vede solo IP e porte, senza label. (rif.\ \rif{2026-11-23}{23/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m50}]
+\textbf{(b)}. Una frase per servizio, perché le porte contano: IP che sondano servizi diversi non vanno messi nello stesso contesto. (cap.~\ref{cap:darkvec}, slide 8)
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:m51}]
+\textbf{(b)}. (cap.~\ref{cap:darkvec}, slide 8)
+\end{soluzione}
+
 \begin{soluzione}[Domanda~\ref{quiz:vfA} (gruppo A)]
 \textbf{A1 F, A2 V, A3 F, A4 V}.\\
 A1: l'epoch è il passaggio di tutto il dataset; con i mini-batch ci sono molti aggiornamenti per epoch. A3: loss 0 è sospetta (overfitting). (rif.\ \rif{2026-09-30}{30/09})
@@ -743,4 +851,9 @@ F2: servono feature aggregate su finestre. F4: si addestra solo su dati normali,
 \begin{soluzione}[Domanda~\ref{quiz:vfG} (gruppo G)]
 \textbf{G1 F, G2 F, G3 V, G4 F}.\\
 G1: le label servono solo a validare (anomalie note). G2: t-SNE preserva i vicini, non le distanze. G4: con forte sbilanciamento la ROC-AUC può ingannare come l'accuracy: guarda precision, recall e F1. (rif.\ \rif{2026-11-09}{09/11})
+\end{soluzione}
+
+\begin{soluzione}[Domanda~\ref{quiz:vfH} (gruppo H)]
+\textbf{H1 F, H2 V, H3 F, H4 V}.\\
+H1: è self-supervised, la supervisione viene dal contesto delle parole. H3: è non contestuale; contestuali saranno i transformer. (rif.\ \rif{2026-11-23}{23/11})
 \end{soluzione}
